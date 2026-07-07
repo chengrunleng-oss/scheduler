@@ -1,4 +1,4 @@
-import { coercePriority, normalizeText } from "../domain.js";
+import { coercePriority, normalizeText, toISODate } from "../domain.js";
 import { createBackupBlob, parseBackupFile } from "../storage.js";
 import type { AppStore } from "../store.js";
 import type { ChecklistKind, TaskDraft, TaskFilter, ThemeMode } from "../types.js";
@@ -117,7 +117,7 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `task-workbench-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `task-workbench-${toISODate()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   });

@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "clean": "node scripts/clean-dist.mjs",
+    "build": "npm run clean && tsc",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test && node --check dist/main.js"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

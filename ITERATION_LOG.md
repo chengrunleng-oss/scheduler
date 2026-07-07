@@ -37,22 +37,54 @@
 
 ### 验证
 
-- 待运行：`node --check dist/app.js`
+- 已被工程审核补丁替换为 `npm run verify`。
 - 待运行：`npm test`
 - 当前环境未安装 `tsc`，`npm run typecheck` 需要先安装依赖。
 
 ### 仍未彻底解决
 
-- TypeScript 源码已建立，但当前运行包 `dist/app.js` 是手工维护的浏览器包；下一步应引入正式构建工具，消除源码和运行包的重复。
+- TypeScript 源码已建立；工程审核补丁已移除手工维护的 `dist/app.js`。
 - 反馈建议仍是规则匹配，只是从硬编码散落逻辑收敛为领域层规则表；真正智能化需要接入模型或可配置规则。
 - `localStorage` 仍有容量上限；大规模数据应迁移到 IndexedDB。
 - 尚未实现 PWA 离线安装。
 - 没有虚拟滚动，超大任务列表仍需要进一步优化。
 
+### 工程审核反馈
+
+- 代码审核发现构建链、测试目标、存储异常、导入校验、撤销历史和日期处理存在工程风险。
+- 详细问题、优先级和验收标准见 `ENGINEERING_REVIEW.md`。
+
 ### 下一轮建议与计划
 
-- 引入 Vite 或 esbuild，建立正式 TypeScript 构建链，取消手工维护 `dist/app.js`。
+- 评估是否引入 Vite 或其他开发服务器，改善 ES Modules 本地预览体验。
 - 增加 IndexedDB 存储层，并保留 `localStorage` 作为轻量兼容 fallback。
 - 将反馈规则改为可配置数据文件，或预留 AI 建议接口。
 - 增加 PWA manifest、service worker 和离线安装能力。
 - 增加子任务、批量操作和标签统计视图。
+
+## 第 2 轮补丁：工程审核修复
+
+### 本次修复
+
+- 建立可复现构建链：`npm run build` 会清理并由 `src/` 自动生成 `dist/`，`dist/app.js` 手工包已移除。
+- 提交 `package-lock.json`，确保安装依赖后 `npm run typecheck` 可复现。
+- 将 HTML 入口改为 `dist/main.js` ES Module，运行产物来自 TypeScript 编译输出。
+- 修复 `localStorage` 读写异常处理：存储不可用或容量写入失败时，应用继续使用内存状态并提示用户。
+- 加强导入备份校验：无关 JSON、数组、缺少核心字段的对象不会被当作有效备份。
+- 明确导入语义：导入是确认替换数据，不进入普通撤销历史，执行后清空 undo/redo 栈。
+- 修复 reducer no-op：目标 id 不存在或输入无实际变化时返回原 state，不污染渲染和撤销历史。
+- 修复日期逻辑：`toISODate` 改为基于本地年月日格式化，避免 UTC 截断导致错日。
+- 调整测试，不再直接 mutation 默认 state，并补充 review 要求的回归场景。
+
+### 验证
+
+- `npm run typecheck` 通过。
+- `npm test` 通过，13 项测试全部通过。
+- `npm run verify` 通过。
+- `node --check dist/main.js`、`dist/domain.js`、`dist/store.js`、`dist/storage.js` 通过。
+
+### 残留风险
+
+- 当前 HTML 使用 ES Modules，部分浏览器直接通过 `file://` 打开时可能限制模块加载；建议用本地静态服务器访问。
+- `dist/` 仍被提交用于开箱运行，但已经由 `src/` 自动生成，不再手工维护。
+- 反馈建议仍是规则匹配，尚未接入模型或可配置规则。

@@ -1,7 +1,6 @@
 import type {
   AppState,
   ChecklistItem,
-  ChecklistKind,
   CurrentIteration,
   IterationSummary,
   Preferences,
@@ -26,8 +25,6 @@ export const PRIORITY_RANK: Record<Priority, number> = {
   low: 2,
 };
 
-const DEFAULT_NOW = 1_725_000_000_000;
-
 const FEEDBACK_RULES: Array<{ keywords: string[]; suggestion: string }> = [
   { keywords: ["提醒", "通知", "到期", "逾期"], suggestion: "增加截止日期状态、到期提醒和逾期标记。" },
   { keywords: ["统计", "报表", "图表", "趋势"], suggestion: "增加按标签、优先级和完成率的统计视图。" },
@@ -41,6 +38,11 @@ const FEEDBACK_RULES: Array<{ keywords: string[]; suggestion: string }> = [
 ];
 
 type UnknownRecord = Record<string, unknown>;
+
+export interface BackupValidation {
+  valid: boolean;
+  message: string;
+}
 
 export function createDefaultState(now = Date.now()): AppState {
   const today = toISODate(now);
@@ -113,6 +115,15 @@ export function updateTask(task: Task, draft: TaskDraft, now = Date.now()): Task
   };
 }
 
+export function taskMatchesDraft(task: Task, draft: TaskDraft): boolean {
+  return (
+    task.title === normalizeText(draft.title) &&
+    task.priority === coercePriority(draft.priority) &&
+    task.dueDate === normalizeDate(draft.dueDate) &&
+    task.tag === normalizeText(draft.tag)
+  );
+}
+
 export function createChecklistItem(id: string, text: string, checked = false, now = Date.now()): ChecklistItem {
   return {
     id,
@@ -158,7 +169,10 @@ export function priorityRank(priority: Priority): number {
 
 export function toISODate(value: number | Date = Date.now()): string {
   const date = typeof value === "number" ? new Date(value) : value;
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function isDueOrOverdue(task: Task, todayISO = toISODate()): boolean {
@@ -224,6 +238,48 @@ export function hydrateState(input: unknown, now = Date.now()): AppState {
     tasks,
     iterations,
   };
+}
+
+export function validateBackupPayload(input: unknown): BackupValidation {
+  if (!isRecord(input)) {
+    return { valid: false, message: "备份文件结构无效：根节点必须是对象。" };
+  }
+
+  if (!isRecord(input.preferences)) {
+    return { valid: false, message: "备份文件结构无效：缺少 preferences。" };
+  }
+
+  if (!Array.isArray(input.tasks)) {
+    return { valid: false, message: "备份文件结构无效：缺少 tasks 数组。" };
+  }
+
+  if (!isRecord(input.currentIteration)) {
+    return { valid: false, message: "备份文件结构无效：缺少 currentIteration。" };
+  }
+
+  const iteration = input.currentIteration;
+  if (typeof iteration.number !== "number" || !Number.isFinite(iteration.number)) {
+    return { valid: false, message: "备份文件结构无效：currentIteration.number 必须是数字。" };
+  }
+
+  if (!normalizeText(iteration.title)) {
+    return { valid: false, message: "备份文件结构无效：currentIteration.title 不能为空。" };
+  }
+
+  if (!Array.isArray(iteration.completed) || !Array.isArray(iteration.next)) {
+    return { valid: false, message: "备份文件结构无效：currentIteration 需要 completed 和 next 数组。" };
+  }
+
+  const invalidTask = input.tasks.find((task) => !isRecord(task) || !normalizeText(task.title));
+  if (invalidTask) {
+    return { valid: false, message: "备份文件结构无效：tasks 中存在无效任务。" };
+  }
+
+  if (input.iterations !== undefined && !Array.isArray(input.iterations)) {
+    return { valid: false, message: "备份文件结构无效：iterations 必须是数组。" };
+  }
+
+  return { valid: true, message: "" };
 }
 
 function hydratePreferences(value: unknown, legacyRoot: UnknownRecord): Preferences {

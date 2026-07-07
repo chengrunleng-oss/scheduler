@@ -1,4 +1,4 @@
-import { createDefaultState, hydrateState } from "./domain.js";
+import { createDefaultState, hydrateState, validateBackupPayload } from "./domain.js";
 import type { AppState } from "./types.js";
 
 export const STORAGE_KEY = "task-workbench-state-v2";
@@ -10,8 +10,24 @@ export interface StorageResult {
   message: string;
 }
 
+export interface SaveResult {
+  saved: boolean;
+  message: string;
+}
+
 export function loadStateFromStorage(storage: Storage = localStorage): StorageResult {
-  const raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
+  let raw: string | null = null;
+
+  try {
+    raw = storage.getItem(STORAGE_KEY) ?? storage.getItem(LEGACY_STORAGE_KEY);
+  } catch {
+    return {
+      state: createDefaultState(),
+      recovered: false,
+      message: "浏览器存储不可用，当前记录会暂存在本次页面会话中。",
+    };
+  }
+
   if (!raw) {
     return {
       state: createDefaultState(),
@@ -35,17 +51,23 @@ export function loadStateFromStorage(storage: Storage = localStorage): StorageRe
   }
 }
 
-export function saveStateToStorage(state: AppState, storage: Storage = localStorage): void {
-  storage.setItem(STORAGE_KEY, JSON.stringify(state));
+export function saveStateToStorage(state: AppState, storage: Storage = localStorage): SaveResult {
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return { saved: true, message: "" };
+  } catch {
+    return {
+      saved: false,
+      message: "浏览器存储不可用，本次修改暂存在内存中，刷新页面后可能丢失。",
+    };
+  }
 }
 
 export function parseBackupFile(text: string): StorageResult {
+  let parsed: unknown;
+
   try {
-    return {
-      state: hydrateState(JSON.parse(text)),
-      recovered: true,
-      message: "备份文件已导入。",
-    };
+    parsed = JSON.parse(text);
   } catch {
     return {
       state: createDefaultState(),
@@ -53,6 +75,21 @@ export function parseBackupFile(text: string): StorageResult {
       message: "备份文件不是有效 JSON，未导入。",
     };
   }
+
+  const validation = validateBackupPayload(parsed);
+  if (!validation.valid) {
+    return {
+      state: createDefaultState(),
+      recovered: false,
+      message: validation.message,
+    };
+  }
+
+  return {
+    state: hydrateState(parsed),
+    recovered: true,
+    message: "备份文件已导入。",
+  };
 }
 
 export function createBackupBlob(state: AppState): Blob {

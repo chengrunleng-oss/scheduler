@@ -6,7 +6,10 @@ import {
   hydrateState,
   isDueOrOverdue,
   selectVisibleTasks,
+  toISODate,
+  validateBackupPayload,
 } from "../dist/domain.js";
+import { reduceState } from "../dist/store.js";
 
 test("hydrateState fills missing nested fields and migrates legacy task date", () => {
   const state = hydrateState(
@@ -38,6 +41,12 @@ test("hydrateState fills missing nested fields and migrates legacy task date", (
   assert.ok(Array.isArray(state.currentIteration.next));
 });
 
+test("validateBackupPayload rejects unrelated json before hydration", () => {
+  assert.equal(validateBackupPayload({}).valid, false);
+  assert.equal(validateBackupPayload([]).valid, false);
+  assert.equal(validateBackupPayload({ tasks: [] }).valid, false);
+});
+
 test("buildFeedbackSuggestions returns matched concrete suggestions", () => {
   const suggestions = buildFeedbackSuggestions("希望支持提醒、备份恢复和子任务");
 
@@ -48,10 +57,15 @@ test("buildFeedbackSuggestions returns matched concrete suggestions", () => {
   ]);
 });
 
-test("selectVisibleTasks filters by status and query", () => {
-  const state = createDefaultState(1_800_000_000_000);
-  state.preferences.activeFilter = "open";
-  state.tasks[0].done = true;
+test("selectVisibleTasks filters by status and query without mutating defaults directly", () => {
+  const base = createDefaultState(1_800_000_000_000);
+  const withCompletedTask = reduceState(base, {
+    type: "toggle-task",
+    id: "task-1",
+    done: true,
+    now: 1_800_000_001_000,
+  });
+  const state = reduceState(withCompletedTask, { type: "set-filter", filter: "open" });
 
   const visible = selectVisibleTasks(state, "改进");
 
@@ -72,4 +86,10 @@ test("isDueOrOverdue ignores completed tasks", () => {
   };
 
   assert.equal(isDueOrOverdue(task, "2026-07-07"), false);
+});
+
+test("toISODate uses local date fields instead of UTC slicing", () => {
+  const date = new Date(2026, 6, 7, 0, 30, 0);
+
+  assert.equal(toISODate(date), "2026-07-07");
 });

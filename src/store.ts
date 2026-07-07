@@ -6,6 +6,7 @@ import {
   createTask,
   deriveNextRound,
   normalizeText,
+  taskMatchesDraft,
   updateTask,
 } from "./domain.js";
 import type { AppState, ChecklistKind, ChecklistItem, StateAction } from "./types.js";
@@ -39,10 +40,15 @@ export function createStore(initialState: AppState): AppStore {
       const next = reduceState(state, action);
       if (next === state) return;
       previousState = state;
-      if (isHistoryAction(action)) {
+
+      if (action.type === "replace-state") {
+        past.length = 0;
+        future.length = 0;
+      } else if (isHistoryAction(action)) {
         past.push(state);
         future.length = 0;
       }
+
       state = next;
       notify();
     },
@@ -79,27 +85,36 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       return { ...state, tasks: [task, ...state.tasks] };
     }
 
-    case "update-task":
+    case "update-task": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || taskMatchesDraft(target, action.draft)) return state;
       return {
         ...state,
         tasks: state.tasks.map((task) => (task.id === action.id ? updateTask(task, action.draft, action.now) : task)),
       };
+    }
 
-    case "toggle-task":
+    case "toggle-task": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || target.done === action.done) return state;
       return {
         ...state,
         tasks: state.tasks.map((task) =>
           task.id === action.id ? { ...task, done: action.done, updatedAt: action.now ?? Date.now() } : task,
         ),
       };
+    }
 
     case "delete-task":
+      if (!state.tasks.some((task) => task.id === action.id)) return state;
       return { ...state, tasks: state.tasks.filter((task) => task.id !== action.id) };
 
     case "set-filter":
+      if (state.preferences.activeFilter === action.filter) return state;
       return { ...state, preferences: { ...state.preferences, activeFilter: action.filter } };
 
     case "set-theme":
+      if (state.preferences.theme === action.theme) return state;
       return { ...state, preferences: { ...state.preferences, theme: action.theme } };
 
     case "add-checklist-item": {
@@ -111,13 +126,20 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       ]);
     }
 
-    case "toggle-checklist-item":
-      return updateChecklist(state, action.kind, (items) =>
-        items.map((item) => (item.id === action.id ? { ...item, checked: action.checked } : item)),
+    case "toggle-checklist-item": {
+      const items = state.currentIteration[action.kind];
+      const target = items.find((item) => item.id === action.id);
+      if (!target || target.checked === action.checked) return state;
+      return updateChecklist(state, action.kind, (entries) =>
+        entries.map((item) => (item.id === action.id ? { ...item, checked: action.checked } : item)),
       );
+    }
 
-    case "delete-checklist-item":
-      return updateChecklist(state, action.kind, (items) => items.filter((item) => item.id !== action.id));
+    case "delete-checklist-item": {
+      const items = state.currentIteration[action.kind];
+      if (!items.some((item) => item.id === action.id)) return state;
+      return updateChecklist(state, action.kind, (entries) => entries.filter((item) => item.id !== action.id));
+    }
 
     case "apply-feedback":
       return applyFeedback(state, action.feedback, action.now);
@@ -126,7 +148,7 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       return completeIteration(state, action.feedback, action.now);
 
     case "replace-state":
-      return action.state;
+      return action.state === state ? state : action.state;
 
     case "reset":
       return createDefaultState(action.now);
@@ -137,11 +159,15 @@ export function reduceState(state: AppState, action: StateAction): AppState {
 }
 
 function updateChecklist(state: AppState, kind: ChecklistKind, updater: (items: ChecklistItem[]) => ChecklistItem[]): AppState {
-  const currentIteration = {
-    ...state.currentIteration,
-    [kind]: updater(state.currentIteration[kind]),
+  const updatedItems = updater(state.currentIteration[kind]);
+  if (updatedItems === state.currentIteration[kind]) return state;
+  return {
+    ...state,
+    currentIteration: {
+      ...state.currentIteration,
+      [kind]: updatedItems,
+    },
   };
-  return { ...state, currentIteration };
 }
 
 function applyFeedback(state: AppState, feedback: string, now = Date.now()): AppState {
@@ -199,5 +225,5 @@ function completeIteration(state: AppState, feedback: string, now = Date.now()):
 }
 
 function isHistoryAction(action: StateAction): boolean {
-  return action.type !== "set-filter" && action.type !== "set-theme";
+  return action.type !== "set-filter" && action.type !== "set-theme" && action.type !== "replace-state";
 }

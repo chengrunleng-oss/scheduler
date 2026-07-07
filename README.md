@@ -6,7 +6,7 @@
 
 直接用浏览器打开 `index.html`。
 
-数据会保存在当前浏览器的 `localStorage` 中。点击“导出”可以备份当前数据为 JSON 文件，点击“导入”可以恢复备份。
+数据会保存在当前浏览器的 `localStorage` 中。点击“导出”可以备份当前数据为 JSON 文件，点击“导入”可以恢复备份。导入是确认替换数据的操作，不进入普通撤销历史。
 
 ## 当前功能
 
@@ -21,21 +21,22 @@
 ## 工程结构
 
 - `src/`：TypeScript 源码，按类型、领域逻辑、状态、存储、UI 拆分。
-- `dist/app.js`：浏览器可直接加载的运行包。
-- `dist/domain.js`、`dist/store.js`、`dist/storage.js`：测试使用的 ES Modules。
+- `dist/`：由 `src/` 自动构建生成的浏览器运行产物，不再手工维护。
 - `tests/`：Node 内置测试框架的回归测试。
 
 ## 验证
 
 ```bash
-npm test
-node --check dist/app.js
+npm install
+npm run verify
 ```
 
-如果安装了 TypeScript，可运行：
+也可以分步运行：
 
 ```bash
+npm run build
 npm run typecheck
+npm test
 ```
 
-当前仓库没有强制要求安装依赖，`index.html` 可直接运行。
+依赖安装并执行 `npm run build` 后即可运行。当前页面加载 ES Modules，建议用本地静态服务器打开，例如在项目目录执行 `python -m http.server 5173` 后访问 `http://localhost:5173/`。
