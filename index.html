@@ -3,28 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>计划记录工作台</title>
+    <meta name="theme-color" content="#176c7d" />
+    <title>任务记录工作台</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="计划录入">
+      <aside class="sidebar" aria-label="任务录入">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">计</div>
+          <div class="brand-mark" aria-hidden="true">任</div>
           <div>
-            <h1>计划记录工作台</h1>
-            <p>记录要做的事，沉淀每轮迭代。</p>
+            <h1>任务记录工作台</h1>
+            <p>快速记录要做的事，定期沉淀改进。</p>
           </div>
         </div>
 
         <form id="taskForm" class="panel stack" autocomplete="off">
           <div class="panel-heading">
-            <h2>新增计划</h2>
+            <h2>记录任务</h2>
             <span class="hint">Ctrl + Enter 保存</span>
           </div>
 
           <label class="field">
-            <span>要做什么</span>
+            <span>任务内容</span>
             <textarea id="taskTitle" rows="4" maxlength="180" placeholder="例如：整理本周产品优化清单" required></textarea>
           </label>
 
@@ -32,14 +33,14 @@
             <label class="field">
               <span>优先级</span>
               <select id="taskPriority">
-                <option value="高">高</option>
-                <option value="中" selected>中</option>
-                <option value="低">低</option>
+                <option value="high">高</option>
+                <option value="medium" selected>中</option>
+                <option value="low">低</option>
               </select>
             </label>
             <label class="field">
-              <span>日期</span>
-              <input id="taskDate" type="date" />
+              <span>截止日期</span>
+              <input id="taskDueDate" type="date" />
             </label>
           </div>
 
@@ -49,9 +50,9 @@
           </label>
 
           <div class="form-actions">
-            <button class="button primary" type="submit" title="保存计划">
+            <button class="button primary" type="submit" title="保存任务">
               <span aria-hidden="true">＋</span>
-              保存计划
+              保存任务
             </button>
             <button class="button ghost" id="clearForm" type="button" title="清空输入">
               <span aria-hidden="true">×</span>
@@ -62,7 +63,7 @@
 
         <section class="panel stack">
           <div class="panel-heading">
-            <h2>今日概览</h2>
+            <h2>任务概览</h2>
             <button class="icon-button" id="resetDemo" type="button" title="重置示例数据" aria-label="重置示例数据">↺</button>
           </div>
           <div class="metric-grid">
@@ -75,8 +76,8 @@
               <small>完成</small>
             </div>
             <div class="metric">
-              <span id="metricHigh">0</span>
-              <small>高优先级</small>
+              <span id="metricDue">0</span>
+              <small>到期/逾期</small>
             </div>
           </div>
         </section>
@@ -85,17 +86,32 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">当前迭代</p>
-            <h2 id="currentIterationTitle">第 1 轮：基础可用版</h2>
+            <p class="eyebrow">当前工作区</p>
+            <h2 id="currentIterationTitle">任务看板</h2>
           </div>
           <div class="topbar-actions">
-            <button class="button secondary" id="exportData" type="button" title="导出数据">
+            <button class="icon-button" id="undoAction" type="button" title="撤销" aria-label="撤销">↶</button>
+            <button class="icon-button" id="redoAction" type="button" title="重做" aria-label="重做">↷</button>
+            <label class="theme-control" title="主题">
+              <span class="sr-only">主题</span>
+              <select id="themeSelect" aria-label="主题">
+                <option value="system">跟随系统</option>
+                <option value="light">浅色</option>
+                <option value="dark">深色</option>
+              </select>
+            </label>
+            <input id="importFile" class="file-input" type="file" accept="application/json,.json" />
+            <button class="button secondary" id="importData" type="button" title="导入备份">
+              <span aria-hidden="true">⇧</span>
+              导入
+            </button>
+            <button class="button secondary" id="exportData" type="button" title="导出备份">
               <span aria-hidden="true">⇩</span>
               导出
             </button>
-            <button class="button secondary" id="completeIteration" type="button" title="完成本轮迭代">
+            <button class="button secondary" id="completeIteration" type="button" title="归档当前改进轮次">
               <span aria-hidden="true">✓</span>
-              完成本轮
+              归档本轮
             </button>
           </div>
         </header>
@@ -104,7 +120,7 @@
           <div class="board-toolbar">
             <div class="search-wrap">
               <span aria-hidden="true">⌕</span>
-              <input id="searchInput" type="search" placeholder="搜索计划、标签或备注" />
+              <input id="searchInput" type="search" placeholder="搜索任务、标签或优先级" />
             </div>
             <div class="segmented" role="tablist" aria-label="任务状态筛选">
               <button class="segment active" data-filter="all" type="button">全部</button>
@@ -114,24 +130,24 @@
           </div>
 
           <div class="list-head" aria-hidden="true">
-            <span>计划</span>
+            <span>任务</span>
             <span>优先级</span>
-            <span>日期</span>
+            <span>截止</span>
             <span>操作</span>
           </div>
 
           <div id="taskList" class="task-list" aria-live="polite"></div>
           <div id="emptyState" class="empty-state" hidden>
-            <strong>没有匹配的计划</strong>
-            <span>换个筛选条件，或在左侧记录一个新的事项。</span>
+            <strong>没有匹配的任务</strong>
+            <span>换个筛选条件，或在左侧记录一个新的任务。</span>
           </div>
         </section>
       </main>
 
-      <aside class="right-rail" aria-label="迭代与反馈">
+      <aside class="right-rail" aria-label="改进与反馈">
         <section class="panel stack">
           <div class="panel-heading">
-            <h2>本轮完成记录</h2>
+            <h2>改进记录</h2>
             <button class="icon-button" id="addDoneItem" type="button" title="添加完成项" aria-label="添加完成项">＋</button>
           </div>
           <div id="doneLog" class="check-list"></div>
@@ -139,30 +155,30 @@
 
         <section class="panel stack">
           <div class="panel-heading">
-            <h2>下一轮建议</h2>
-            <button class="icon-button" id="addNextItem" type="button" title="添加下一轮目标" aria-label="添加下一轮目标">＋</button>
+            <h2>下一轮改进项</h2>
+            <button class="icon-button" id="addNextItem" type="button" title="添加改进项" aria-label="添加改进项">＋</button>
           </div>
           <div id="nextPlan" class="check-list"></div>
         </section>
 
         <section class="panel stack">
           <div class="panel-heading">
-            <h2>反馈输入</h2>
-            <span class="hint">用于生成下一轮</span>
+            <h2>产品反馈</h2>
+            <span class="hint">整理为改进项</span>
           </div>
           <label class="field">
             <span>你的建议</span>
             <textarea id="feedbackInput" rows="5" maxlength="400" placeholder="例如：希望增加提醒、分类统计或多设备同步"></textarea>
           </label>
-          <button class="button primary wide" id="applyFeedback" type="button" title="根据反馈生成下一轮计划">
+          <button class="button primary wide" id="applyFeedback" type="button" title="整理反馈为下一轮改进项">
             <span aria-hidden="true">↪</span>
-            生成下一轮计划
+            整理为改进项
           </button>
         </section>
 
         <section class="panel stack">
           <div class="panel-heading">
-            <h2>迭代历史</h2>
+            <h2>开发历史</h2>
             <span id="iterationCount" class="hint">0 条</span>
           </div>
           <div id="iterationHistory" class="history"></div>
@@ -174,7 +190,7 @@
       <article class="task-item">
         <label class="task-check">
           <input type="checkbox" />
-          <span></span>
+          <span class="sr-only">切换完成状态</span>
         </label>
         <div class="task-main">
           <strong></strong>
@@ -183,12 +199,80 @@
         <span class="priority"></span>
         <time></time>
         <div class="task-actions">
-          <button class="icon-button" data-action="edit" type="button" title="编辑计划" aria-label="编辑计划">✎</button>
-          <button class="icon-button danger" data-action="delete" type="button" title="删除计划" aria-label="删除计划">×</button>
+          <button class="icon-button" data-action="edit" type="button" title="编辑任务" aria-label="编辑任务">✎</button>
+          <button class="icon-button danger" data-action="delete" type="button" title="删除任务" aria-label="删除任务">×</button>
         </div>
       </article>
     </template>
 
-    <script src="app.js"></script>
+    <dialog id="taskDialog" class="modal">
+      <form id="taskDialogForm" class="modal-card stack">
+        <div class="modal-head">
+          <h2 id="taskDialogTitle">编辑任务</h2>
+          <button class="icon-button" type="button" data-close-dialog aria-label="关闭">×</button>
+        </div>
+        <label class="field">
+          <span>任务内容</span>
+          <textarea id="dialogTaskTitle" rows="4" maxlength="180" required></textarea>
+        </label>
+        <div class="field-grid">
+          <label class="field">
+            <span>优先级</span>
+            <select id="dialogTaskPriority">
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>截止日期</span>
+            <input id="dialogTaskDueDate" type="date" />
+          </label>
+        </div>
+        <label class="field">
+          <span>标签</span>
+          <input id="dialogTaskTag" type="text" maxlength="24" />
+        </label>
+        <div class="modal-actions">
+          <button class="button ghost" type="button" data-close-dialog>取消</button>
+          <button class="button primary" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="itemDialog" class="modal">
+      <form id="itemDialogForm" class="modal-card stack">
+        <div class="modal-head">
+          <h2 id="itemDialogTitle">添加改进项</h2>
+          <button class="icon-button" type="button" data-close-dialog aria-label="关闭">×</button>
+        </div>
+        <label class="field">
+          <span id="itemDialogLabel">内容</span>
+          <textarea id="itemDialogText" rows="4" maxlength="220" required></textarea>
+        </label>
+        <div class="modal-actions">
+          <button class="button ghost" type="button" data-close-dialog>取消</button>
+          <button class="button primary" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="confirmDialog" class="modal">
+      <form class="modal-card stack">
+        <div class="modal-head">
+          <h2 id="confirmTitle">确认操作</h2>
+          <button class="icon-button" id="confirmClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <p id="confirmText" class="confirm-text"></p>
+        <div class="modal-actions">
+          <button class="button ghost" id="confirmCancel" type="button">取消</button>
+          <button class="button primary" id="confirmOk" type="button">确认</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="dist/app.js"></script>
   </body>
 </html>

@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --bg: #eef2f5;
   --surface: #ffffff;
   --surface-alt: #f7f9fb;
@@ -13,6 +13,40 @@
   --amber: #9a6200;
   --red: #b64242;
   --shadow: 0 16px 40px rgba(29, 41, 53, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --bg: #111418;
+  --surface: #1a2026;
+  --surface-alt: #222a31;
+  --ink: #ecf1f4;
+  --muted: #9aa8b3;
+  --line: #303b45;
+  --accent: #4fa3b1;
+  --accent-strong: #6db8c4;
+  --accent-soft: rgba(79, 163, 177, 0.2);
+  --green: #74c69d;
+  --amber: #e4b363;
+  --red: #f28482;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --bg: #111418;
+    --surface: #1a2026;
+    --surface-alt: #222a31;
+    --ink: #ecf1f4;
+    --muted: #9aa8b3;
+    --line: #303b45;
+    --accent: #4fa3b1;
+    --accent-strong: #6db8c4;
+    --accent-soft: rgba(79, 163, 177, 0.2);
+    --green: #74c69d;
+    --amber: #e4b363;
+    --red: #f28482;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  }
 }
 
 * {
@@ -40,9 +74,29 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-input {
+  display: none;
+}
+
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(460px, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(280px, 330px) minmax(460px, 1fr) minmax(280px, 360px);
   gap: 16px;
   min-height: 100vh;
   padding: 16px;
@@ -59,6 +113,10 @@ button {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.right-rail {
+  opacity: 0.96;
 }
 
 .brand {
@@ -237,7 +295,7 @@ select:focus {
 .button.ghost:hover,
 .icon-button:hover,
 .segment:hover {
-  border-color: #aebbc7;
+  border-color: color-mix(in srgb, var(--muted) 50%, var(--line));
 }
 
 .button.wide {
@@ -266,6 +324,11 @@ select:focus {
 
 .icon-button.danger {
   color: var(--red);
+}
+
+.theme-control select {
+  min-width: 112px;
+  height: 38px;
 }
 
 .metric-grid {
@@ -407,7 +470,11 @@ select:focus {
 }
 
 .task-item.done {
-  background: #f5f7f8;
+  background: var(--surface-alt);
+}
+
+.task-item.due:not(.done) {
+  border-color: color-mix(in srgb, var(--red) 60%, var(--line));
 }
 
 .task-item.done .task-main strong {
@@ -455,22 +522,27 @@ select:focus {
 
 .priority.high {
   color: var(--red);
-  background: #fae7e7;
+  background: color-mix(in srgb, var(--red) 16%, transparent);
 }
 
 .priority.medium {
   color: var(--amber);
-  background: #fff0d5;
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
 }
 
 .priority.low {
   color: var(--green);
-  background: #e3f3eb;
+  background: color-mix(in srgb, var(--green) 18%, transparent);
 }
 
 .task-item time {
   color: var(--muted);
   font-size: 13px;
+}
+
+.task-item.due:not(.done) time {
+  color: var(--red);
+  font-weight: 800;
 }
 
 .task-actions {
@@ -547,6 +619,64 @@ select:focus {
   line-height: 1.45;
 }
 
+.modal {
+  width: min(560px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+}
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.modal-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.modal-head,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+}
+
+.confirm-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  max-width: min(380px, calc(100vw - 36px));
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  z-index: 20;
+}
+
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 320px 1fr;
@@ -579,8 +709,13 @@ select:focus {
     justify-content: stretch;
   }
 
-  .topbar-actions .button {
+  .topbar-actions .button,
+  .theme-control {
     flex: 1;
+  }
+
+  .theme-control select {
+    width: 100%;
   }
 
   .search-wrap,
@@ -630,11 +765,13 @@ select:focus {
   }
 
   .topbar-actions,
-  .form-actions {
+  .form-actions,
+  .modal-actions {
     flex-direction: column;
   }
 
-  .button {
+  .button,
+  .modal-actions .button {
     width: 100%;
   }
 }
