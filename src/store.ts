@@ -1,0 +1,229 @@
+import {
+  buildFeedbackSuggestions,
+  createChecklistItem,
+  createDefaultState,
+  createId,
+  createTask,
+  deriveNextRound,
+  normalizeText,
+  taskMatchesDraft,
+  updateTask,
+} from "./domain.js";
+import type { AppState, ChecklistKind, ChecklistItem, StateAction } from "./types.js";
+
+type Listener = (state: AppState, previous: AppState | null) => void;
+
+export interface AppStore {
+  getState(): AppState;
+  dispatch(action: StateAction): void;
+  undo(): void;
+  redo(): void;
+  canUndo(): boolean;
+  canRedo(): boolean;
+  subscribe(listener: Listener): () => void;
+}
+
+export function createStore(initialState: AppState): AppStore {
+  let state = initialState;
+  let previousState: AppState | null = null;
+  const past: AppState[] = [];
+  const future: AppState[] = [];
+  const listeners = new Set<Listener>();
+
+  function notify(): void {
+    for (const listener of listeners) listener(state, previousState);
+  }
+
+  return {
+    getState: () => state,
+    dispatch(action) {
+      const next = reduceState(state, action);
+      if (next === state) return;
+      previousState = state;
+
+      if (action.type === "replace-state") {
+        past.length = 0;
+        future.length = 0;
+      } else if (isHistoryAction(action)) {
+        past.push(state);
+        future.length = 0;
+      }
+
+      state = next;
+      notify();
+    },
+    undo() {
+      const snapshot = past.pop();
+      if (!snapshot) return;
+      future.push(state);
+      previousState = state;
+      state = snapshot;
+      notify();
+    },
+    redo() {
+      const snapshot = future.pop();
+      if (!snapshot) return;
+      past.push(state);
+      previousState = state;
+      state = snapshot;
+      notify();
+    },
+    canUndo: () => past.length > 0,
+    canRedo: () => future.length > 0,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+export function reduceState(state: AppState, action: StateAction): AppState {
+  switch (action.type) {
+    case "add-task": {
+      const task = createTask(action.draft, action.now);
+      if (!task.title) return state;
+      return { ...state, tasks: [task, ...state.tasks] };
+    }
+
+    case "update-task": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || taskMatchesDraft(target, action.draft)) return state;
+      return {
+        ...state,
+        tasks: state.tasks.map((task) => (task.id === action.id ? updateTask(task, action.draft, action.now) : task)),
+      };
+    }
+
+    case "toggle-task": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || target.done === action.done) return state;
+      return {
+        ...state,
+        tasks: state.tasks.map((task) =>
+          task.id === action.id ? { ...task, done: action.done, updatedAt: action.now ?? Date.now() } : task,
+        ),
+      };
+    }
+
+    case "delete-task":
+      if (!state.tasks.some((task) => task.id === action.id)) return state;
+      return { ...state, tasks: state.tasks.filter((task) => task.id !== action.id) };
+
+    case "set-filter":
+      if (state.preferences.activeFilter === action.filter) return state;
+      return { ...state, preferences: { ...state.preferences, activeFilter: action.filter } };
+
+    case "set-theme":
+      if (state.preferences.theme === action.theme) return state;
+      return { ...state, preferences: { ...state.preferences, theme: action.theme } };
+
+    case "add-checklist-item": {
+      const text = normalizeText(action.text);
+      if (!text) return state;
+      return updateChecklist(state, action.kind, (items) => [
+        ...items,
+        createChecklistItem(createId(action.kind === "completed" ? "done" : "next", action.now), text, action.kind === "completed", action.now),
+      ]);
+    }
+
+    case "toggle-checklist-item": {
+      const items = state.currentIteration[action.kind];
+      const target = items.find((item) => item.id === action.id);
+      if (!target || target.checked === action.checked) return state;
+      return updateChecklist(state, action.kind, (entries) =>
+        entries.map((item) => (item.id === action.id ? { ...item, checked: action.checked } : item)),
+      );
+    }
+
+    case "delete-checklist-item": {
+      const items = state.currentIteration[action.kind];
+      if (!items.some((item) => item.id === action.id)) return state;
+      return updateChecklist(state, action.kind, (entries) => entries.filter((item) => item.id !== action.id));
+    }
+
+    case "apply-feedback":
+      return applyFeedback(state, action.feedback, action.now);
+
+    case "complete-iteration":
+      return completeIteration(state, action.feedback, action.now);
+
+    case "replace-state":
+      return action.state === state ? state : action.state;
+
+    case "reset":
+      return createDefaultState(action.now);
+
+    default:
+      return state;
+  }
+}
+
+function updateChecklist(state: AppState, kind: ChecklistKind, updater: (items: ChecklistItem[]) => ChecklistItem[]): AppState {
+  const updatedItems = updater(state.currentIteration[kind]);
+  if (updatedItems === state.currentIteration[kind]) return state;
+  return {
+    ...state,
+    currentIteration: {
+      ...state.currentIteration,
+      [kind]: updatedItems,
+    },
+  };
+}
+
+function applyFeedback(state: AppState, feedback: string, now = Date.now()): AppState {
+  const normalized = normalizeText(feedback);
+  if (!normalized) return state;
+  const suggestions = buildFeedbackSuggestions(normalized);
+  const existing = new Set(state.currentIteration.next.map((item) => item.text));
+  const nextItems = suggestions
+    .filter((text) => !existing.has(text))
+    .map((text, index) => createChecklistItem(createId("next", now + index), text, false, now + index));
+  const feedbackTask = createTask(
+    {
+      title: `处理反馈：${normalized}`,
+      priority: "high",
+      dueDate: "",
+      tag: "反馈",
+    },
+    now,
+  );
+
+  return {
+    ...state,
+    tasks: [feedbackTask, ...state.tasks],
+    currentIteration: {
+      ...state.currentIteration,
+      next: [...state.currentIteration.next, ...nextItems],
+    },
+  };
+}
+
+function completeIteration(state: AppState, feedback: string, now = Date.now()): AppState {
+  const completed = state.currentIteration.completed.filter((item) => item.checked).map((item) => item.text);
+  const next = state.currentIteration.next.map((item) => item.text);
+  const normalizedFeedback = normalizeText(feedback);
+  const summary = {
+    id: createId("iteration", now),
+    number: state.currentIteration.number,
+    title: state.currentIteration.title,
+    completed,
+    next,
+    feedback: normalizedFeedback,
+    finishedAt: now,
+  };
+
+  return {
+    ...state,
+    iterations: [...state.iterations, summary],
+    currentIteration: {
+      number: state.currentIteration.number + 1,
+      title: next[0]?.replace(/[。.!！]$/, "") || "反馈优化版",
+      completed: [createChecklistItem(createId("done", now), "根据上一轮反馈确认本轮改进范围。", false, now)],
+      next: deriveNextRound(next, normalizedFeedback, now),
+    },
+  };
+}
+
+function isHistoryAction(action: StateAction): boolean {
+  return action.type !== "set-filter" && action.type !== "set-theme" && action.type !== "replace-state";
+}

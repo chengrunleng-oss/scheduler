@@ -1,0 +1,18 @@
+{
+  "name": "task-workbench",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "node scripts/clean-dist.mjs",
+    "build": "npm run clean && tsc",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:dist": "node scripts/check-dist-clean.mjs",
+    "serve": "python -m http.server 5173",
+    "verify": "npm run typecheck && npm test && node --check dist/main.js && npm run check:dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

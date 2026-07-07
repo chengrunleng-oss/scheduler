@@ -9,7 +9,6 @@ desktop.ini
 
 # Dependencies and build output
 node_modules/
-dist/
 build/
 
 # Logs and local env
