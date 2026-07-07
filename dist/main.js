@@ -11,10 +11,15 @@ const store = createStore(hydrateState(loaded.state));
 const renderer = createRenderer(els);
 const dialogs = createDialogs(els);
 const bindings = bindEvents(els, store, dialogs, render);
+let lastStorageFailureMessage = "";
 store.subscribe((state, previous) => {
     const saveResult = saveStateToStorage(state);
-    if (!saveResult.saved) {
+    if (!saveResult.saved && saveResult.message !== lastStorageFailureMessage) {
+        lastStorageFailureMessage = saveResult.message;
         dialogs.toast(saveResult.message);
+    }
+    else if (saveResult.saved) {
+        lastStorageFailureMessage = "";
     }
     renderer.render(state, previous, bindings.getQuery(), store.canUndo(), store.canRedo());
 });

@@ -8,6 +8,7 @@ import {
   selectVisibleTasks,
   toISODate,
   validateBackupPayload,
+  validateStoredPayload,
 } from "../dist/domain.js";
 import { reduceState } from "../dist/store.js";
 
@@ -45,6 +46,50 @@ test("validateBackupPayload rejects unrelated json before hydration", () => {
   assert.equal(validateBackupPayload({}).valid, false);
   assert.equal(validateBackupPayload([]).valid, false);
   assert.equal(validateBackupPayload({ tasks: [] }).valid, false);
+});
+
+test("validateBackupPayload rejects falsy invalid task entries", () => {
+  const baseBackup = {
+    schemaVersion: 2,
+    preferences: { activeFilter: "all", theme: "system" },
+    currentIteration: {
+      number: 2,
+      title: "有效备份",
+      completed: [],
+      next: [],
+    },
+    tasks: [],
+    iterations: [],
+  };
+
+  for (const invalidTask of [null, 0, false]) {
+    assert.equal(validateBackupPayload({ ...baseBackup, tasks: [invalidTask] }).valid, false);
+  }
+});
+
+test("validateBackupPayload accepts legacy backup shape for documented migration", () => {
+  const legacy = {
+    activeFilter: "open",
+    currentIteration: {
+      number: 1,
+      title: "旧版本",
+    },
+    tasks: [
+      {
+        id: "legacy-1",
+        title: "旧任务",
+        priority: "高",
+        date: "2026-07-07",
+      },
+    ],
+  };
+
+  assert.deepEqual(validateBackupPayload(legacy), { valid: true, message: "", kind: "legacy" });
+});
+
+test("validateStoredPayload rejects parseable garbage local data", () => {
+  assert.equal(validateStoredPayload({}).valid, false);
+  assert.equal(validateStoredPayload([]).valid, false);
 });
 
 test("buildFeedbackSuggestions returns matched concrete suggestions", () => {

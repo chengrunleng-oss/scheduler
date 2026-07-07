@@ -101,6 +101,48 @@ test("parseBackupFile rejects invalid json and unrelated valid json", () => {
   assert.match(unrelatedJson.message, /结构无效/);
 });
 
+test("storage load rejects parseable garbage json", () => {
+  const storage = {
+    getItem() {
+      return "{}";
+    },
+    setItem() {},
+  };
+
+  const loaded = loadStateFromStorage(storage);
+  assert.equal(loaded.recovered, false);
+  assert.match(loaded.message, /结构无效/);
+});
+
+test("storage load migrates legacy local data with a truthful message", () => {
+  const legacy = {
+    activeFilter: "open",
+    currentIteration: {
+      number: 1,
+      title: "旧版本",
+    },
+    tasks: [
+      {
+        id: "legacy-1",
+        title: "旧任务",
+        priority: "高",
+        date: "2026-07-07",
+      },
+    ],
+  };
+  const storage = {
+    getItem() {
+      return JSON.stringify(legacy);
+    },
+    setItem() {},
+  };
+
+  const loaded = loadStateFromStorage(storage);
+  assert.equal(loaded.recovered, true);
+  assert.match(loaded.message, /迁移旧版/);
+  assert.equal(loaded.state.tasks[0].dueDate, "2026-07-07");
+});
+
 test("storage load and save handle browser storage exceptions", () => {
   const throwingStorage = {
     getItem() {

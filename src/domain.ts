@@ -42,6 +42,7 @@ type UnknownRecord = Record<string, unknown>;
 export interface BackupValidation {
   valid: boolean;
   message: string;
+  kind?: "current" | "legacy";
 }
 
 export function createDefaultState(now = Date.now()): AppState {
@@ -245,6 +246,10 @@ export function validateBackupPayload(input: unknown): BackupValidation {
     return { valid: false, message: "备份文件结构无效：根节点必须是对象。" };
   }
 
+  if (isLegacyBackupPayload(input)) {
+    return { valid: true, message: "", kind: "legacy" };
+  }
+
   if (!isRecord(input.preferences)) {
     return { valid: false, message: "备份文件结构无效：缺少 preferences。" };
   }
@@ -270,8 +275,8 @@ export function validateBackupPayload(input: unknown): BackupValidation {
     return { valid: false, message: "备份文件结构无效：currentIteration 需要 completed 和 next 数组。" };
   }
 
-  const invalidTask = input.tasks.find((task) => !isRecord(task) || !normalizeText(task.title));
-  if (invalidTask) {
+  const hasInvalidTask = input.tasks.some((task) => !isRecord(task) || !normalizeText(task.title));
+  if (hasInvalidTask) {
     return { valid: false, message: "备份文件结构无效：tasks 中存在无效任务。" };
   }
 
@@ -279,7 +284,33 @@ export function validateBackupPayload(input: unknown): BackupValidation {
     return { valid: false, message: "备份文件结构无效：iterations 必须是数组。" };
   }
 
-  return { valid: true, message: "" };
+  return { valid: true, message: "", kind: "current" };
+}
+
+export function validateStoredPayload(input: unknown): BackupValidation {
+  if (!isRecord(input)) {
+    return { valid: false, message: "本地数据结构无效，已恢复为默认数据。" };
+  }
+
+  if (isLegacyBackupPayload(input)) {
+    return { valid: true, message: "", kind: "legacy" };
+  }
+
+  return validateBackupPayload(input);
+}
+
+function isLegacyBackupPayload(input: UnknownRecord): boolean {
+  if (isRecord(input.preferences)) return false;
+  if (!Array.isArray(input.tasks)) return false;
+  if (!isRecord(input.currentIteration)) return false;
+
+  const iteration = input.currentIteration;
+  return (
+    (input.activeFilter === undefined || input.activeFilter === "all" || input.activeFilter === "open" || input.activeFilter === "done") &&
+    typeof iteration.number === "number" &&
+    normalizeText(iteration.title).length > 0 &&
+    input.tasks.every((task) => isRecord(task) && normalizeText(task.title))
+  );
 }
 
 function hydratePreferences(value: unknown, legacyRoot: UnknownRecord): Preferences {

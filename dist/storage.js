@@ -1,4 +1,4 @@
-import { createDefaultState, hydrateState, validateBackupPayload } from "./domain.js";
+import { createDefaultState, hydrateState, validateBackupPayload, validateStoredPayload } from "./domain.js";
 export const STORAGE_KEY = "task-workbench-state-v2";
 const LEGACY_STORAGE_KEY = "plan-workbench-state-v1";
 export function loadStateFromStorage(storage = localStorage) {
@@ -21,10 +21,19 @@ export function loadStateFromStorage(storage = localStorage) {
         };
     }
     try {
+        const parsed = JSON.parse(raw);
+        const validation = validateStoredPayload(parsed);
+        if (!validation.valid) {
+            return {
+                state: createDefaultState(),
+                recovered: false,
+                message: validation.message,
+            };
+        }
         return {
-            state: hydrateState(JSON.parse(raw)),
+            state: hydrateState(parsed),
             recovered: true,
-            message: "已从本地存储恢复数据。",
+            message: validation.kind === "legacy" ? "已迁移旧版本地数据。" : "已从本地存储恢复数据。",
         };
     }
     catch {

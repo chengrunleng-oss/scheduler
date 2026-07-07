@@ -4,7 +4,15 @@
 
 ## 使用方式
 
-直接用浏览器打开 `index.html`。
+安装依赖并构建后，用本地静态服务器运行：
+
+```bash
+npm install
+npm run build
+npm run serve
+```
+
+然后访问 `http://localhost:5173/`。
 
 数据会保存在当前浏览器的 `localStorage` 中。点击“导出”可以备份当前数据为 JSON 文件，点击“导入”可以恢复备份。导入是确认替换数据的操作，不进入普通撤销历史。
 
@@ -34,9 +42,9 @@ npm run verify
 也可以分步运行：
 
 ```bash
-npm run build
 npm run typecheck
 npm test
+npm run check:dist
 ```
 
-依赖安装并执行 `npm run build` 后即可运行。当前页面加载 ES Modules，建议用本地静态服务器打开，例如在项目目录执行 `python -m http.server 5173` 后访问 `http://localhost:5173/`。
+当前页面加载 ES Modules，不建议通过 `file://` 直接打开 `index.html`。
