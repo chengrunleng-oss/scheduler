@@ -21,10 +21,12 @@ store.subscribe((state, previous) => {
     else if (saveResult.saved) {
         lastStorageFailureMessage = "";
     }
-    renderer.render(state, previous, bindings.getQuery(), store.canUndo(), store.canRedo());
+    void previous;
+    render();
 });
 function render() {
-    renderer.render(store.getState(), null, bindings.getQuery(), store.canUndo(), store.canRedo());
+    bindings.reconcileSelection();
+    renderer.render(store.getState(), bindings.getViewState(), store.canUndo(), store.canRedo());
 }
 render();
 if (loaded.message) {

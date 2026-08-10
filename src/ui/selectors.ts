@@ -1,30 +1,29 @@
 import { requiredElement } from "./dom.js";
 
 export interface Elements {
+  sidebar: HTMLElement;
+  sidebarClose: HTMLButtonElement;
+  navToggle: HTMLButtonElement;
   taskForm: HTMLFormElement;
-  taskTitle: HTMLTextAreaElement;
+  taskTitle: HTMLInputElement;
   taskPriority: HTMLSelectElement;
   taskDueDate: HTMLInputElement;
+  taskFolder: HTMLSelectElement;
   taskTag: HTMLInputElement;
   clearForm: HTMLButtonElement;
+  newFolder: HTMLButtonElement;
+  folderTree: HTMLElement;
+  workspaceTitle: HTMLElement;
   taskList: HTMLElement;
   emptyState: HTMLElement;
-  taskTemplate: HTMLTemplateElement;
   searchInput: HTMLInputElement;
-  filters: NodeListOf<HTMLButtonElement>;
-  metricOpen: HTMLElement;
-  metricDone: HTMLElement;
+  statusFilters: NodeListOf<HTMLButtonElement>;
+  viewModes: NodeListOf<HTMLButtonElement>;
+  sortMode: HTMLSelectElement;
+  metricActive: HTMLElement;
+  metricCompleted: HTMLElement;
+  metricDiscarded: HTMLElement;
   metricDue: HTMLElement;
-  doneLog: HTMLElement;
-  nextPlan: HTMLElement;
-  addDoneItem: HTMLButtonElement;
-  addNextItem: HTMLButtonElement;
-  feedbackInput: HTMLTextAreaElement;
-  applyFeedback: HTMLButtonElement;
-  iterationHistory: HTMLElement;
-  iterationCount: HTMLElement;
-  currentIterationTitle: HTMLElement;
-  completeIteration: HTMLButtonElement;
   exportData: HTMLButtonElement;
   importData: HTMLButtonElement;
   importFile: HTMLInputElement;
@@ -32,18 +31,31 @@ export interface Elements {
   undoAction: HTMLButtonElement;
   redoAction: HTMLButtonElement;
   themeSelect: HTMLSelectElement;
-  taskDialog: HTMLDialogElement;
-  taskDialogForm: HTMLFormElement;
-  taskDialogTitle: HTMLElement;
-  dialogTaskTitle: HTMLTextAreaElement;
-  dialogTaskPriority: HTMLSelectElement;
-  dialogTaskDueDate: HTMLInputElement;
-  dialogTaskTag: HTMLInputElement;
-  itemDialog: HTMLDialogElement;
-  itemDialogForm: HTMLFormElement;
-  itemDialogTitle: HTMLElement;
-  itemDialogLabel: HTMLElement;
-  itemDialogText: HTMLTextAreaElement;
+  taskDetail: HTMLElement;
+  detailClose: HTMLButtonElement;
+  detailEmpty: HTMLElement;
+  detailForm: HTMLFormElement;
+  detailTitle: HTMLTextAreaElement;
+  detailNotes: HTMLTextAreaElement;
+  detailStatus: HTMLSelectElement;
+  detailPriority: HTMLSelectElement;
+  detailFolder: HTMLSelectElement;
+  detailDueDate: HTMLInputElement;
+  detailTag: HTMLInputElement;
+  detailCreatedAt: HTMLElement;
+  detailUpdatedAt: HTMLElement;
+  cancelDetail: HTMLButtonElement;
+  folderDialog: HTMLDialogElement;
+  folderDialogForm: HTMLFormElement;
+  folderDialogTitle: HTMLElement;
+  folderName: HTMLInputElement;
+  folderParent: HTMLSelectElement;
+  folderDeleteDialog: HTMLDialogElement;
+  folderDeleteText: HTMLElement;
+  folderDeleteMove: HTMLButtonElement;
+  folderDeleteBranch: HTMLButtonElement;
+  folderDeleteCancel: HTMLButtonElement;
+  folderDeleteClose: HTMLButtonElement;
   confirmDialog: HTMLDialogElement;
   confirmTitle: HTMLElement;
   confirmText: HTMLElement;
@@ -55,30 +67,29 @@ export interface Elements {
 
 export function queryElements(): Elements {
   return {
+    sidebar: requiredElement("#sidebar"),
+    sidebarClose: requiredElement("#sidebarClose"),
+    navToggle: requiredElement("#navToggle"),
     taskForm: requiredElement("#taskForm"),
     taskTitle: requiredElement("#taskTitle"),
     taskPriority: requiredElement("#taskPriority"),
     taskDueDate: requiredElement("#taskDueDate"),
+    taskFolder: requiredElement("#taskFolder"),
     taskTag: requiredElement("#taskTag"),
     clearForm: requiredElement("#clearForm"),
+    newFolder: requiredElement("#newFolder"),
+    folderTree: requiredElement("#folderTree"),
+    workspaceTitle: requiredElement("#workspaceTitle"),
     taskList: requiredElement("#taskList"),
     emptyState: requiredElement("#emptyState"),
-    taskTemplate: requiredElement("#taskTemplate"),
     searchInput: requiredElement("#searchInput"),
-    filters: document.querySelectorAll<HTMLButtonElement>(".segment"),
-    metricOpen: requiredElement("#metricOpen"),
-    metricDone: requiredElement("#metricDone"),
+    statusFilters: document.querySelectorAll<HTMLButtonElement>(".status-segment"),
+    viewModes: document.querySelectorAll<HTMLButtonElement>(".view-segment"),
+    sortMode: requiredElement("#sortMode"),
+    metricActive: requiredElement("#metricActive"),
+    metricCompleted: requiredElement("#metricCompleted"),
+    metricDiscarded: requiredElement("#metricDiscarded"),
     metricDue: requiredElement("#metricDue"),
-    doneLog: requiredElement("#doneLog"),
-    nextPlan: requiredElement("#nextPlan"),
-    addDoneItem: requiredElement("#addDoneItem"),
-    addNextItem: requiredElement("#addNextItem"),
-    feedbackInput: requiredElement("#feedbackInput"),
-    applyFeedback: requiredElement("#applyFeedback"),
-    iterationHistory: requiredElement("#iterationHistory"),
-    iterationCount: requiredElement("#iterationCount"),
-    currentIterationTitle: requiredElement("#currentIterationTitle"),
-    completeIteration: requiredElement("#completeIteration"),
     exportData: requiredElement("#exportData"),
     importData: requiredElement("#importData"),
     importFile: requiredElement("#importFile"),
@@ -86,18 +97,31 @@ export function queryElements(): Elements {
     undoAction: requiredElement("#undoAction"),
     redoAction: requiredElement("#redoAction"),
     themeSelect: requiredElement("#themeSelect"),
-    taskDialog: requiredElement("#taskDialog"),
-    taskDialogForm: requiredElement("#taskDialogForm"),
-    taskDialogTitle: requiredElement("#taskDialogTitle"),
-    dialogTaskTitle: requiredElement("#dialogTaskTitle"),
-    dialogTaskPriority: requiredElement("#dialogTaskPriority"),
-    dialogTaskDueDate: requiredElement("#dialogTaskDueDate"),
-    dialogTaskTag: requiredElement("#dialogTaskTag"),
-    itemDialog: requiredElement("#itemDialog"),
-    itemDialogForm: requiredElement("#itemDialogForm"),
-    itemDialogTitle: requiredElement("#itemDialogTitle"),
-    itemDialogLabel: requiredElement("#itemDialogLabel"),
-    itemDialogText: requiredElement("#itemDialogText"),
+    taskDetail: requiredElement("#taskDetail"),
+    detailClose: requiredElement("#detailClose"),
+    detailEmpty: requiredElement("#detailEmpty"),
+    detailForm: requiredElement("#detailForm"),
+    detailTitle: requiredElement("#detailTitle"),
+    detailNotes: requiredElement("#detailNotes"),
+    detailStatus: requiredElement("#detailStatus"),
+    detailPriority: requiredElement("#detailPriority"),
+    detailFolder: requiredElement("#detailFolder"),
+    detailDueDate: requiredElement("#detailDueDate"),
+    detailTag: requiredElement("#detailTag"),
+    detailCreatedAt: requiredElement("#detailCreatedAt"),
+    detailUpdatedAt: requiredElement("#detailUpdatedAt"),
+    cancelDetail: requiredElement("#cancelDetail"),
+    folderDialog: requiredElement("#folderDialog"),
+    folderDialogForm: requiredElement("#folderDialogForm"),
+    folderDialogTitle: requiredElement("#folderDialogTitle"),
+    folderName: requiredElement("#folderName"),
+    folderParent: requiredElement("#folderParent"),
+    folderDeleteDialog: requiredElement("#folderDeleteDialog"),
+    folderDeleteText: requiredElement("#folderDeleteText"),
+    folderDeleteMove: requiredElement("#folderDeleteMove"),
+    folderDeleteBranch: requiredElement("#folderDeleteBranch"),
+    folderDeleteCancel: requiredElement("#folderDeleteCancel"),
+    folderDeleteClose: requiredElement("#folderDeleteClose"),
     confirmDialog: requiredElement("#confirmDialog"),
     confirmTitle: requiredElement("#confirmTitle"),
     confirmText: requiredElement("#confirmText"),

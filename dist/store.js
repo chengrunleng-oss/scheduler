@@ -1,4 +1,4 @@
-import { buildFeedbackSuggestions, createChecklistItem, createDefaultState, createId, createTask, deriveNextRound, normalizeText, taskMatchesDraft, updateTask, } from "./domain.js";
+import { canAddFolder, canMoveFolder, createDefaultState, createFolder, createTask, getFolderDescendantIds, normalizeText, taskMatchesDraft, updateTask, } from "./domain.js";
 export function createStore(initialState) {
     let state = initialState;
     let previousState = null;
@@ -56,67 +56,102 @@ export function createStore(initialState) {
 export function reduceState(state, action) {
     switch (action.type) {
         case "add-task": {
-            const task = createTask(action.draft, action.now);
-            if (!task.title)
+            if (!normalizeText(action.draft.title))
                 return state;
-            return { ...state, tasks: [task, ...state.tasks] };
+            if (action.draft.folderId && !state.folders.some((folder) => folder.id === action.draft.folderId))
+                return state;
+            const order = nextTaskOrder(state.tasks, action.draft.folderId);
+            const task = createTask(action.draft, action.now, undefined, order);
+            return { ...state, tasks: [...state.tasks, task] };
         }
         case "update-task": {
             const target = state.tasks.find((task) => task.id === action.id);
-            if (!target || taskMatchesDraft(target, action.draft))
+            if (!target || !normalizeText(action.draft.title) || taskMatchesDraft(target, action.draft))
                 return state;
+            if (action.draft.folderId && !state.folders.some((folder) => folder.id === action.draft.folderId))
+                return state;
+            const order = target.folderId === action.draft.folderId ? target.order : nextTaskOrder(state.tasks, action.draft.folderId);
             return {
                 ...state,
-                tasks: state.tasks.map((task) => (task.id === action.id ? updateTask(task, action.draft, action.now) : task)),
+                tasks: state.tasks.map((task) => (task.id === action.id ? updateTask(task, action.draft, action.now, order) : task)),
             };
         }
-        case "toggle-task": {
+        case "set-task-status": {
             const target = state.tasks.find((task) => task.id === action.id);
-            if (!target || target.done === action.done)
+            if (!target || target.status === action.status)
                 return state;
-            return {
-                ...state,
-                tasks: state.tasks.map((task) => task.id === action.id ? { ...task, done: action.done, updatedAt: action.now ?? Date.now() } : task),
-            };
+            return updateOneTask(state, target.id, { ...target, status: action.status, updatedAt: action.now ?? Date.now() });
+        }
+        case "adjust-task-priority": {
+            const target = state.tasks.find((task) => task.id === action.id);
+            if (!target)
+                return state;
+            const priority = adjacentPriority(target.priority, action.direction);
+            if (priority === target.priority)
+                return state;
+            return updateOneTask(state, target.id, { ...target, priority, updatedAt: action.now ?? Date.now() });
         }
         case "delete-task":
             if (!state.tasks.some((task) => task.id === action.id))
                 return state;
             return { ...state, tasks: state.tasks.filter((task) => task.id !== action.id) };
-        case "set-filter":
-            if (state.preferences.activeFilter === action.filter)
+        case "set-status-filter":
+            if (state.preferences.activeStatusFilter === action.filter)
                 return state;
-            return { ...state, preferences: { ...state.preferences, activeFilter: action.filter } };
+            return { ...state, preferences: { ...state.preferences, activeStatusFilter: action.filter } };
         case "set-theme":
             if (state.preferences.theme === action.theme)
                 return state;
             return { ...state, preferences: { ...state.preferences, theme: action.theme } };
-        case "add-checklist-item": {
-            const text = normalizeText(action.text);
-            if (!text)
+        case "set-view-mode":
+            if (state.preferences.viewMode === action.viewMode)
                 return state;
-            return updateChecklist(state, action.kind, (items) => [
-                ...items,
-                createChecklistItem(createId(action.kind === "completed" ? "done" : "next", action.now), text, action.kind === "completed", action.now),
-            ]);
-        }
-        case "toggle-checklist-item": {
-            const items = state.currentIteration[action.kind];
-            const target = items.find((item) => item.id === action.id);
-            if (!target || target.checked === action.checked)
+            return { ...state, preferences: { ...state.preferences, viewMode: action.viewMode } };
+        case "set-sort-mode":
+            if (state.preferences.sortMode === action.sortMode)
                 return state;
-            return updateChecklist(state, action.kind, (entries) => entries.map((item) => (item.id === action.id ? { ...item, checked: action.checked } : item)));
-        }
-        case "delete-checklist-item": {
-            const items = state.currentIteration[action.kind];
-            if (!items.some((item) => item.id === action.id))
+            return { ...state, preferences: { ...state.preferences, sortMode: action.sortMode } };
+        case "set-folder-scope": {
+            const validScope = action.folderScope === "all" ||
+                action.folderScope === "root" ||
+                state.folders.some((folder) => folder.id === action.folderScope);
+            if (!validScope || state.preferences.folderScope === action.folderScope)
                 return state;
-            return updateChecklist(state, action.kind, (entries) => entries.filter((item) => item.id !== action.id));
+            return { ...state, preferences: { ...state.preferences, folderScope: action.folderScope } };
         }
-        case "apply-feedback":
-            return applyFeedback(state, action.feedback, action.now);
-        case "complete-iteration":
-            return completeIteration(state, action.feedback, action.now);
+        case "add-folder": {
+            const name = normalizeText(action.draft.name);
+            if (!name || !canAddFolder(state.folders, action.draft.parentId))
+                return state;
+            const order = nextFolderOrder(state.folders, action.draft.parentId);
+            return { ...state, folders: [...state.folders, createFolder({ ...action.draft, name }, action.now, undefined, order)] };
+        }
+        case "update-folder": {
+            const folder = state.folders.find((item) => item.id === action.id);
+            const name = normalizeText(action.draft.name);
+            if (!folder || !name || !canMoveFolder(state.folders, folder.id, action.draft.parentId))
+                return state;
+            if (folder.name === name && folder.parentId === action.draft.parentId)
+                return state;
+            const order = folder.parentId === action.draft.parentId ? folder.order : nextFolderOrder(state.folders, action.draft.parentId);
+            return {
+                ...state,
+                folders: state.folders.map((item) => item.id === folder.id
+                    ? { ...item, name, parentId: action.draft.parentId, order, updatedAt: action.now ?? Date.now() }
+                    : item),
+            };
+        }
+        case "toggle-folder": {
+            const folder = state.folders.find((item) => item.id === action.id);
+            if (!folder)
+                return state;
+            return {
+                ...state,
+                folders: state.folders.map((item) => (item.id === folder.id ? { ...item, collapsed: !item.collapsed } : item)),
+            };
+        }
+        case "delete-folder":
+            return deleteFolder(state, action.id, action.strategy);
         case "replace-state":
             return action.state === state ? state : action.state;
         case "reset":
@@ -125,66 +160,61 @@ export function reduceState(state, action) {
             return state;
     }
 }
-function updateChecklist(state, kind, updater) {
-    const updatedItems = updater(state.currentIteration[kind]);
-    if (updatedItems === state.currentIteration[kind])
+function updateOneTask(state, id, replacement) {
+    return { ...state, tasks: state.tasks.map((task) => (task.id === id ? replacement : task)) };
+}
+function adjacentPriority(priority, direction) {
+    const priorities = ["high", "medium", "low"];
+    const index = priorities.indexOf(priority);
+    const nextIndex = direction === "raise" ? Math.max(0, index - 1) : Math.min(priorities.length - 1, index + 1);
+    return priorities[nextIndex] ?? priority;
+}
+function deleteFolder(state, id, strategy) {
+    const folder = state.folders.find((item) => item.id === id);
+    if (!folder)
         return state;
+    const descendants = getFolderDescendantIds(state.folders, id);
+    const deletedIds = new Set([id, ...descendants]);
+    if (strategy === "move-contents") {
+        return {
+            ...state,
+            folders: state.folders
+                .filter((item) => item.id !== id)
+                .map((item) => (item.parentId === id ? { ...item, parentId: folder.parentId } : item)),
+            tasks: state.tasks.map((task) => (task.folderId === id ? { ...task, folderId: folder.parentId } : task)),
+            preferences: {
+                ...state.preferences,
+                folderScope: state.preferences.folderScope === id ? folder.parentId ?? "root" : state.preferences.folderScope,
+            },
+        };
+    }
+    const scopeDeleted = typeof state.preferences.folderScope === "string" && deletedIds.has(state.preferences.folderScope);
     return {
         ...state,
-        currentIteration: {
-            ...state.currentIteration,
-            [kind]: updatedItems,
+        folders: state.folders.filter((item) => !deletedIds.has(item.id)),
+        tasks: state.tasks.filter((task) => !task.folderId || !deletedIds.has(task.folderId)),
+        preferences: {
+            ...state.preferences,
+            folderScope: scopeDeleted ? folder.parentId ?? "root" : state.preferences.folderScope,
         },
     };
 }
-function applyFeedback(state, feedback, now = Date.now()) {
-    const normalized = normalizeText(feedback);
-    if (!normalized)
-        return state;
-    const suggestions = buildFeedbackSuggestions(normalized);
-    const existing = new Set(state.currentIteration.next.map((item) => item.text));
-    const nextItems = suggestions
-        .filter((text) => !existing.has(text))
-        .map((text, index) => createChecklistItem(createId("next", now + index), text, false, now + index));
-    const feedbackTask = createTask({
-        title: `处理反馈：${normalized}`,
-        priority: "high",
-        dueDate: "",
-        tag: "反馈",
-    }, now);
-    return {
-        ...state,
-        tasks: [feedbackTask, ...state.tasks],
-        currentIteration: {
-            ...state.currentIteration,
-            next: [...state.currentIteration.next, ...nextItems],
-        },
-    };
+function nextTaskOrder(tasks, folderId) {
+    const orders = tasks.filter((task) => task.folderId === folderId).map((task) => task.order);
+    return orders.length > 0 ? Math.max(...orders) + 1 : 0;
 }
-function completeIteration(state, feedback, now = Date.now()) {
-    const completed = state.currentIteration.completed.filter((item) => item.checked).map((item) => item.text);
-    const next = state.currentIteration.next.map((item) => item.text);
-    const normalizedFeedback = normalizeText(feedback);
-    const summary = {
-        id: createId("iteration", now),
-        number: state.currentIteration.number,
-        title: state.currentIteration.title,
-        completed,
-        next,
-        feedback: normalizedFeedback,
-        finishedAt: now,
-    };
-    return {
-        ...state,
-        iterations: [...state.iterations, summary],
-        currentIteration: {
-            number: state.currentIteration.number + 1,
-            title: next[0]?.replace(/[。.!！]$/, "") || "反馈优化版",
-            completed: [createChecklistItem(createId("done", now), "根据上一轮反馈确认本轮改进范围。", false, now)],
-            next: deriveNextRound(next, normalizedFeedback, now),
-        },
-    };
+function nextFolderOrder(folders, parentId) {
+    const orders = folders.filter((folder) => folder.parentId === parentId).map((folder) => folder.order);
+    return orders.length > 0 ? Math.max(...orders) + 1 : 0;
 }
 function isHistoryAction(action) {
-    return action.type !== "set-filter" && action.type !== "set-theme" && action.type !== "replace-state";
+    return ![
+        "set-status-filter",
+        "set-theme",
+        "set-view-mode",
+        "set-sort-mode",
+        "set-folder-scope",
+        "toggle-folder",
+        "replace-state",
+    ].includes(action.type);
 }

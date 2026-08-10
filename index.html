@@ -3,32 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#176c7d" />
-    <title>任务记录工作台</title>
+    <meta name="theme-color" content="#126575" />
+    <title>任务工作台</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23126575'/%3E%3Cpath d='M9 9h14v3H9zm0 6h9v3H9zm0 6h14v3H9z' fill='white'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="任务录入">
-        <div class="brand">
+      <aside id="sidebar" class="sidebar" aria-label="任务导航">
+        <header class="brand">
           <div class="brand-mark" aria-hidden="true">任</div>
-          <div>
-            <h1>任务记录工作台</h1>
-            <p>快速记录要做的事，定期沉淀改进。</p>
+          <div class="brand-copy">
+            <h1>任务工作台</h1>
+            <p>清楚安排，专注完成</p>
           </div>
-        </div>
+          <button class="icon-button sidebar-close" id="sidebarClose" type="button" title="关闭导航" aria-label="关闭导航">×</button>
+        </header>
 
-        <form id="taskForm" class="panel stack" autocomplete="off">
-          <div class="panel-heading">
-            <h2>记录任务</h2>
-            <span class="hint">Ctrl + Enter 保存</span>
+        <form id="taskForm" class="sidebar-section quick-add" autocomplete="off">
+          <div class="section-heading">
+            <h2>快速新增</h2>
+            <button class="icon-button subtle" id="clearForm" type="button" title="清空输入" aria-label="清空输入">×</button>
           </div>
-
           <label class="field">
-            <span>任务内容</span>
-            <textarea id="taskTitle" rows="4" maxlength="180" placeholder="例如：整理本周产品优化清单" required></textarea>
+            <span>任务名称</span>
+            <input id="taskTitle" type="text" maxlength="180" placeholder="准备做什么？" required />
           </label>
-
           <div class="field-grid">
             <label class="field">
               <span>优先级</span>
@@ -43,51 +43,50 @@
               <input id="taskDueDate" type="date" />
             </label>
           </div>
-
+          <label class="field">
+            <span>文件夹</span>
+            <select id="taskFolder"></select>
+          </label>
           <label class="field">
             <span>标签</span>
-            <input id="taskTag" type="text" maxlength="24" placeholder="工作 / 学习 / 生活" />
+            <input id="taskTag" type="text" maxlength="24" placeholder="可选" />
           </label>
-
-          <div class="form-actions">
-            <button class="button primary" type="submit" title="保存任务">
-              <span aria-hidden="true">＋</span>
-              保存任务
-            </button>
-            <button class="button ghost" id="clearForm" type="button" title="清空输入">
-              <span aria-hidden="true">×</span>
-              清空
-            </button>
-          </div>
+          <button class="button primary wide" type="submit" title="新增任务">
+            <span aria-hidden="true">＋</span>
+            新增任务
+          </button>
         </form>
 
-        <section class="panel stack">
-          <div class="panel-heading">
+        <section class="sidebar-section folder-section">
+          <div class="section-heading">
+            <h2>文件夹</h2>
+            <button class="icon-button subtle" id="newFolder" type="button" title="新建文件夹" aria-label="新建文件夹">＋</button>
+          </div>
+          <nav id="folderTree" class="folder-tree" aria-label="文件夹树"></nav>
+        </section>
+
+        <section class="sidebar-section overview-section">
+          <div class="section-heading">
             <h2>任务概览</h2>
-            <button class="icon-button" id="resetDemo" type="button" title="重置示例数据" aria-label="重置示例数据">↺</button>
+            <button class="icon-button subtle" id="resetDemo" type="button" title="恢复初始数据" aria-label="恢复初始数据">↺</button>
           </div>
           <div class="metric-grid">
-            <div class="metric">
-              <span id="metricOpen">0</span>
-              <small>待办</small>
-            </div>
-            <div class="metric">
-              <span id="metricDone">0</span>
-              <small>完成</small>
-            </div>
-            <div class="metric">
-              <span id="metricDue">0</span>
-              <small>到期/逾期</small>
-            </div>
+            <div class="metric"><span id="metricActive">0</span><small>待办</small></div>
+            <div class="metric"><span id="metricCompleted">0</span><small>完成</small></div>
+            <div class="metric"><span id="metricDiscarded">0</span><small>不再需要</small></div>
+            <div class="metric"><span id="metricDue">0</span><small>到期/逾期</small></div>
           </div>
         </section>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
-          <div>
-            <p class="eyebrow">当前工作区</p>
-            <h2 id="currentIterationTitle">任务看板</h2>
+          <div class="workspace-title">
+            <button class="icon-button nav-toggle" id="navToggle" type="button" title="打开导航" aria-label="打开导航">☰</button>
+            <div>
+              <p class="eyebrow">当前范围</p>
+              <h2 id="workspaceTitle">全部任务</h2>
+            </div>
           </div>
           <div class="topbar-actions">
             <button class="icon-button" id="undoAction" type="button" title="撤销" aria-label="撤销">↶</button>
@@ -101,137 +100,135 @@
               </select>
             </label>
             <input id="importFile" class="file-input" type="file" accept="application/json,.json" />
-            <button class="button secondary" id="importData" type="button" title="导入备份">
-              <span aria-hidden="true">⇧</span>
-              导入
-            </button>
-            <button class="button secondary" id="exportData" type="button" title="导出备份">
-              <span aria-hidden="true">⇩</span>
-              导出
-            </button>
-            <button class="button secondary" id="completeIteration" type="button" title="归档当前改进轮次">
-              <span aria-hidden="true">✓</span>
-              归档本轮
-            </button>
+            <button class="icon-button" id="importData" type="button" title="导入备份" aria-label="导入备份">⇧</button>
+            <button class="icon-button" id="exportData" type="button" title="导出备份" aria-label="导出备份">⇩</button>
           </div>
         </header>
 
-        <section class="board">
+        <section class="board" aria-label="任务列表">
           <div class="board-toolbar">
-            <div class="search-wrap">
+            <label class="search-wrap">
               <span aria-hidden="true">⌕</span>
-              <input id="searchInput" type="search" placeholder="搜索任务、标签或优先级" />
+              <span class="sr-only">搜索任务</span>
+              <input id="searchInput" type="search" placeholder="搜索标题、说明、标签或状态" />
+            </label>
+            <div class="segmented view-segments" role="group" aria-label="任务视图">
+              <button class="segment view-segment active" data-view="tree" type="button">树状</button>
+              <button class="segment view-segment" data-view="priority" type="button">优先级</button>
+              <button class="segment view-segment" data-view="due_date" type="button">截止日期</button>
             </div>
-            <div class="segmented" role="tablist" aria-label="任务状态筛选">
-              <button class="segment active" data-filter="all" type="button">全部</button>
-              <button class="segment" data-filter="open" type="button">待办</button>
-              <button class="segment" data-filter="done" type="button">完成</button>
+          </div>
+
+          <div class="filterbar">
+            <div class="segmented status-segments" role="group" aria-label="任务状态筛选">
+              <button class="segment status-segment active" data-filter="all" type="button">全部</button>
+              <button class="segment status-segment" data-filter="active" type="button">待办</button>
+              <button class="segment status-segment" data-filter="completed" type="button">已完成</button>
+              <button class="segment status-segment" data-filter="discarded" type="button">不再需要</button>
             </div>
+            <label class="sort-control">
+              <span>排序</span>
+              <select id="sortMode">
+                <option value="manual">手动顺序</option>
+                <option value="priority">优先级</option>
+                <option value="due_date">截止日期</option>
+              </select>
+            </label>
           </div>
 
           <div class="list-head" aria-hidden="true">
             <span>任务</span>
             <span>优先级</span>
-            <span>截止</span>
+            <span>截止日期</span>
             <span>操作</span>
           </div>
 
-          <div id="taskList" class="task-list" aria-live="polite"></div>
+          <div id="taskList" class="task-list" role="listbox" aria-label="任务" aria-live="polite"></div>
           <div id="emptyState" class="empty-state" hidden>
             <strong>没有匹配的任务</strong>
-            <span>换个筛选条件，或在左侧记录一个新的任务。</span>
+            <span>调整筛选条件，或新建一项任务。</span>
           </div>
         </section>
       </main>
 
-      <aside class="right-rail" aria-label="改进与反馈">
-        <section class="panel stack">
-          <div class="panel-heading">
-            <h2>改进记录</h2>
-            <button class="icon-button" id="addDoneItem" type="button" title="添加完成项" aria-label="添加完成项">＋</button>
+      <aside id="taskDetail" class="detail-panel" aria-label="任务详情">
+        <header class="detail-header">
+          <div>
+            <p class="eyebrow">当前选择</p>
+            <h2>任务详情</h2>
           </div>
-          <div id="doneLog" class="check-list"></div>
-        </section>
-
-        <section class="panel stack">
-          <div class="panel-heading">
-            <h2>下一轮改进项</h2>
-            <button class="icon-button" id="addNextItem" type="button" title="添加改进项" aria-label="添加改进项">＋</button>
-          </div>
-          <div id="nextPlan" class="check-list"></div>
-        </section>
-
-        <section class="panel stack">
-          <div class="panel-heading">
-            <h2>产品反馈</h2>
-            <span class="hint">整理为改进项</span>
+          <button class="icon-button detail-close" id="detailClose" type="button" title="关闭详情" aria-label="关闭详情">×</button>
+        </header>
+        <div id="detailEmpty" class="detail-empty">
+          <strong>选择一项任务</strong>
+          <span>任务的完整信息和编辑操作会显示在这里。</span>
+        </div>
+        <form id="detailForm" class="detail-form" autocomplete="off" hidden>
+          <label class="field">
+            <span>任务名称</span>
+            <textarea id="detailTitle" rows="3" maxlength="180" required></textarea>
+          </label>
+          <label class="field">
+            <span>说明</span>
+            <textarea id="detailNotes" rows="6" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea>
+          </label>
+          <div class="field-grid">
+            <label class="field">
+              <span>状态</span>
+              <select id="detailStatus">
+                <option value="active">待办</option>
+                <option value="completed">已完成</option>
+                <option value="discarded">不再需要</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>优先级</span>
+              <select id="detailPriority">
+                <option value="high">高</option>
+                <option value="medium">中</option>
+                <option value="low">低</option>
+              </select>
+            </label>
           </div>
           <label class="field">
-            <span>你的建议</span>
-            <textarea id="feedbackInput" rows="5" maxlength="400" placeholder="例如：希望增加提醒、分类统计或多设备同步"></textarea>
+            <span>文件夹</span>
+            <select id="detailFolder"></select>
           </label>
-          <button class="button primary wide" id="applyFeedback" type="button" title="整理反馈为下一轮改进项">
-            <span aria-hidden="true">↪</span>
-            整理为改进项
-          </button>
-        </section>
-
-        <section class="panel stack">
-          <div class="panel-heading">
-            <h2>开发历史</h2>
-            <span id="iterationCount" class="hint">0 条</span>
+          <div class="field-grid">
+            <label class="field">
+              <span>截止日期</span>
+              <input id="detailDueDate" type="date" />
+            </label>
+            <label class="field">
+              <span>标签</span>
+              <input id="detailTag" type="text" maxlength="24" />
+            </label>
           </div>
-          <div id="iterationHistory" class="history"></div>
-        </section>
+          <dl class="timestamps">
+            <div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div>
+            <div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div>
+          </dl>
+          <div class="detail-actions">
+            <button class="button ghost" id="cancelDetail" type="button">取消</button>
+            <button class="button primary" type="submit">保存更改</button>
+          </div>
+        </form>
       </aside>
     </div>
 
-    <template id="taskTemplate">
-      <article class="task-item">
-        <label class="task-check">
-          <input type="checkbox" />
-          <span class="sr-only">切换完成状态</span>
-        </label>
-        <div class="task-main">
-          <strong></strong>
-          <small></small>
-        </div>
-        <span class="priority"></span>
-        <time></time>
-        <div class="task-actions">
-          <button class="icon-button" data-action="edit" type="button" title="编辑任务" aria-label="编辑任务">✎</button>
-          <button class="icon-button danger" data-action="delete" type="button" title="删除任务" aria-label="删除任务">×</button>
-        </div>
-      </article>
-    </template>
-
-    <dialog id="taskDialog" class="modal">
-      <form id="taskDialogForm" class="modal-card stack">
+    <dialog id="folderDialog" class="modal">
+      <form id="folderDialogForm" class="modal-card stack">
         <div class="modal-head">
-          <h2 id="taskDialogTitle">编辑任务</h2>
+          <h2 id="folderDialogTitle">新建文件夹</h2>
           <button class="icon-button" type="button" data-close-dialog aria-label="关闭">×</button>
         </div>
         <label class="field">
-          <span>任务内容</span>
-          <textarea id="dialogTaskTitle" rows="4" maxlength="180" required></textarea>
+          <span>名称</span>
+          <input id="folderName" type="text" maxlength="48" required />
         </label>
-        <div class="field-grid">
-          <label class="field">
-            <span>优先级</span>
-            <select id="dialogTaskPriority">
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>截止日期</span>
-            <input id="dialogTaskDueDate" type="date" />
-          </label>
-        </div>
         <label class="field">
-          <span>标签</span>
-          <input id="dialogTaskTag" type="text" maxlength="24" />
+          <span>上级文件夹</span>
+          <select id="folderParent"></select>
         </label>
         <div class="modal-actions">
           <button class="button ghost" type="button" data-close-dialog>取消</button>
@@ -240,19 +237,17 @@
       </form>
     </dialog>
 
-    <dialog id="itemDialog" class="modal">
-      <form id="itemDialogForm" class="modal-card stack">
+    <dialog id="folderDeleteDialog" class="modal">
+      <form class="modal-card stack">
         <div class="modal-head">
-          <h2 id="itemDialogTitle">添加改进项</h2>
-          <button class="icon-button" type="button" data-close-dialog aria-label="关闭">×</button>
+          <h2>删除非空文件夹</h2>
+          <button class="icon-button" id="folderDeleteClose" type="button" aria-label="关闭">×</button>
         </div>
-        <label class="field">
-          <span id="itemDialogLabel">内容</span>
-          <textarea id="itemDialogText" rows="4" maxlength="220" required></textarea>
-        </label>
-        <div class="modal-actions">
-          <button class="button ghost" type="button" data-close-dialog>取消</button>
-          <button class="button primary" type="submit">保存</button>
+        <p id="folderDeleteText" class="confirm-text"></p>
+        <div class="choice-actions">
+          <button class="button secondary" id="folderDeleteMove" type="button">内容移到上一级</button>
+          <button class="button danger-button" id="folderDeleteBranch" type="button">删除整个分支</button>
+          <button class="button ghost" id="folderDeleteCancel" type="button">取消</button>
         </div>
       </form>
     </dialog>
@@ -272,7 +267,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-
     <script type="module" src="dist/main.js"></script>
   </body>
 </html>

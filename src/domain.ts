@@ -1,22 +1,32 @@
 import type {
   AppState,
-  ChecklistItem,
-  CurrentIteration,
-  IterationSummary,
+  Folder,
+  FolderDraft,
+  FolderScope,
   Preferences,
   Priority,
+  SortMode,
   Task,
   TaskDraft,
   TaskFilter,
+  TaskStatus,
   ThemeMode,
+  ViewMode,
 } from "./types.js";
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
+export const MAX_FOLDER_DEPTH = 4;
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   high: "高",
   medium: "中",
   low: "低",
+};
+
+export const STATUS_LABELS: Record<TaskStatus, string> = {
+  active: "待办",
+  completed: "已完成",
+  discarded: "不再需要",
 };
 
 export const PRIORITY_RANK: Record<Priority, number> = {
@@ -25,93 +35,96 @@ export const PRIORITY_RANK: Record<Priority, number> = {
   low: 2,
 };
 
-const FEEDBACK_RULES: Array<{ keywords: string[]; suggestion: string }> = [
-  { keywords: ["提醒", "通知", "到期", "逾期"], suggestion: "增加截止日期状态、到期提醒和逾期标记。" },
-  { keywords: ["统计", "报表", "图表", "趋势"], suggestion: "增加按标签、优先级和完成率的统计视图。" },
-  { keywords: ["同步", "多设备", "账号"], suggestion: "评估数据同步、账号体系和冲突合并策略。" },
-  { keywords: ["导入", "备份", "恢复"], suggestion: "完善 JSON 导入、备份恢复和数据校验提示。" },
-  { keywords: ["日历", "周视图", "月视图"], suggestion: "增加日历视图，按日期查看任务安排。" },
-  { keywords: ["分类", "标签", "项目"], suggestion: "增强标签和项目分类管理能力。" },
-  { keywords: ["子任务", "清单", "拆分"], suggestion: "支持任务下的子任务清单和完成进度。" },
-  { keywords: ["离线", "安装", "桌面"], suggestion: "升级为 PWA，支持离线访问和安装到桌面。" },
-  { keywords: ["撤销", "重做", "误删"], suggestion: "增强撤销、重做和删除恢复体验。" },
-];
-
 type UnknownRecord = Record<string, unknown>;
 
 export interface BackupValidation {
   valid: boolean;
   message: string;
-  kind?: "current" | "legacy";
+  kind?: "current" | "v2" | "legacy";
 }
+
+export type DueDateGroup = "overdue" | "today" | "next_seven_days" | "later" | "unscheduled";
 
 export function createDefaultState(now = Date.now()): AppState {
   const today = toISODate(now);
+  const workFolder = createFolder({ name: "工作", parentId: null }, now - 2_000, "folder-work", 0);
+  const personalFolder = createFolder({ name: "个人", parentId: null }, now - 1_000, "folder-personal", 1);
 
   return {
     schemaVersion: SCHEMA_VERSION,
     preferences: {
-      activeFilter: "all",
+      activeStatusFilter: "all",
       theme: "system",
+      viewMode: "tree",
+      sortMode: "manual",
+      folderScope: "all",
     },
-    currentIteration: {
-      number: 2,
-      title: "结构优化版",
-      completed: [
-        createChecklistItem("done-1", "完成基础任务记录、筛选、搜索和完成状态切换。", true, now - 3_000),
-        createChecklistItem("done-2", "建立本地保存、导出和开发迭代记录。", true, now - 2_000),
-      ],
-      next: [
-        createChecklistItem("next-1", "拆分单文件巨石，建立类型、状态、存储、UI 模块边界。", false, now - 1_000),
-        createChecklistItem("next-2", "加入数据校验、导入恢复、撤销重做和深色主题。", false, now),
-      ],
-    },
+    folders: [workFolder, personalFolder],
     tasks: [
-      {
-        id: "task-1",
-        title: "记录今天必须推进的三件事",
-        priority: "high",
-        dueDate: today,
-        tag: "工作",
-        done: false,
-        createdAt: now - 7_200_000,
-        updatedAt: now - 7_200_000,
-      },
-      {
-        id: "task-2",
-        title: "把反馈整理成下一轮改进清单",
-        priority: "medium",
-        dueDate: "",
-        tag: "改进",
-        done: false,
-        createdAt: now - 3_600_000,
-        updatedAt: now - 3_600_000,
-      },
+      createTask(
+        {
+          title: "确定今天最重要的一件事",
+          notes: "写下明确结果，并安排第一个可执行步骤。",
+          priority: "high",
+          dueDate: today,
+          tag: "重点",
+          status: "active",
+          folderId: workFolder.id,
+        },
+        now - 7_200_000,
+        "task-1",
+        0,
+      ),
+      createTask(
+        {
+          title: "安排一段不被打扰的专注时间",
+          notes: "",
+          priority: "medium",
+          dueDate: "",
+          tag: "日常",
+          status: "active",
+          folderId: personalFolder.id,
+        },
+        now - 3_600_000,
+        "task-2",
+        0,
+      ),
     ],
-    iterations: [],
   };
 }
 
-export function createTask(draft: TaskDraft, now = Date.now(), id = createId("task", now)): Task {
+export function createTask(
+  draft: TaskDraft,
+  now = Date.now(),
+  id = createId("task", now),
+  order = 0,
+): Task {
   return {
     id,
     title: normalizeText(draft.title),
+    notes: normalizeMultiline(draft.notes),
     priority: coercePriority(draft.priority),
     dueDate: normalizeDate(draft.dueDate),
     tag: normalizeText(draft.tag),
-    done: false,
+    status: coerceTaskStatus(draft.status),
+    folderId: normalizeNullableId(draft.folderId),
+    order: coerceOrder(order),
     createdAt: now,
     updatedAt: now,
   };
 }
 
-export function updateTask(task: Task, draft: TaskDraft, now = Date.now()): Task {
+export function updateTask(task: Task, draft: TaskDraft, now = Date.now(), order = task.order): Task {
   return {
     ...task,
     title: normalizeText(draft.title),
+    notes: normalizeMultiline(draft.notes),
     priority: coercePriority(draft.priority),
     dueDate: normalizeDate(draft.dueDate),
     tag: normalizeText(draft.tag),
+    status: coerceTaskStatus(draft.status),
+    folderId: normalizeNullableId(draft.folderId),
+    order: coerceOrder(order),
     updatedAt: now,
   };
 }
@@ -119,18 +132,29 @@ export function updateTask(task: Task, draft: TaskDraft, now = Date.now()): Task
 export function taskMatchesDraft(task: Task, draft: TaskDraft): boolean {
   return (
     task.title === normalizeText(draft.title) &&
+    task.notes === normalizeMultiline(draft.notes) &&
     task.priority === coercePriority(draft.priority) &&
     task.dueDate === normalizeDate(draft.dueDate) &&
-    task.tag === normalizeText(draft.tag)
+    task.tag === normalizeText(draft.tag) &&
+    task.status === coerceTaskStatus(draft.status) &&
+    task.folderId === normalizeNullableId(draft.folderId)
   );
 }
 
-export function createChecklistItem(id: string, text: string, checked = false, now = Date.now()): ChecklistItem {
+export function createFolder(
+  draft: FolderDraft,
+  now = Date.now(),
+  id = createId("folder", now),
+  order = 0,
+): Folder {
   return {
     id,
-    text: normalizeText(text),
-    checked,
+    name: normalizeText(draft.name),
+    parentId: normalizeNullableId(draft.parentId),
+    order: coerceOrder(order),
+    collapsed: false,
     createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -143,9 +167,18 @@ export function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
 }
 
+export function normalizeMultiline(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : "";
+}
+
 export function normalizeDate(value: unknown): string {
   if (typeof value !== "string") return "";
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+export function normalizeNullableId(value: unknown): string | null {
+  const normalized = normalizeText(value);
+  return normalized || null;
 }
 
 export function coercePriority(value: unknown): Priority {
@@ -154,14 +187,32 @@ export function coercePriority(value: unknown): Priority {
   return "medium";
 }
 
+export function coerceTaskStatus(value: unknown): TaskStatus {
+  if (value === "completed") return "completed";
+  if (value === "discarded") return "discarded";
+  return "active";
+}
+
 export function coerceFilter(value: unknown): TaskFilter {
-  if (value === "open" || value === "done" || value === "all") return value;
+  if (value === "active" || value === "completed" || value === "discarded" || value === "all") return value;
+  if (value === "open") return "active";
+  if (value === "done") return "completed";
   return "all";
 }
 
 export function coerceTheme(value: unknown): ThemeMode {
   if (value === "light" || value === "dark" || value === "system") return value;
   return "system";
+}
+
+export function coerceViewMode(value: unknown): ViewMode {
+  if (value === "priority" || value === "due_date" || value === "tree") return value;
+  return "tree";
+}
+
+export function coerceSortMode(value: unknown): SortMode {
+  if (value === "priority" || value === "due_date" || value === "manual") return value;
+  return "manual";
 }
 
 export function priorityRank(priority: Priority): number {
@@ -177,170 +228,276 @@ export function toISODate(value: number | Date = Date.now()): string {
 }
 
 export function isDueOrOverdue(task: Task, todayISO = toISODate()): boolean {
-  return !task.done && Boolean(task.dueDate) && task.dueDate <= todayISO;
+  return task.status === "active" && Boolean(task.dueDate) && task.dueDate <= todayISO;
+}
+
+export function dueDateGroup(task: Task, todayISO = toISODate()): DueDateGroup {
+  if (!task.dueDate) return "unscheduled";
+  if (task.dueDate < todayISO) return "overdue";
+  if (task.dueDate === todayISO) return "today";
+
+  const boundary = new Date(`${todayISO}T00:00:00`);
+  boundary.setDate(boundary.getDate() + 7);
+  return task.dueDate <= toISODate(boundary) ? "next_seven_days" : "later";
+}
+
+export function getFolderDescendantIds(folders: Folder[], folderId: string): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [folderId];
+  while (queue.length > 0) {
+    const parentId = queue.shift();
+    for (const folder of folders) {
+      if (folder.parentId === parentId && !descendants.has(folder.id)) {
+        descendants.add(folder.id);
+        queue.push(folder.id);
+      }
+    }
+  }
+  return descendants;
+}
+
+export function getFolderDepth(folders: Folder[], folderId: string | null): number {
+  if (!folderId) return 0;
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const visited = new Set<string>();
+  let currentId: string | null = folderId;
+  let depth = 0;
+  while (currentId) {
+    if (visited.has(currentId)) return Number.POSITIVE_INFINITY;
+    visited.add(currentId);
+    const folder = byId.get(currentId);
+    if (!folder) return Number.POSITIVE_INFINITY;
+    depth += 1;
+    currentId = folder.parentId;
+  }
+  return depth;
+}
+
+export function canMoveFolder(folders: Folder[], folderId: string, parentId: string | null): boolean {
+  const folder = folders.find((item) => item.id === folderId);
+  if (!folder) return false;
+  if (parentId === folderId) return false;
+  if (parentId && !folders.some((item) => item.id === parentId)) return false;
+  if (getFolderDescendantIds(folders, folderId).has(parentId ?? "")) return false;
+
+  const baseDepth = getFolderDepth(folders, parentId) + 1;
+  let subtreeHeight = 1;
+  for (const descendantId of getFolderDescendantIds(folders, folderId)) {
+    const relativeDepth = getRelativeFolderDepth(folders, descendantId, folderId);
+    subtreeHeight = Math.max(subtreeHeight, relativeDepth + 1);
+  }
+  return Number.isFinite(baseDepth) && baseDepth + subtreeHeight - 1 <= MAX_FOLDER_DEPTH;
+}
+
+export function canAddFolder(folders: Folder[], parentId: string | null): boolean {
+  if (parentId && !folders.some((folder) => folder.id === parentId)) return false;
+  return getFolderDepth(folders, parentId) + 1 <= MAX_FOLDER_DEPTH;
 }
 
 export function selectVisibleTasks(state: AppState, query: string): Task[] {
   const normalizedQuery = normalizeText(query).toLowerCase();
+  const scopedFolderIds = getScopedFolderIds(state.folders, state.preferences.folderScope);
 
   return state.tasks
     .filter((task) => {
       const matchesStatus =
-        state.preferences.activeFilter === "all" ||
-        (state.preferences.activeFilter === "open" && !task.done) ||
-        (state.preferences.activeFilter === "done" && task.done);
-      const haystack = `${task.title} ${task.tag} ${PRIORITY_LABELS[task.priority]}`.toLowerCase();
-      return matchesStatus && (!normalizedQuery || haystack.includes(normalizedQuery));
+        state.preferences.activeStatusFilter === "all" || task.status === state.preferences.activeStatusFilter;
+      const matchesScope =
+        state.preferences.folderScope === "all" ||
+        (state.preferences.folderScope === "root" ? task.folderId === null : Boolean(task.folderId && scopedFolderIds.has(task.folderId)));
+      const haystack = `${task.title} ${task.notes} ${task.tag} ${PRIORITY_LABELS[task.priority]} ${STATUS_LABELS[task.status]}`.toLowerCase();
+      return matchesStatus && matchesScope && (!normalizedQuery || haystack.includes(normalizedQuery));
     })
-    .sort((a, b) => Number(a.done) - Number(b.done) || priorityRank(a.priority) - priorityRank(b.priority) || b.createdAt - a.createdAt);
+    .sort(taskComparator(state.preferences.sortMode));
 }
 
-export function buildFeedbackSuggestions(feedback: string): string[] {
-  const normalized = normalizeText(feedback);
-  if (!normalized) return [];
-
-  const matched = FEEDBACK_RULES.filter((rule) => rule.keywords.some((keyword) => normalized.includes(keyword))).map((rule) => rule.suggestion);
-  if (matched.length > 0) return uniqueStrings(matched);
-
-  return [`澄清并拆解反馈：“${normalized}”。`, "把反馈拆成可验证的小功能并纳入下一轮验收。"];
-}
-
-export function deriveNextRound(previousNext: string[], feedback: string, now = Date.now()): ChecklistItem[] {
-  const feedbackItems = buildFeedbackSuggestions(feedback).map((text) => createChecklistItem(createId("next", now), text, false, now));
-  const carryItems = previousNext
-    .slice(1, 4)
-    .map((text, index) => createChecklistItem(createId(`next-${index}`, now + index), text, false, now + index));
-  const merged = uniqueChecklistItems([...feedbackItems, ...carryItems]);
-
-  if (merged.length > 0) return merged.slice(0, 5);
-
-  return [
-    createChecklistItem(createId("next", now), "验证当前版本的日常记录效率。", false, now),
-    createChecklistItem(createId("next", now + 1), "根据真实使用场景补充批量操作。", false, now + 1),
-  ];
+export function taskComparator(sortMode: SortMode): (a: Task, b: Task) => number {
+  return (a, b) => {
+    if (sortMode === "priority") {
+      return priorityRank(a.priority) - priorityRank(b.priority) || compareDueDates(a, b) || stableTaskOrder(a, b);
+    }
+    if (sortMode === "due_date") {
+      return compareDueDates(a, b) || priorityRank(a.priority) - priorityRank(b.priority) || stableTaskOrder(a, b);
+    }
+    return stableTaskOrder(a, b);
+  };
 }
 
 export function hydrateState(input: unknown, now = Date.now()): AppState {
-  const fallback = createDefaultState(now);
-  if (!isRecord(input)) return fallback;
-
+  if (!isRecord(input)) return createDefaultState(now);
   const source = input;
-  const preferences = hydratePreferences(source.preferences, source);
-  const currentIteration = hydrateCurrentIteration(source.currentIteration, fallback.currentIteration, now);
-  const tasks = Array.isArray(source.tasks) ? source.tasks.map((item, index) => hydrateTask(item, now + index)).filter(isTask) : fallback.tasks;
-  const iterations = Array.isArray(source.iterations)
-    ? source.iterations.map((item, index) => hydrateIteration(item, now + index)).filter(isIterationSummary)
-    : fallback.iterations;
-
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    preferences,
-    currentIteration,
-    tasks,
-    iterations,
-  };
+  const isV3 = source.schemaVersion === SCHEMA_VERSION || Array.isArray(source.folders);
+  return isV3 ? hydrateV3State(source, now) : migrateLegacyState(source, now);
 }
 
 export function validateBackupPayload(input: unknown): BackupValidation {
-  if (!isRecord(input)) {
-    return { valid: false, message: "备份文件结构无效：根节点必须是对象。" };
-  }
-
-  if (isLegacyBackupPayload(input)) {
-    return { valid: true, message: "", kind: "legacy" };
-  }
-
-  if (!isRecord(input.preferences)) {
-    return { valid: false, message: "备份文件结构无效：缺少 preferences。" };
-  }
-
-  if (!Array.isArray(input.tasks)) {
-    return { valid: false, message: "备份文件结构无效：缺少 tasks 数组。" };
-  }
-
-  if (!isRecord(input.currentIteration)) {
-    return { valid: false, message: "备份文件结构无效：缺少 currentIteration。" };
-  }
-
-  const iteration = input.currentIteration;
-  if (typeof iteration.number !== "number" || !Number.isFinite(iteration.number)) {
-    return { valid: false, message: "备份文件结构无效：currentIteration.number 必须是数字。" };
-  }
-
-  if (!normalizeText(iteration.title)) {
-    return { valid: false, message: "备份文件结构无效：currentIteration.title 不能为空。" };
-  }
-
-  if (!Array.isArray(iteration.completed) || !Array.isArray(iteration.next)) {
-    return { valid: false, message: "备份文件结构无效：currentIteration 需要 completed 和 next 数组。" };
-  }
-
-  const hasInvalidTask = input.tasks.some((task) => !isRecord(task) || !normalizeText(task.title));
-  if (hasInvalidTask) {
-    return { valid: false, message: "备份文件结构无效：tasks 中存在无效任务。" };
-  }
-
-  if (input.iterations !== undefined && !Array.isArray(input.iterations)) {
-    return { valid: false, message: "备份文件结构无效：iterations 必须是数组。" };
-  }
-
-  return { valid: true, message: "", kind: "current" };
+  return validatePayload(input, "备份文件");
 }
 
 export function validateStoredPayload(input: unknown): BackupValidation {
+  return validatePayload(input, "本地数据");
+}
+
+function validatePayload(input: unknown, sourceLabel: string): BackupValidation {
   if (!isRecord(input)) {
-    return { valid: false, message: "本地数据结构无效，已恢复为默认数据。" };
+    return invalid(sourceLabel, "根节点必须是对象。");
+  }
+
+  if (input.schemaVersion === SCHEMA_VERSION || Array.isArray(input.folders)) {
+    if (!isRecord(input.preferences)) return invalid(sourceLabel, "缺少 preferences。");
+    if (!isValidV3Preferences(input.preferences)) return invalid(sourceLabel, "preferences 中存在无效偏好设置。");
+    if (!Array.isArray(input.tasks)) return invalid(sourceLabel, "缺少 tasks 数组。");
+    if (!Array.isArray(input.folders)) return invalid(sourceLabel, "缺少 folders 数组。");
+    if (input.tasks.some((task) => !isValidV3Task(task))) return invalid(sourceLabel, "tasks 中存在无效任务。");
+    if (input.folders.some((folder) => !isValidV3Folder(folder))) return invalid(sourceLabel, "folders 中存在无效文件夹。");
+    return { valid: true, message: "", kind: "current" };
+  }
+
+  if (isV2Payload(input)) {
+    return { valid: true, message: "", kind: "v2" };
   }
 
   if (isLegacyBackupPayload(input)) {
     return { valid: true, message: "", kind: "legacy" };
   }
 
-  return validateBackupPayload(input);
+  return invalid(sourceLabel, "缺少可迁移的任务数据。");
+}
+
+function invalid(sourceLabel: string, detail: string): BackupValidation {
+  return { valid: false, message: `${sourceLabel}结构无效：${detail}` };
+}
+
+function isV2Payload(input: UnknownRecord): boolean {
+  if (input.schemaVersion !== 2 || !isRecord(input.preferences) || !Array.isArray(input.tasks)) return false;
+  if (!isRecord(input.currentIteration)) return false;
+  return input.tasks.every((task) => isLegacyTask(task));
 }
 
 function isLegacyBackupPayload(input: UnknownRecord): boolean {
-  if (isRecord(input.preferences)) return false;
-  if (!Array.isArray(input.tasks)) return false;
-  if (!isRecord(input.currentIteration)) return false;
-
+  if (isRecord(input.preferences) || !Array.isArray(input.tasks) || !isRecord(input.currentIteration)) return false;
   const iteration = input.currentIteration;
   return (
-    (input.activeFilter === undefined || input.activeFilter === "all" || input.activeFilter === "open" || input.activeFilter === "done") &&
     typeof iteration.number === "number" &&
     normalizeText(iteration.title).length > 0 &&
-    input.tasks.every((task) => isRecord(task) && normalizeText(task.title))
+    input.tasks.every((task) => isLegacyTask(task))
   );
 }
 
-function hydratePreferences(value: unknown, legacyRoot: UnknownRecord): Preferences {
+function isLegacyTask(value: unknown): boolean {
+  return isRecord(value) && Boolean(normalizeText(value.title));
+}
+
+function isValidV3Task(value: unknown): boolean {
+  if (!isRecord(value) || !normalizeText(value.id) || !normalizeText(value.title)) return false;
+  if (!isPriority(value.priority) || !isTaskStatus(value.status)) return false;
+  if (typeof value.notes !== "string" || typeof value.dueDate !== "string" || typeof value.tag !== "string") return false;
+  if (value.dueDate && !normalizeDate(value.dueDate)) return false;
+  if (value.folderId !== null && typeof value.folderId !== "string") return false;
+  return (
+    typeof value.order === "number" &&
+    Number.isFinite(value.order) &&
+    typeof value.createdAt === "number" &&
+    Number.isFinite(value.createdAt) &&
+    typeof value.updatedAt === "number" &&
+    Number.isFinite(value.updatedAt)
+  );
+}
+
+function isValidV3Folder(value: unknown): boolean {
+  if (!isRecord(value) || !normalizeText(value.id) || !normalizeText(value.name)) return false;
+  if (value.parentId !== null && typeof value.parentId !== "string") return false;
+  return (
+    typeof value.order === "number" &&
+    Number.isFinite(value.order) &&
+    typeof value.collapsed === "boolean" &&
+    typeof value.createdAt === "number" &&
+    Number.isFinite(value.createdAt) &&
+    typeof value.updatedAt === "number" &&
+    Number.isFinite(value.updatedAt)
+  );
+}
+
+function isValidV3Preferences(value: UnknownRecord): boolean {
+  return (
+    (value.activeStatusFilter === "all" || isTaskStatus(value.activeStatusFilter)) &&
+    (value.theme === "system" || value.theme === "light" || value.theme === "dark") &&
+    (value.viewMode === "tree" || value.viewMode === "priority" || value.viewMode === "due_date") &&
+    (value.sortMode === "manual" || value.sortMode === "priority" || value.sortMode === "due_date") &&
+    typeof value.folderScope === "string"
+  );
+}
+
+function hydrateV3State(source: UnknownRecord, now: number): AppState {
+  const rawFolders = Array.isArray(source.folders)
+    ? source.folders.map((value, index) => hydrateFolder(value, now + index)).filter(isFolder)
+    : [];
+  const folders = sanitizeFolders(uniqueById(rawFolders));
+  const folderIds = new Set(folders.map((folder) => folder.id));
+  const tasks = Array.isArray(source.tasks)
+    ? source.tasks.map((value, index) => hydrateTask(value, now + index, index, folderIds)).filter(isTask)
+    : [];
+  const preferences = hydratePreferences(source.preferences, source, folderIds);
+
+  return { schemaVersion: SCHEMA_VERSION, preferences, folders, tasks: uniqueById(tasks) };
+}
+
+function migrateLegacyState(source: UnknownRecord, now: number): AppState {
+  const sourcePreferences = isRecord(source.preferences) ? source.preferences : source;
+  const tasks = Array.isArray(source.tasks)
+    ? source.tasks
+        .map((value, index) => migrateLegacyTask(value, now + index, index))
+        .filter(isTask)
+    : [];
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    preferences: {
+      activeStatusFilter: coerceFilter(sourcePreferences.activeStatusFilter ?? sourcePreferences.activeFilter),
+      theme: coerceTheme(sourcePreferences.theme),
+      viewMode: "tree",
+      sortMode: "manual",
+      folderScope: "all",
+    },
+    folders: [],
+    tasks: uniqueById(tasks),
+  };
+}
+
+function hydratePreferences(value: unknown, legacyRoot: UnknownRecord, folderIds: Set<string>): Preferences {
   const source = isRecord(value) ? value : legacyRoot;
+  const rawScope = normalizeText(source.folderScope);
+  const folderScope: FolderScope = rawScope === "root" || rawScope === "all" || folderIds.has(rawScope) ? rawScope : "all";
   return {
-    activeFilter: coerceFilter(source.activeFilter),
+    activeStatusFilter: coerceFilter(source.activeStatusFilter ?? source.activeFilter),
     theme: coerceTheme(source.theme),
+    viewMode: coerceViewMode(source.viewMode),
+    sortMode: coerceSortMode(source.sortMode),
+    folderScope,
   };
 }
 
-function hydrateCurrentIteration(value: unknown, fallback: CurrentIteration, now: number): CurrentIteration {
-  if (!isRecord(value)) return fallback;
-  const number = typeof value.number === "number" && Number.isFinite(value.number) ? Math.max(1, Math.floor(value.number)) : fallback.number;
-  const title = normalizeText(value.title) || fallback.title;
-  const completed = Array.isArray(value.completed)
-    ? value.completed.map((item, index) => hydrateChecklistItem(item, `done-${index}`, now + index)).filter(isChecklistItem)
-    : fallback.completed;
-  const next = Array.isArray(value.next)
-    ? value.next.map((item, index) => hydrateChecklistItem(item, `next-${index}`, now + index)).filter(isChecklistItem)
-    : fallback.next;
-
+function hydrateTask(value: unknown, now: number, fallbackOrder: number, folderIds: Set<string>): Task | null {
+  if (!isRecord(value)) return null;
+  const title = normalizeText(value.title);
+  if (!title) return null;
+  const createdAt = toTimestamp(value.createdAt, now);
+  const folderId = normalizeNullableId(value.folderId);
   return {
-    number,
+    id: normalizeText(value.id) || createId("task", now),
     title,
-    completed,
-    next,
+    notes: normalizeMultiline(value.notes),
+    priority: coercePriority(value.priority),
+    dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),
+    tag: normalizeText(value.tag),
+    status: isTaskStatus(value.status) ? value.status : Boolean(value.done) ? "completed" : "active",
+    folderId: folderId && folderIds.has(folderId) ? folderId : null,
+    order: coerceOrder(value.order, fallbackOrder),
+    createdAt,
+    updatedAt: toTimestamp(value.updatedAt, createdAt),
   };
 }
 
-function hydrateTask(value: unknown, now: number): Task | null {
+function migrateLegacyTask(value: unknown, now: number, order: number): Task | null {
   if (!isRecord(value)) return null;
   const title = normalizeText(value.title);
   if (!title) return null;
@@ -348,46 +505,88 @@ function hydrateTask(value: unknown, now: number): Task | null {
   return {
     id: normalizeText(value.id) || createId("task", now),
     title,
+    notes: "",
     priority: coercePriority(value.priority),
     dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),
     tag: normalizeText(value.tag),
-    done: Boolean(value.done),
+    status: Boolean(value.done) ? "completed" : "active",
+    folderId: null,
+    order,
     createdAt,
     updatedAt: toTimestamp(value.updatedAt, createdAt),
   };
 }
 
-function hydrateChecklistItem(value: unknown, fallbackId: string, now: number): ChecklistItem | null {
+function hydrateFolder(value: unknown, now: number): Folder | null {
   if (!isRecord(value)) return null;
-  const text = normalizeText(value.text);
-  if (!text) return null;
+  const name = normalizeText(value.name);
+  if (!name) return null;
+  const createdAt = toTimestamp(value.createdAt, now);
   return {
-    id: normalizeText(value.id) || fallbackId,
-    text,
-    checked: Boolean(value.checked),
-    createdAt: toTimestamp(value.createdAt, now),
+    id: normalizeText(value.id) || createId("folder", now),
+    name,
+    parentId: normalizeNullableId(value.parentId),
+    order: coerceOrder(value.order),
+    collapsed: Boolean(value.collapsed),
+    createdAt,
+    updatedAt: toTimestamp(value.updatedAt, createdAt),
   };
 }
 
-function hydrateIteration(value: unknown, now: number): IterationSummary | null {
-  if (!isRecord(value)) return null;
-  const title = normalizeText(value.title);
-  if (!title) return null;
-  const completed = Array.isArray(value.completed) ? value.completed.map(normalizeText).filter(Boolean) : [];
-  const next = Array.isArray(value.next) ? value.next.map(normalizeText).filter(Boolean) : [];
-  return {
-    id: normalizeText(value.id) || createId("iteration", now),
-    number: typeof value.number === "number" && Number.isFinite(value.number) ? Math.max(1, Math.floor(value.number)) : 1,
-    title,
-    completed,
-    next,
-    feedback: normalizeText(value.feedback),
-    finishedAt: toTimestamp(value.finishedAt, now),
-  };
+function sanitizeFolders(folders: Folder[]): Folder[] {
+  const ids = new Set(folders.map((folder) => folder.id));
+  const sanitized = folders.map((folder) => ({
+    ...folder,
+    parentId: folder.parentId && folder.parentId !== folder.id && ids.has(folder.parentId) ? folder.parentId : null,
+  }));
+
+  return sanitized.map((folder) => {
+    const depth = getFolderDepth(sanitized, folder.id);
+    return Number.isFinite(depth) && depth <= MAX_FOLDER_DEPTH ? folder : { ...folder, parentId: null };
+  });
+}
+
+function getScopedFolderIds(folders: Folder[], scope: FolderScope): Set<string> {
+  if (scope === "all" || scope === "root") return new Set();
+  return new Set([scope, ...getFolderDescendantIds(folders, scope)]);
+}
+
+function getRelativeFolderDepth(folders: Folder[], folderId: string, ancestorId: string): number {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  let current = byId.get(folderId);
+  let depth = 0;
+  while (current && current.id !== ancestorId) {
+    depth += 1;
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return current?.id === ancestorId ? depth : Number.POSITIVE_INFINITY;
+}
+
+function compareDueDates(a: Task, b: Task): number {
+  if (!a.dueDate && !b.dueDate) return 0;
+  if (!a.dueDate) return 1;
+  if (!b.dueDate) return -1;
+  return a.dueDate.localeCompare(b.dueDate);
+}
+
+function stableTaskOrder(a: Task, b: Task): number {
+  return a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+}
+
+function coerceOrder(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : fallback;
 }
 
 function toTimestamp(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function isPriority(value: unknown): value is Priority {
+  return value === "high" || value === "medium" || value === "low";
+}
+
+function isTaskStatus(value: unknown): value is TaskStatus {
+  return value === "active" || value === "completed" || value === "discarded";
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -398,23 +597,15 @@ function isTask(value: Task | null): value is Task {
   return value !== null;
 }
 
-function isChecklistItem(value: ChecklistItem | null): value is ChecklistItem {
+function isFolder(value: Folder | null): value is Folder {
   return value !== null;
 }
 
-function isIterationSummary(value: IterationSummary | null): value is IterationSummary {
-  return value !== null;
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values)];
-}
-
-function uniqueChecklistItems(values: ChecklistItem[]): ChecklistItem[] {
+function uniqueById<T extends { id: string }>(items: T[]): T[] {
   const seen = new Set<string>();
-  return values.filter((item) => {
-    if (seen.has(item.text)) return false;
-    seen.add(item.text);
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
     return true;
   });
 }

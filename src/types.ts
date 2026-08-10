@@ -1,74 +1,81 @@
 export type Priority = "high" | "medium" | "low";
-export type TaskFilter = "all" | "open" | "done";
+export type TaskStatus = "active" | "completed" | "discarded";
+export type TaskFilter = "all" | TaskStatus;
 export type ThemeMode = "system" | "light" | "dark";
-export type ChecklistKind = "completed" | "next";
+export type ViewMode = "tree" | "priority" | "due_date";
+export type SortMode = "manual" | "priority" | "due_date";
+export type FolderScope = "all" | "root" | string;
 
 export interface Task {
   id: string;
   title: string;
+  notes: string;
   priority: Priority;
   dueDate: string;
   tag: string;
-  done: boolean;
+  status: TaskStatus;
+  folderId: string | null;
+  order: number;
   createdAt: number;
   updatedAt: number;
 }
 
 export interface TaskDraft {
   title: string;
+  notes: string;
   priority: Priority;
   dueDate: string;
   tag: string;
+  status: TaskStatus;
+  folderId: string | null;
 }
 
-export interface ChecklistItem {
+export interface Folder {
   id: string;
-  text: string;
-  checked: boolean;
+  name: string;
+  parentId: string | null;
+  order: number;
+  collapsed: boolean;
   createdAt: number;
+  updatedAt: number;
 }
 
-export interface CurrentIteration {
-  number: number;
-  title: string;
-  completed: ChecklistItem[];
-  next: ChecklistItem[];
-}
-
-export interface IterationSummary {
-  id: string;
-  number: number;
-  title: string;
-  completed: string[];
-  next: string[];
-  feedback: string;
-  finishedAt: number;
+export interface FolderDraft {
+  name: string;
+  parentId: string | null;
 }
 
 export interface Preferences {
-  activeFilter: TaskFilter;
+  activeStatusFilter: TaskFilter;
   theme: ThemeMode;
+  viewMode: ViewMode;
+  sortMode: SortMode;
+  folderScope: FolderScope;
 }
 
 export interface AppState {
-  schemaVersion: 2;
+  schemaVersion: 3;
   preferences: Preferences;
-  currentIteration: CurrentIteration;
   tasks: Task[];
-  iterations: IterationSummary[];
+  folders: Folder[];
 }
+
+export type FolderDeleteStrategy = "move-contents" | "delete-branch";
 
 export type StateAction =
   | { type: "add-task"; draft: TaskDraft; now?: number }
   | { type: "update-task"; id: string; draft: TaskDraft; now?: number }
-  | { type: "toggle-task"; id: string; done: boolean; now?: number }
+  | { type: "set-task-status"; id: string; status: TaskStatus; now?: number }
+  | { type: "adjust-task-priority"; id: string; direction: "raise" | "lower"; now?: number }
   | { type: "delete-task"; id: string }
-  | { type: "set-filter"; filter: TaskFilter }
+  | { type: "set-status-filter"; filter: TaskFilter }
   | { type: "set-theme"; theme: ThemeMode }
-  | { type: "add-checklist-item"; kind: ChecklistKind; text: string; now?: number }
-  | { type: "toggle-checklist-item"; kind: ChecklistKind; id: string; checked: boolean }
-  | { type: "delete-checklist-item"; kind: ChecklistKind; id: string }
-  | { type: "apply-feedback"; feedback: string; now?: number }
-  | { type: "complete-iteration"; feedback: string; now?: number }
+  | { type: "set-view-mode"; viewMode: ViewMode }
+  | { type: "set-sort-mode"; sortMode: SortMode }
+  | { type: "set-folder-scope"; folderScope: FolderScope }
+  | { type: "add-folder"; draft: FolderDraft; now?: number }
+  | { type: "update-folder"; id: string; draft: FolderDraft; now?: number }
+  | { type: "toggle-folder"; id: string }
+  | { type: "delete-folder"; id: string; strategy: FolderDeleteStrategy }
   | { type: "replace-state"; state: AppState }
   | { type: "reset"; now?: number };
