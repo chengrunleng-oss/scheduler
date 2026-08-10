@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#126575" />
     <title>任务工作台</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23126575'/%3E%3Cpath d='M9 9h14v3H9zm0 6h9v3H9zm0 6h14v3H9z' fill='white'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260810-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -22,7 +22,7 @@
 
         <form id="taskForm" class="sidebar-section quick-add" autocomplete="off">
           <div class="section-heading">
-            <h2>快速新增</h2>
+            <h2>新建任务</h2>
             <button class="icon-button subtle" id="clearForm" type="button" title="清空输入" aria-label="清空输入">×</button>
           </div>
           <label class="field">
@@ -51,9 +51,9 @@
             <span>标签</span>
             <input id="taskTag" type="text" maxlength="24" placeholder="可选" />
           </label>
-          <button class="button primary wide" type="submit" title="新增任务">
+          <button class="button primary wide" type="submit" title="新建任务">
             <span aria-hidden="true">＋</span>
-            新增任务
+            新建任务
           </button>
         </form>
 
@@ -68,13 +68,13 @@
         <section class="sidebar-section overview-section">
           <div class="section-heading">
             <h2>任务概览</h2>
-            <button class="icon-button subtle" id="resetDemo" type="button" title="恢复初始数据" aria-label="恢复初始数据">↺</button>
+            <button class="icon-button subtle" id="resetDemo" type="button" title="重置为示例数据" aria-label="重置为示例数据">↺</button>
           </div>
           <div class="metric-grid">
             <div class="metric"><span id="metricActive">0</span><small>待办</small></div>
             <div class="metric"><span id="metricCompleted">0</span><small>完成</small></div>
             <div class="metric"><span id="metricDiscarded">0</span><small>不再需要</small></div>
-            <div class="metric"><span id="metricDue">0</span><small>到期/逾期</small></div>
+            <div class="metric"><span id="metricDue">0</span><small>今日/逾期</small></div>
           </div>
         </section>
       </aside>
@@ -84,7 +84,6 @@
           <div class="workspace-title">
             <button class="icon-button nav-toggle" id="navToggle" type="button" title="打开导航" aria-label="打开导航">☰</button>
             <div>
-              <p class="eyebrow">当前范围</p>
               <h2 id="workspaceTitle">全部任务</h2>
             </div>
           </div>
@@ -129,7 +128,7 @@
             <label class="sort-control">
               <span>排序</span>
               <select id="sortMode">
-                <option value="manual">手动顺序</option>
+                <option value="manual">添加顺序</option>
                 <option value="priority">优先级</option>
                 <option value="due_date">截止日期</option>
               </select>
@@ -160,54 +159,55 @@
           <button class="icon-button detail-close" id="detailClose" type="button" title="关闭详情" aria-label="关闭详情">×</button>
         </header>
         <div id="detailEmpty" class="detail-empty">
-          <strong>选择一项任务</strong>
-          <span>任务的完整信息和编辑操作会显示在这里。</span>
+          <strong>选择任务以查看详情</strong>
         </div>
         <form id="detailForm" class="detail-form" autocomplete="off" hidden>
-          <label class="field">
-            <span>任务名称</span>
-            <textarea id="detailTitle" rows="3" maxlength="180" required></textarea>
-          </label>
-          <label class="field">
-            <span>说明</span>
-            <textarea id="detailNotes" rows="6" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea>
-          </label>
-          <div class="field-grid">
+          <div class="detail-fields">
             <label class="field">
-              <span>状态</span>
-              <select id="detailStatus">
-                <option value="active">待办</option>
-                <option value="completed">已完成</option>
-                <option value="discarded">不再需要</option>
-              </select>
+              <span>任务名称</span>
+              <textarea id="detailTitle" rows="3" maxlength="180" required></textarea>
             </label>
             <label class="field">
-              <span>优先级</span>
-              <select id="detailPriority">
-                <option value="high">高</option>
-                <option value="medium">中</option>
-                <option value="low">低</option>
-              </select>
+              <span>说明</span>
+              <textarea id="detailNotes" rows="6" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea>
             </label>
+            <div class="field-grid">
+              <label class="field">
+                <span>状态</span>
+                <select id="detailStatus">
+                  <option value="active">待办</option>
+                  <option value="completed">已完成</option>
+                  <option value="discarded">不再需要</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>优先级</span>
+                <select id="detailPriority">
+                  <option value="high">高</option>
+                  <option value="medium">中</option>
+                  <option value="low">低</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span>文件夹</span>
+              <select id="detailFolder"></select>
+            </label>
+            <div class="field-grid">
+              <label class="field">
+                <span>截止日期</span>
+                <input id="detailDueDate" type="date" />
+              </label>
+              <label class="field">
+                <span>标签</span>
+                <input id="detailTag" type="text" maxlength="24" />
+              </label>
+            </div>
+            <dl class="timestamps">
+              <div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div>
+              <div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div>
+            </dl>
           </div>
-          <label class="field">
-            <span>文件夹</span>
-            <select id="detailFolder"></select>
-          </label>
-          <div class="field-grid">
-            <label class="field">
-              <span>截止日期</span>
-              <input id="detailDueDate" type="date" />
-            </label>
-            <label class="field">
-              <span>标签</span>
-              <input id="detailTag" type="text" maxlength="24" />
-            </label>
-          </div>
-          <dl class="timestamps">
-            <div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div>
-            <div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div>
-          </dl>
           <div class="detail-actions">
             <button class="button ghost" id="cancelDetail" type="button">取消</button>
             <button class="button primary" type="submit">保存更改</button>
@@ -267,6 +267,6 @@
     </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <script type="module" src="dist/main.js"></script>
+    <script type="module" src="dist/main.js?v=20260810-1"></script>
   </body>
 </html>

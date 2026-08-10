@@ -235,8 +235,9 @@ function createGroupHeading(label, count) {
 }
 function createTaskNode(task, selectedTaskId, depth, folders, searchMatch = false) {
     const selected = task.id === selectedTaskId;
+    const taskDueGroup = task.status === "active" ? dueDateGroup(task, toISODate()) : null;
     const node = createElement("article", {
-        className: `task-item ${task.status}${selected ? " selected" : ""}${searchMatch ? " search-match" : ""}${isDueOrOverdue(task) ? " due" : ""}`,
+        className: `task-item ${task.status}${selected ? " selected" : ""}${searchMatch ? " search-match" : ""}${taskDueGroup === "overdue" ? " overdue" : ""}${taskDueGroup === "today" ? " due-today" : ""}`,
     });
     node.dataset.id = task.id;
     node.tabIndex = 0;
@@ -301,10 +302,17 @@ function applyTheme(theme) {
 }
 function formatDueDate(task) {
     if (!task.dueDate)
-        return "未设置";
+        return "无截止日期";
     const date = new Date(`${task.dueDate}T00:00:00`);
     const label = new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(date);
-    return isDueOrOverdue(task) ? `${label} 到期` : label;
+    if (task.status === "active") {
+        const group = dueDateGroup(task, toISODate());
+        if (group === "overdue")
+            return `逾期 · ${label}`;
+        if (group === "today")
+            return "今天截止";
+    }
+    return `${label} 截止`;
 }
 function formatDateTime(timestamp) {
     return new Intl.DateTimeFormat("zh-CN", {

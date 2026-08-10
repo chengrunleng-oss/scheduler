@@ -275,7 +275,7 @@ export function bindEvents(els, store, dialogs, requestRender) {
         dialogs.toast(result.message);
     });
     els.resetDemo.addEventListener("click", async () => {
-        const confirmed = await dialogs.confirm("恢复初始数据", "当前浏览器里的任务和文件夹会被替换，继续吗？");
+        const confirmed = await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前浏览器中的全部数据，继续吗？");
         if (!confirmed)
             return;
         selectedTaskId = null;
@@ -283,7 +283,7 @@ export function bindEvents(els, store, dialogs, requestRender) {
         detailDirty = false;
         els.searchInput.value = "";
         store.dispatch({ type: "reset" });
-        dialogs.toast("已恢复初始数据。");
+        dialogs.toast("已重置为示例数据。");
     });
     return {
         getViewState: () => ({

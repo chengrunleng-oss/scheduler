@@ -1,0 +1,263 @@
+{
+  "document_type": "scheduler_test_feedback",
+  "format_version": 2,
+  "test_date": "2026-08-10",
+  "target_branch": "develop",
+  "tested_revision": {
+    "head": "09098ef",
+    "workspace_changes_included": true,
+    "description": "develop 分支 09098ef 及当前工作区内尚未提交的最新改进"
+  },
+  "source_requirements": "ENGINEERING_REVIEW.md",
+  "feedback_policy": "仅保留本轮仍可复现的问题；此前已整改的问题不再保留",
+  "overall_result": {
+    "status": "needs_revision",
+    "functional_regression": "passed",
+    "desktop_visual_acceptance": "failed",
+    "release_recommendation": "暂不建议结束桌面界面验收",
+    "summary": "核心功能和自动化回归均通过，但常见电脑浏览器尺寸下仍存在明显的布局断点跳变、详情保存操作落在首屏之外，以及多处含义不准确或阅读费力的中文文案。"
+  },
+  "automated_verification": {
+    "command": "npm.cmd run verify",
+    "status": "passed",
+    "node_tests": {
+      "passed": 27,
+      "failed": 0
+    },
+    "browser_e2e_tests": {
+      "passed": 6,
+      "failed": 0,
+      "covered_flows": [
+        "详情保存与撤销",
+        "完成、筛选与恢复待办",
+        "空文件夹创建与删除",
+        "树状、优先级、截止日期三种视图切换",
+        "桌面端无横向溢出",
+        "移动端无横向溢出以及 44x44px 触控目标"
+      ]
+    }
+  },
+  "browser_verification": {
+    "browser": "Codex 内置浏览器",
+    "themes_checked": [
+      "跟随系统",
+      "浅色",
+      "深色"
+    ],
+    "viewports_checked": [
+      "1920x1080",
+      "1920x768",
+      "1536x864",
+      "1440x900",
+      "1366x768",
+      "1281x768",
+      "1280x768"
+    ],
+    "console_errors": 0,
+    "console_warnings": 0
+  },
+  "findings": [
+    {
+      "id": "TEST-LAYOUT-001",
+      "priority": "P1",
+      "category": "desktop_responsive_layout",
+      "title": "1280px 断点前后布局突变，较宽窗口反而显著压缩任务区",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "styles.css:116",
+          "styles.css:919"
+        ],
+        "measurements": [
+          "1280px 宽时使用 270px + 自适应任务区，任务行宽约 959px，详情为 380px 抽屉",
+          "1281px 宽时立即切换为 292px + 634px + 340px 三栏，任务行宽约 598px",
+          "视口只增加 1px，主要任务行反而缩窄约 361px",
+          "1366px 宽且未选择任务时，340px 详情栏长期显示空提示，占据约四分之一横向空间",
+          "长任务标题在 1366px 下被压缩到约 248px，出现四行密集换行"
+        ]
+      },
+      "impact": "布局变化与窗口变宽的用户预期相反，常见笔记本宽度下主任务内容被明显挤压；没有选中任务时还会长期浪费一整列空间。",
+      "recommendation": "在更宽的阈值之前继续使用详情抽屉，或仅在选中任务时才预留第三列；同时为任务区保留约 720-760px 的舒适最小宽度，并消除断点处的宽度倒退。",
+      "acceptance_criteria": [
+        "连续检查 1200-1500px 宽度时，视口变宽不得导致任务行突然变窄",
+        "未选择任务时不长期保留 340px 空白详情列",
+        "1366px 下长标题不会因固定功能列而被压缩成难读的逐行堆叠"
+      ]
+    },
+    {
+      "id": "TEST-LAYOUT-002",
+      "priority": "P1",
+      "category": "desktop_detail_panel",
+      "title": "常见横屏高度下详情页的取消和保存按钮不在首屏内",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "styles.css:792",
+          "styles.css:805",
+          "styles.css:845"
+        ],
+        "measurements": [
+          "1536x864：详情面板高约 906px，操作区位于 y=843.8-883.8，未完整显示",
+          "1920x768：详情面板仍高约 906px，操作区位于 y=843.8-883.8，完全落在首屏之外",
+          "1366x768：同样需要滚动整个页面后才能看到取消和保存"
+        ],
+        "root_cause": "桌面三栏下详情面板被页面最高内容拉伸，表单没有受视口高度约束，操作区随表单内容落到页面底部。"
+      },
+      "impact": "用户选中任务后看不到最关键的提交操作，容易误以为修改会自动保存或界面缺少保存功能。",
+      "recommendation": "将桌面详情栏限制为 100dvh 并使用 sticky 定位；让表单内容在面板内部滚动，操作区固定或粘附在面板底部。",
+      "acceptance_criteria": [
+        "在 1366x768、1536x864 和 1920x768 下，取消与保存按钮无需滚动整页即可看到并操作",
+        "内容超高时只滚动详情正文，底部操作区保持可见"
+      ]
+    },
+    {
+      "id": "TEST-COPY-001",
+      "priority": "P1",
+      "category": "status_copy",
+      "title": "截止日期文案没有区分今天到期、已经逾期和无截止日期",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:377",
+          "index.html:77"
+        ],
+        "observations": [
+          "2026-08-09 的过期任务在 2026-08-10 仍显示为“08/09 到期”，没有提示“已逾期”",
+          "今天截止的任务也显示为“08/10 到期”，与已经逾期共用同一种表达",
+          "没有日期的任务只显示“未设置”，在窄布局隐藏列表头后缺少“截止日期”语境",
+          "概览指标“到期/逾期”把今天到期和已经逾期合并为一个含义模糊的标签"
+        ]
+      },
+      "impact": "用户不能快速判断任务是否已经延误，时间状态的紧迫性表达不准确。",
+      "recommendation": "分别使用“已逾期 1 天”或“逾期 · 08/09”、“今天截止”、未来日期，以及“无截止日期”；概览改为“今日/逾期”或拆分统计。",
+      "acceptance_criteria": [
+        "过去、今天、未来、无日期四种状态使用互不混淆的自然中文",
+        "逾期任务在任务行和截止日期视图中的语义保持一致"
+      ]
+    },
+    {
+      "id": "TEST-COPY-002",
+      "priority": "P2",
+      "category": "misleading_control_copy",
+      "title": "“手动顺序”选项暗示了当前并不存在的手动排序能力",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "index.html:132",
+          "src/domain.ts:573"
+        ],
+        "observations": [
+          "界面没有拖放、上移、下移或其他调整任务顺序的控件",
+          "当前顺序实际由任务的 order、创建时间和 id 稳定决定，用户无法手动改变"
+        ]
+      },
+      "impact": "用户选择“手动顺序”后找不到对应操作，会误以为拖放失效或功能未加载。",
+      "recommendation": "若计划支持排序，增加拖放或明确的顺序调整操作并改称“手动排序”；若本版不实现，则改为“添加顺序”或“创建顺序”。",
+      "acceptance_criteria": [
+        "选项名称准确描述现有行为，或提供可以实际改变顺序的完整交互"
+      ]
+    },
+    {
+      "id": "TEST-TYPOGRAPHY-001",
+      "priority": "P2",
+      "category": "desktop_readability",
+      "title": "多处中文辅助信息使用 11px 字号，阅读感受偏小偏挤",
+      "status": "open",
+      "evidence": {
+        "file": "styles.css",
+        "selectors": [
+          ".folder-count（约 406-409 行）",
+          ".metric small（约 441-453 行）",
+          ".eyebrow（约 474-476 行）",
+          ".list-head（约 589-592 行）",
+          ".task-main small（约 649-660 行）"
+        ],
+        "computed_style": "11px，部分位置未明确设置适合中文的行高"
+      },
+      "impact": "列表表头、任务元信息、概览标签和范围提示在 100% 缩放的电脑屏幕上显得轻、密、费眼。",
+      "recommendation": "重要辅助信息最小使用 12px，任务元信息和关键标签可使用 13px，并为中文小字设置约 1.4-1.5 的明确行高；层级主要通过颜色和字重区分。",
+      "acceptance_criteria": [
+        "桌面端重要可见文字不低于 12px",
+        "在浏览器 100% 缩放下，任务元信息和列表表头能够快速辨读"
+      ]
+    },
+    {
+      "id": "TEST-COPY-003",
+      "priority": "P2",
+      "category": "wording_and_affordance",
+      "title": "界面存在重复说明和含义不够准确的操作文案",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "index.html:71",
+          "index.html:87",
+          "index.html:163",
+          "index.html:164"
+        ],
+        "observations": [
+          "“当前范围”紧邻“全部任务”，信息重复",
+          "空详情栏同时显示“选择一项任务”和“任务的完整信息和编辑操作会显示在这里”，重复解释同一件事",
+          "回转箭头按钮称为“恢复初始数据”，实际会用示例数据替换全部当前任务和文件夹；“恢复”容易被理解为恢复备份",
+          "侧栏标题“快速新增”与按钮“新增任务”术语不统一"
+        ]
+      },
+      "impact": "重复文字加重空白区域的视觉负担，破坏性重置操作的名称又没有充分表达后果。",
+      "recommendation": "删除“当前范围”或只保留当前列表名；空详情缩为“选择任务以查看详情”；将重置操作移入设置或更多菜单并命名为“重置为示例数据”；新建入口统一使用“新建任务”。",
+      "acceptance_criteria": [
+        "相邻区域不重复解释同一状态",
+        "会覆盖数据的操作在按钮名称和确认框中都明确写出“重置为示例数据”及影响范围",
+        "同一任务创建动作使用统一术语"
+      ]
+    }
+  ],
+  "verified_passes": [
+    "任务列表在已检查尺寸下没有横向溢出",
+    "任务、优先级、截止日期、操作四列表头与实际任务列保持对齐",
+    "单击任务后的选中高亮和可编辑详情仍可用",
+    "完成、不再需要、恢复待办、优先级调整和删除操作仍可用",
+    "树状、优先级、截止日期三种视图仍可切换",
+    "移动端任务操作按钮已经达到 44x44px，旧反馈已整改",
+    "真实浏览器端到端回归已经加入验证流程，旧反馈已整改",
+    "页面运行期间没有控制台错误或警告"
+  ],
+  "recommended_fix_order": [
+    {
+      "order": 1,
+      "items": [
+        "TEST-LAYOUT-001",
+        "TEST-LAYOUT-002"
+      ],
+      "reason": "先解决桌面主体空间分配和保存操作可达性，这两项直接影响主要工作流。"
+    },
+    {
+      "order": 2,
+      "items": [
+        "TEST-COPY-001",
+        "TEST-COPY-002"
+      ],
+      "reason": "再修正会误导任务状态判断或功能预期的文案。"
+    },
+    {
+      "order": 3,
+      "items": [
+        "TEST-TYPOGRAPHY-001",
+        "TEST-COPY-003"
+      ],
+      "reason": "最后统一桌面文字尺度、空状态和操作术语。"
+    }
+  ],
+  "limitations": [
+    "本轮视觉检查基于内置 Chromium 浏览器，未覆盖 Firefox 和 Safari 的字体及原生日期控件差异",
+    "未使用真实屏幕阅读器进行语音导航测试",
+    "未进行数千条任务场景下的性能和长列表压力测试"
+  ],
+  "repository_state": {
+    "branch": "develop",
+    "head": "09098ef",
+    "tracking": "origin/develop",
+    "ahead_by_commits": 2,
+    "working_tree_before_feedback_write": "存在当前改进实现的未提交修改，测试已包含这些修改，未改动或回退它们",
+    "staged_by_this_test_round": false,
+    "committed_by_this_test_round": false
+  }
+}

@@ -40,3 +40,26 @@ test("search results receive a visual marker while expanded tree rendering stays
   assert.match(renderer, /folder\.collapsed && !view\.query/);
   assert.match(css, /\.task-item\.search-match:not\(\.selected\)/);
 });
+
+test("visible copy describes the current behavior without duplicate or misleading labels", () => {
+  assert.match(html, /<h2>新建任务<\/h2>/);
+  assert.match(html, /title="重置为示例数据"/);
+  assert.match(html, /<small>今日\/逾期<\/small>/);
+  assert.match(html, /<option value="manual">添加顺序<\/option>/);
+  assert.match(html, /选择任务以查看详情/);
+  for (const removedText of ["快速新增", "恢复初始数据", "当前范围", "手动顺序", "到期/逾期"]) {
+    assert.equal(html.includes(removedText), false, `${removedText} should not remain in the UI`);
+  }
+  assert.match(events, /重置为示例数据/);
+  assert.match(renderer, /无截止日期/);
+  assert.match(renderer, /今天截止/);
+  assert.match(renderer, /逾期 ·/);
+});
+
+test("desktop detail layout has an internal scroll region and persistent action area", () => {
+  assert.match(html, /class="detail-fields"/);
+  assert.match(css, /\.detail-panel\s*\{[^}]*height:\s*100dvh/s);
+  assert.match(css, /\.detail-fields\s*\{[^}]*overflow-y:\s*auto/s);
+  assert.match(css, /\.detail-actions\s*\{[^}]*flex:\s*0 0 auto/s);
+  assert.match(css, /@media \(max-width:\s*1600px\)/);
+});

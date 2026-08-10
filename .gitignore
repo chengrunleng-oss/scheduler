@@ -10,6 +10,9 @@ desktop.ini
 # Dependencies and build output
 node_modules/
 build/
+playwright-report/
+test-results/
+blob-report/
 
 # Logs and local env
 *.log

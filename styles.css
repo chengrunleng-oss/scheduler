@@ -63,11 +63,13 @@
 html,
 body {
   min-width: 320px;
+  height: 100%;
   min-height: 100%;
 }
 
 body {
   margin: 0;
+  overflow: hidden;
   font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
   color: var(--ink);
   background: var(--bg);
@@ -115,8 +117,10 @@ select:focus-visible,
 
 .app-shell {
   display: grid;
-  grid-template-columns: 292px minmax(500px, 1fr) 340px;
-  min-height: 100vh;
+  grid-template-columns: 292px minmax(720px, 1fr);
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--surface);
 }
 
@@ -186,8 +190,7 @@ select:focus-visible,
 }
 
 .sidebar-close,
-.nav-toggle,
-.detail-close {
+.nav-toggle {
   display: none !important;
 }
 
@@ -406,8 +409,9 @@ select:focus {
 .folder-count {
   margin-left: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1.4;
 }
 
 .folder-actions {
@@ -450,12 +454,14 @@ select:focus {
 .metric small {
   margin-top: 1px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .workspace {
   display: flex;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   flex-direction: column;
   background: var(--surface);
 }
@@ -473,8 +479,9 @@ select:focus {
 
 .eyebrow {
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1.4;
   text-transform: uppercase;
 }
 
@@ -589,8 +596,9 @@ select:focus {
 .list-head {
   min-height: 30px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
+  line-height: 1.4;
 }
 
 .task-list {
@@ -626,8 +634,12 @@ select:focus {
   background: var(--surface-alt);
 }
 
-.task-item.due {
+.task-item.overdue {
   border-color: color-mix(in srgb, var(--red) 58%, var(--line));
+}
+
+.task-item.due-today {
+  border-color: color-mix(in srgb, var(--amber) 58%, var(--line));
 }
 
 .task-main {
@@ -657,7 +669,8 @@ select:focus {
 
 .task-main small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .task-item.completed .task-title-line strong,
@@ -687,7 +700,7 @@ select:focus {
   min-width: 44px;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   text-align: center;
 }
@@ -712,8 +725,13 @@ select:focus {
   font-size: 12px;
 }
 
-.task-item.due time {
+.task-item.overdue time {
   color: var(--red);
+  font-weight: 750;
+}
+
+.task-item.due-today time {
+  color: var(--amber);
   font-weight: 750;
 }
 
@@ -790,13 +808,23 @@ select:focus {
 }
 
 .detail-panel {
-  display: flex;
-  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  display: none;
+  height: 100dvh;
+  min-height: 0;
+  align-self: start;
   flex-direction: column;
   border-left: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.detail-panel.is-open {
+  display: flex;
 }
 
 .detail-header {
+  flex: 0 0 auto;
   min-height: 72px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
@@ -804,6 +832,16 @@ select:focus {
 
 .detail-form {
   display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.detail-fields {
+  display: flex;
+  min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 14px;
@@ -833,7 +871,8 @@ select:focus {
 
 .timestamps dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .timestamps dd {
@@ -843,10 +882,13 @@ select:focus {
 }
 
 .detail-actions {
+  flex: 0 0 auto;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: auto;
-  padding-top: 4px;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-alt);
 }
 
 .modal {
@@ -916,7 +958,13 @@ select:focus {
   box-shadow: var(--shadow);
 }
 
-@media (max-width: 1280px) {
+@media (min-width: 1601px) {
+  .app-shell:has(.detail-panel.is-open) {
+    grid-template-columns: 292px minmax(720px, 1fr) 340px;
+  }
+}
+
+@media (max-width: 1600px) {
   .app-shell {
     grid-template-columns: 270px minmax(0, 1fr);
   }
@@ -925,9 +973,10 @@ select:focus {
     position: fixed;
     top: 0;
     right: 0;
-    bottom: 0;
+    display: flex;
     z-index: 30;
     width: min(380px, calc(100vw - 80px));
+    height: 100dvh;
     min-height: 0;
     transform: translateX(102%);
     box-shadow: var(--shadow);
@@ -1061,6 +1110,17 @@ select:focus {
 
   .folder-actions {
     opacity: 1;
+  }
+
+  .task-actions {
+    gap: 5px;
+  }
+
+  .task-actions .icon-button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    flex-basis: 44px;
   }
 }
 
