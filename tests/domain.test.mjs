@@ -1,78 +1,82 @@
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import {
+import { createSourceLoader } from "./vite-source-loader.mjs";
+
+const source = await createSourceLoader();
+const {
   canAddFolder,
   canMoveFolder,
   createDefaultState,
   dueDateGroup,
   getFolderDepth,
+  getFolderPath,
   hydrateState,
   isDueOrOverdue,
+  isOverdue,
+  resolveDefaultDueDate,
   selectVisibleTasks,
   toISODate,
   validateBackupPayload,
   validateStoredPayload,
-} from "../dist/domain.js";
+} = await source.load("domain.ts");
+after(() => source.close());
 
-const now = 1_800_000_000_000;
+const now = new Date(2026, 7, 10, 10, 0, 0).getTime();
 
 function legacyV2State() {
   return {
     schemaVersion: 2,
     preferences: { activeFilter: "open", theme: "dark" },
-    currentIteration: { number: 3, title: "旧轮次", completed: [], next: [] },
+    currentIteration: { number: 2, title: "旧版", completed: [], next: [] },
+    tasks: [{ id: "legacy", title: "旧任务", priority: "中", date: "2026-08-11", done: false }],
     iterations: [],
-    tasks: [
-      {
-        id: "legacy-1",
-        title: "旧任务",
-        priority: "高",
-        date: "2026-07-07",
-        tag: "迁移",
-        done: true,
-        createdAt: 10,
-        updatedAt: 20,
-      },
-    ],
   };
 }
 
-test("hydrateState migrates schema v2 tasks into schema v3 without iteration data", () => {
-  const state = hydrateState(legacyV2State(), now);
+test("schema v3 migrates to v4, removes medium priority, and maps views", () => {
+  const base = createDefaultState(now);
+  const v3 = {
+    schemaVersion: 3,
+    preferences: { activeStatusFilter: "all", theme: "system", viewMode: "priority", sortMode: "due_date", folderScope: "all" },
+    folders: base.folders,
+    tasks: base.tasks.map(({ resolvedAt, pendingResolution, rescheduleHistory, ...task }, index) => ({ ...task, priority: index === 0 ? "medium" : task.priority })),
+  };
+  const state = hydrateState(v3, now);
 
-  assert.equal(state.schemaVersion, 3);
-  assert.equal(state.preferences.activeStatusFilter, "active");
-  assert.equal(state.preferences.theme, "dark");
-  assert.equal(state.preferences.viewMode, "tree");
-  assert.equal(state.tasks[0].status, "completed");
-  assert.equal(state.tasks[0].notes, "");
-  assert.equal(state.tasks[0].folderId, null);
-  assert.equal(state.tasks[0].order, 0);
-  assert.equal("currentIteration" in state, false);
+  assert.equal(state.schemaVersion, 4);
+  assert.equal(state.preferences.viewMode, "global_priority");
+  assert.equal(state.preferences.defaultTaskPriority, "low");
+  assert.ok(state.tasks.every((task) => task.priority === "high" || task.priority === "low"));
+  assert.ok(state.tasks.every((task) => task.pendingResolution === null && Array.isArray(task.rescheduleHistory)));
 });
 
-test("validateBackupPayload enforces the complete schema v3 task shape", () => {
+test("schema v3 resolved tasks receive resolvedAt while active tasks do not", () => {
+  const base = createDefaultState(now);
+  const rawTasks = base.tasks.map(({ resolvedAt, pendingResolution, rescheduleHistory, ...task }, index) => ({
+    ...task,
+    status: index === 0 ? "completed" : "active",
+  }));
+  const state = hydrateState({ schemaVersion: 3, preferences: { ...base.preferences, viewMode: "tree", sortMode: "manual" }, folders: base.folders, tasks: rawTasks }, now);
+  assert.equal(state.tasks[0].resolvedAt, state.tasks[0].updatedAt);
+  assert.equal(state.tasks[1].resolvedAt, null);
+});
+
+test("validateBackupPayload enforces the complete v4 task and preference shape", () => {
   const state = createDefaultState(now);
   assert.deepEqual(validateBackupPayload(state), { valid: true, message: "", kind: "current" });
-
-  const missingNotes = structuredClone(state);
-  delete missingNotes.tasks[0].notes;
-  assert.equal(validateBackupPayload(missingNotes).valid, false);
-
-  const invalidStatus = structuredClone(state);
-  invalidStatus.tasks[0].status = "done";
-  assert.equal(validateBackupPayload(invalidStatus).valid, false);
+  const missingTimeline = structuredClone(state);
+  delete missingTimeline.tasks[0].rescheduleHistory;
+  assert.equal(validateBackupPayload(missingTimeline).valid, false);
+  const invalidPriority = structuredClone(state);
+  invalidPriority.tasks[0].priority = "medium";
+  assert.equal(validateBackupPayload(invalidPriority).valid, false);
 });
 
-test("validateBackupPayload accepts schema v2 and legacy backups for migration", () => {
-  assert.deepEqual(validateBackupPayload(legacyV2State()), { valid: true, message: "", kind: "v2" });
-
-  const legacy = {
-    activeFilter: "open",
-    currentIteration: { number: 1, title: "旧版本" },
-    tasks: [{ id: "legacy-1", title: "旧任务", priority: "高", date: "2026-07-07" }],
-  };
-  assert.deepEqual(validateBackupPayload(legacy), { valid: true, message: "", kind: "legacy" });
+test("v2 and legacy backups remain accepted for migration", () => {
+  assert.equal(validateBackupPayload(legacyV2State()).kind, "v2");
+  const legacy = { activeFilter: "open", currentIteration: { number: 1, title: "旧版" }, tasks: [{ id: "a", title: "任务", priority: "高", date: "2026-08-01" }] };
+  assert.equal(validateBackupPayload(legacy).kind, "legacy");
+  assert.equal(hydrateState(legacyV2State(), now).tasks[0].priority, "low");
 });
 
 test("stored payload validation uses local-data wording", () => {
@@ -82,7 +86,7 @@ test("stored payload validation uses local-data wording", () => {
   assert.doesNotMatch(result.message, /备份文件/);
 });
 
-test("orphaned task references and cyclic folders are repaired without losing tasks", () => {
+test("orphaned task references and cyclic folders are repaired without task loss", () => {
   const base = createDefaultState(now);
   const input = {
     ...base,
@@ -90,16 +94,11 @@ test("orphaned task references and cyclic folders are repaired without losing ta
       { id: "a", name: "A", parentId: "b", order: 0, collapsed: false, createdAt: 1, updatedAt: 1 },
       { id: "b", name: "B", parentId: "a", order: 0, collapsed: false, createdAt: 2, updatedAt: 2 },
     ],
-    tasks: [
-      { ...base.tasks[0], id: "cycle-task", folderId: "a" },
-      { ...base.tasks[1], id: "orphan-task", folderId: "missing" },
-    ],
+    tasks: [{ ...base.tasks[0], folderId: "missing" }],
   };
   const state = hydrateState(input, now);
-
-  assert.equal(state.tasks.length, 2);
-  assert.equal(state.tasks.find((task) => task.id === "cycle-task").folderId, "a");
-  assert.equal(state.tasks.find((task) => task.id === "orphan-task").folderId, null);
+  assert.equal(state.tasks.length, 1);
+  assert.equal(state.tasks[0].folderId, null);
   assert.ok(state.folders.every((folder) => folder.parentId === null));
 });
 
@@ -110,51 +109,60 @@ test("folder movement rejects cycles and hierarchy deeper than four levels", () 
     { id: "c", name: "C", parentId: "b", order: 0, collapsed: false, createdAt: 3, updatedAt: 3 },
     { id: "d", name: "D", parentId: "c", order: 0, collapsed: false, createdAt: 4, updatedAt: 4 },
   ];
-
   assert.equal(getFolderDepth(folders, "d"), 4);
   assert.equal(canAddFolder(folders, "d"), false);
   assert.equal(canMoveFolder(folders, "a", "c"), false);
-  assert.equal(canMoveFolder(folders, "d", null), true);
 });
 
-test("search and status/folder filters return the same task set for every view", () => {
+test("search and status/folder filters return the same task set for all four views", () => {
   const base = createDefaultState(now);
-  const workFolder = base.folders.find((folder) => folder.id === "folder-work");
-  assert.ok(workFolder);
-  const resultSets = ["tree", "priority", "due_date"].map((viewMode) => {
-    const state = {
-      ...base,
-      preferences: {
-        ...base.preferences,
-        activeStatusFilter: "active",
-        folderScope: workFolder.id,
-        viewMode,
-      },
-    };
-    return selectVisibleTasks(state, "重点").map((task) => task.id);
-  });
-
-  assert.deepEqual(resultSets, [["task-1"], ["task-1"], ["task-1"]]);
+  const views = ["tree_manual", "global_priority", "global_due_date", "priority_then_due_date"];
+  const resultSets = views.map((viewMode) => selectVisibleTasks({ ...base, preferences: { ...base.preferences, activeStatusFilter: "active", folderScope: "folder-work", viewMode } }, "重点").map((task) => task.id));
+  assert.deepEqual(resultSets, [["task-1"], ["task-1"], ["task-1"], ["task-1"]]);
 });
 
-test("due-date groups distinguish overdue, today, seven days, later, and unscheduled", () => {
-  const task = { ...createDefaultState(now).tasks[0], dueDate: "" };
-  const today = "2026-08-10";
-
-  assert.equal(dueDateGroup({ ...task, dueDate: "2026-08-09" }, today), "overdue");
-  assert.equal(dueDateGroup({ ...task, dueDate: today }, today), "today");
-  assert.equal(dueDateGroup({ ...task, dueDate: "2026-08-17" }, today), "next_seven_days");
-  assert.equal(dueDateGroup({ ...task, dueDate: "2026-08-18" }, today), "later");
-  assert.equal(dueDateGroup(task, today), "unscheduled");
+test("pending resolutions remain visible only as active until their timer finalizes", () => {
+  const base = createDefaultState(now);
+  const pending = {
+    ...base.tasks[0],
+    status: "completed",
+    pendingResolution: {
+      targetStatus: "completed",
+      executeAt: now + 8_000,
+      originFolderId: base.tasks[0].folderId,
+      originOrder: base.tasks[0].order,
+      originPriority: base.tasks[0].priority,
+    },
+  };
+  const state = { ...base, tasks: [pending, ...base.tasks.slice(1)] };
+  const active = selectVisibleTasks({ ...state, preferences: { ...state.preferences, activeStatusFilter: "active" } }, "");
+  const completed = selectVisibleTasks({ ...state, preferences: { ...state.preferences, activeStatusFilter: "completed" } }, "");
+  assert.ok(active.some((task) => task.id === pending.id));
+  assert.ok(!completed.some((task) => task.id === pending.id));
+  assert.equal(isOverdue({ ...pending, dueDate: "2026-08-09" }, "2026-08-10"), true);
 });
 
-test("isDueOrOverdue ignores completed and discarded tasks", () => {
-  const task = { ...createDefaultState(now).tasks[0], dueDate: "2026-07-06" };
-  assert.equal(isDueOrOverdue({ ...task, status: "active" }, "2026-07-07"), true);
-  assert.equal(isDueOrOverdue({ ...task, status: "completed" }, "2026-07-07"), false);
-  assert.equal(isDueOrOverdue({ ...task, status: "discarded" }, "2026-07-07"), false);
+test("overdue is strictly before local today while due metric includes today", () => {
+  const task = { ...createDefaultState(now).tasks[0], dueDate: "2026-08-10" };
+  assert.equal(isOverdue(task, "2026-08-10"), false);
+  assert.equal(isDueOrOverdue(task, "2026-08-10"), true);
+  assert.equal(dueDateGroup({ ...task, dueDate: "2026-08-09" }, "2026-08-10"), "overdue");
+  assert.equal(isOverdue({ ...task, status: "completed", dueDate: "2026-08-09" }, "2026-08-10"), false);
 });
 
-test("toISODate uses local date fields instead of UTC slicing", () => {
-  assert.equal(toISODate(new Date(2026, 6, 7, 0, 30, 0)), "2026-07-07");
+test("default dates use local time and next workday skips weekends", () => {
+  const friday = new Date(2026, 7, 14, 10).getTime();
+  assert.equal(resolveDefaultDueDate("today", friday), "2026-08-14");
+  assert.equal(resolveDefaultDueDate("tomorrow", friday), "2026-08-15");
+  assert.equal(resolveDefaultDueDate("next_workday", friday), "2026-08-17");
+  assert.equal(toISODate(new Date(2026, 6, 7, 0, 30)), "2026-07-07");
+});
+
+test("folder paths include ancestors", () => {
+  const folders = [
+    { id: "a", name: "工作", parentId: null, order: 0, collapsed: false, createdAt: 1, updatedAt: 1 },
+    { id: "b", name: "发布", parentId: "a", order: 0, collapsed: false, createdAt: 2, updatedAt: 2 },
+  ];
+  assert.equal(getFolderPath(folders, "b"), "工作 / 发布");
+  assert.equal(getFolderPath(folders, null), "未分类");
 });

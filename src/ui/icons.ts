@@ -1,0 +1,74 @@
+import {
+  Ban,
+  CalendarPlus,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CirclePlus,
+  Download,
+  Folder,
+  FolderPen,
+  FolderPlus,
+  GripVertical,
+  ListPlus,
+  LocateFixed,
+  Menu,
+  MoreHorizontal,
+  PanelLeft,
+  Redo2,
+  RotateCcw,
+  Search,
+  Settings2,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+  createElement as createIconElement,
+  createIcons,
+  type IconNode,
+} from "lucide";
+
+const ICONS = {
+  Ban,
+  CalendarPlus,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CirclePlus,
+  Download,
+  Folder,
+  FolderPen,
+  FolderPlus,
+  GripVertical,
+  ListPlus,
+  LocateFixed,
+  Menu,
+  MoreHorizontal,
+  PanelLeft,
+  Redo2,
+  RotateCcw,
+  Search,
+  Settings2,
+  Trash2,
+  Undo2,
+  Upload,
+  X,
+} satisfies Record<string, IconNode>;
+
+export type IconName = keyof typeof ICONS;
+
+export function icon(name: IconName, size = 18): SVGElement {
+  const svg = createIconElement(ICONS[name], {
+    width: size,
+    height: size,
+    "stroke-width": 2,
+    "aria-hidden": "true",
+    focusable: "false",
+  });
+  svg.classList.add("lucide-icon");
+  return svg;
+}
+
+export function refreshStaticIcons(root: Element | Document = document): void {
+  createIcons({ icons: ICONS, root, attrs: { "aria-hidden": "true", "stroke-width": 2 } });
+}

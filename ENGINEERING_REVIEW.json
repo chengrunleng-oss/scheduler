@@ -1,0 +1,552 @@
+{
+  "document_type": "scheduler_upgrade_feedback",
+  "format_version": 2,
+  "review_date": "2026-08-10",
+  "target_branch": "develop",
+  "source_revision": "9b36b6d",
+  "target_release": "v0.4",
+  "scope": "可编排任务树、双层优先级、已处理区域、过期处置、延期记录和全局查看模式升级",
+  "document_policy": "本文件整体替换上一版改进反馈，只描述下一版尚未实施的升级内容，不保留已经完成的旧版整改项。",
+  "executive_summary": {
+    "product_direction": "把当前任务工作台升级为以文件夹树为核心的可编排任务系统。用户可以在树状模式中通过拖拽改变任务顺序和文件夹归属；系统自动置顶逾期任务，并在任务完成或标记为不再需要后，通过八秒可撤销过渡将其收纳到所属文件夹的已处理区域。",
+    "recommended_schema_version": 4,
+    "default_view": "tree_manual",
+    "priority_model": "仅保留高、低两档优先级。任务所在分界线的上方或下方决定其优先级，位置与优先级必须始终保持一致。",
+    "status_model": "任务状态仍为待办、已完成、不再需要；延期是修改截止日期并记录历史的操作，不增加延期状态。",
+    "implementation_principle": "先升级数据模型和原子操作，再实现拖拽树与内联新增，随后实现逾期处置和已处理区域，最后重构全局视图、视觉系统与浏览器验收。"
+  },
+  "confirmed_product_decisions": [
+    {
+      "topic": "已处理内容的归属",
+      "decision": "每个文件夹底部显示系统生成的“已处理”区域，不创建真实文件夹实体。",
+      "rationale": "避免污染用户文件夹层级、占用嵌套深度或成为错误的拖放目标，同时保留任务原文件夹上下文。"
+    },
+    {
+      "topic": "完成和不再需要的过渡",
+      "decision": "状态操作后保留八秒半透明任务行和撤销按钮，倒计时结束后进入所属文件夹的已处理区域。",
+      "rationale": "用户可以清楚看到操作结果并及时撤销，任务不会像被删除一样突然消失。"
+    },
+    {
+      "topic": "已处理区域的默认展示量",
+      "decision": "按 resolvedAt 倒序混合展示最近三项，其他项目折叠，可展开查看全部。",
+      "rationale": "同时保留近期操作反馈和主任务区的紧凑性。"
+    },
+    {
+      "topic": "过期任务的排序",
+      "decision": "待办且截止日期早于今天的任务进入所属文件夹顶部的系统逾期区，优先级高于普通高优先级任务。",
+      "rationale": "过期任务需要处置，不能继续被手动顺序或普通优先级隐藏。"
+    },
+    {
+      "topic": "延期语义",
+      "decision": "延期是保持 active 状态并更新 dueDate 的操作，同时写入不可丢失的延期历史。",
+      "rationale": "延期不代表任务进入新的生命周期状态，避免污染筛选、统计和状态恢复逻辑。"
+    },
+    {
+      "topic": "查看模式与排序",
+      "decision": "使用四种互斥查看模式替代“主视图加独立排序”的组合矩阵；只有树状手动模式允许拖拽。",
+      "rationale": "避免不同排序规则互相覆盖，并让用户可以预测当前视图是否会修改任务顺序。"
+    }
+  ],
+  "target_information_architecture": {
+    "folder_content_order": [
+      "系统逾期区",
+      "高优先级待办",
+      "高低优先级分界线",
+      "低优先级待办",
+      "子文件夹",
+      "系统已处理区"
+    ],
+    "handled_section": {
+      "label": "已处理",
+      "placement": "当前文件夹全部活动内容的末尾",
+      "scope": "只显示直接属于当前文件夹的任务，不重复汇总子文件夹任务",
+      "default_visible_count": 3,
+      "sort": "resolvedAt descending",
+      "expand_behavior": "展开后显示当前文件夹的全部已完成和不再需要任务",
+      "unclassified_behavior": "未分类根区域使用同样的已处理区规则"
+    },
+    "folder_collapse_behavior": "折叠文件夹时隐藏其逾期区、普通待办、优先级分界线、子文件夹和已处理区。主任务树折叠状态与侧栏导航折叠状态分开保存。",
+    "desktop": "侧栏负责导航、默认新任务设置和概览；主区域负责交互式任务树或全局查看；详情面板负责编辑和延期历史。",
+    "tablet": "侧栏与主任务区保持可用，详情使用右侧抽屉；拖拽投放区和自动滚动继续生效。",
+    "mobile": "保留树状查看和状态操作，但通过键盘等效菜单或移动操作菜单完成顺序和文件夹调整，不依赖精细鼠标拖放。"
+  },
+  "requirements": [
+    {
+      "id": "UPG-001",
+      "priority": "P0",
+      "title": "树状模式任务拖拽与跨文件夹移动",
+      "behavior": [
+        "只有 active 任务可以拖拽，任务行使用始终可识别的拖拽把手，单击任务主体仍负责选中并打开详情。",
+        "支持在同一文件夹内调整任务顺序，也支持投放到其他文件夹或未分类根区域。",
+        "投放位置同时包含目标文件夹、目标索引和目标高低优先级区域，必须作为一次原子操作写入撤销历史。",
+        "拖到折叠文件夹上持续约 600ms 后自动展开，并显示清晰投放边框；移开且未投放时恢复拖拽前的折叠状态。",
+        "投放成功后目标文件夹保持展开，任务获得短暂定位高亮并继续保持选中。",
+        "拖到滚动容器顶部或底部时自动滚动。",
+        "搜索有内容、查看已完成或不再需要、以及处于三种全局查看模式时禁用拖拽，并在拖拽把手提示原因。",
+        "提供键盘和辅助操作菜单中的移到上一个、移到下一个、移至文件夹、改为高优先级、改为低优先级等价操作。"
+      ],
+      "edge_cases": [
+        "投放到原位置必须是 no-op，不产生撤销记录。",
+        "跨文件夹移动时源文件夹与目标文件夹的 order 都要重新规范化。",
+        "任务不能投放到系统逾期区或系统已处理区。",
+        "拖拽期间删除或重渲染目标元素时必须安全取消或重新绑定投放目标。"
+      ],
+      "acceptance": [
+        "同文件夹排序、跨文件夹移动、投放到未分类和撤销重做均正确持久化。",
+        "折叠文件夹悬停展开、离开恢复和投放后保持展开均有浏览器测试。",
+        "拖拽不会误触任务详情或行内状态按钮。",
+        "键盘用户可以完成与鼠标拖拽等价的移动操作。"
+      ]
+    },
+    {
+      "id": "UPG-002",
+      "priority": "P1",
+      "title": "树内新建文件夹和新建任务",
+      "behavior": [
+        "全部根级条目末尾提供两个并列按钮：FolderPlus 图标的新建文件夹、ListPlus 图标的新建任务。",
+        "每个文件夹标题内提供同样的两个按钮，自动把当前文件夹作为新建内容的父级或归属。",
+        "两个按钮必须使用不同图标、不同辅助色、tooltip 和 aria-label，不能仅使用相同的加号。",
+        "新建任务在目标文件夹内打开内联录入行，自动聚焦标题，支持 Enter 保存和 Escape 取消。",
+        "新任务自动使用页面级默认截止日期和默认高低优先级，内联录入时仍可修改。",
+        "侧栏现有大型新建表单改为紧凑的新任务默认设置和全局新建入口，避免与树内新增重复。"
+      ],
+      "defaults": {
+        "due_date_options": [
+          "today",
+          "tomorrow",
+          "next_workday",
+          "none"
+        ],
+        "initial_due_date": "today",
+        "priority_options": [
+          "high",
+          "low"
+        ],
+        "initial_priority": "low"
+      },
+      "acceptance": [
+        "根区域和任意层级文件夹均可就地创建任务及子文件夹。",
+        "创建后的任务进入正确文件夹和优先级区域并立即选中。",
+        "桌面悬停、键盘聚焦和触屏环境下都能发现两个新增按钮。"
+      ]
+    },
+    {
+      "id": "UPG-003",
+      "priority": "P0",
+      "title": "高低双层优先级和位置一致性",
+      "decision": "任务继续存储 high 或 low，但用户不能制造与位置不一致的值；拖过分界线的同一次事务同时更新 priority 和 order。",
+      "behavior": [
+        "移除中优先级，文件夹内渲染高优先级任务、可见分界线、低优先级任务。",
+        "高低分界线可拖动；分界线跨过任务时，被跨过任务的优先级随之改变。",
+        "任务拖过分界线时自动切换高低优先级；同一区域内拖动只改变顺序。",
+        "跨文件夹投放时默认保留原高低优先级，并放到目标文件夹对应区域末尾；用户也可直接投放到另一侧区域。",
+        "优先级区域内的排名由 order 决定，不再显示提高和降低优先级的行内箭头。",
+        "不提供语义含糊的重新计算自定义优先级按钮；改为可选的“按截止日期建议排序”，执行前确认且可以撤销。"
+      ],
+      "suggested_sort_algorithm": [
+        "逾期任务不参与普通优先级排序，始终由系统逾期区管理。",
+        "普通待办先按当前高低优先级分区。",
+        "每个优先级区内，有截止日期的在前并按日期升序，无截止日期的在后。",
+        "相同日期保持原手动顺序。"
+      ],
+      "acceptance": [
+        "任何状态下都不存在高优先级任务显示在低优先级分界线下方的情况。",
+        "拖动分界线、跨分界线移动任务和撤销重做均保持数据与位置一致。",
+        "建议排序不会修改文件夹归属或任务状态。"
+      ]
+    },
+    {
+      "id": "UPG-004",
+      "priority": "P0",
+      "title": "八秒可撤销状态过渡和已处理区域",
+      "behavior": [
+        "点击完成或不再需要后，任务立即变为约 55% 透明度，并显示“8 秒后移入已处理”、倒计时进度和撤销按钮。",
+        "状态在操作时立即变为 completed 或 discarded，以便统计正确；pendingResolution 负责让任务在原位置暂时显示，并在倒计时期间排除出已处理区。",
+        "八秒结束后清除 pendingResolution，任务从活动树折叠消失并出现在原文件夹的已处理区。",
+        "每个待处理任务使用独立倒计时，多项操作互不覆盖。",
+        "页面关闭或刷新后根据 executeAt 恢复倒计时；已经到期的过渡在载入时立即完成。",
+        "撤销后恢复 active 状态、原文件夹、原优先级和尽可能接近的原始顺序。",
+        "已处理区按 resolvedAt 倒序混合显示已完成和不再需要任务，默认只显示最近三项，其余通过“展开其余 N 项”查看。",
+        "已完成任务使用绿色勾选、绿色状态标识；不再需要任务使用灰紫色划除图标和状态标识。",
+        "已处理任务可以恢复为待办，但不能直接拖拽；恢复后回到记录的活动位置。",
+        "全局已完成和不再需要筛选继续展示全部历史，不受最近三项限制。"
+      ],
+      "naming": {
+        "approved_label": "已处理",
+        "rejected_label": "移除文件夹",
+        "reason": "移除容易与删除任务或删除文件夹混淆，且该区域不是用户创建的真实文件夹。"
+      },
+      "acceptance": [
+        "使用可控时钟验证 0-8 秒状态、撤销、超时完成和刷新恢复。",
+        "已处理区只显示直接属于当前文件夹的任务，不重复显示子文件夹记录。",
+        "最近三项排序不受任务之后的普通详情编辑影响。",
+        "删除或移动文件夹时，已处理任务与活动任务一起参与内容处理策略。"
+      ]
+    },
+    {
+      "id": "UPG-005",
+      "priority": "P0",
+      "title": "过期任务置顶和直接处置",
+      "definition": "status=active 且 dueDate 早于本地今天日期的任务为过期任务。今天截止不是过期。",
+      "behavior": [
+        "每个文件夹的过期任务显示在该文件夹顶部，位于普通高优先级区域之前。",
+        "过期任务按 dueDate 升序排列，逾期最久的任务最先显示。",
+        "任务行显示鲜明的红色或珊瑚色强调线、浅色状态背景和“已逾期 N 天”标签。",
+        "过期任务不参与普通高低优先级拖拽，也不能被拖到普通区域隐藏；延期后自动返回原优先级和手动顺序位置。",
+        "过期任务行直接显示三个主要操作：完成、不再需要、延期。",
+        "过期任务隐藏普通优先级调整操作，删除等低频操作进入更多菜单，避免操作区拥挤。",
+        "完成和不再需要进入八秒可撤销流程；延期打开日期选择面板。"
+      ],
+      "reschedule_picker": {
+        "presets": [
+          "tomorrow",
+          "in_3_days",
+          "in_1_week",
+          "custom_date"
+        ],
+        "validation": "延期目标日期必须晚于今天；禁止选择空日期、今天或过去日期。",
+        "optional_input": "允许填写简短延期原因，但原因不是完成操作的必填项。"
+      },
+      "acceptance": [
+        "跨午夜、本地时区和夏令时环境下仍使用正确的本地日期判断。",
+        "过期任务始终位于所属文件夹活动内容顶部。",
+        "三个处置按钮在桌面和移动端均有足够命中区域、tooltip 和可访问名称。",
+        "延期后任务立即离开逾期区，并恢复到正确普通位置。"
+      ]
+    },
+    {
+      "id": "UPG-006",
+      "priority": "P1",
+      "title": "延期历史和详情时间线",
+      "behavior": [
+        "每次延期记录原截止日期、新截止日期、操作时间、可选原因和操作来源。",
+        "详情面板新增“延期记录”区域，按 changedAt 倒序显示不可编辑的时间线。",
+        "通过过期任务快捷按钮延期时必须写入记录。",
+        "通过详情表单把已有截止日期调晚时也写入延期记录；调早、首次设置日期或清除日期只属于普通日期修改。",
+        "修改标题、说明、标签等字段不能改变延期记录顺序。",
+        "延期历史参与本地存储、导入、导出、备份校验和 schema 迁移。"
+      ],
+      "display_example": [
+        "08/10 14:32  08/09 -> 08/12  等待外部资料",
+        "08/06 09:15  08/05 -> 08/09"
+      ],
+      "acceptance": [
+        "连续多次延期按最新记录在前显示。",
+        "撤销延期时 dueDate 和延期历史同时恢复，重做时同时重建。",
+        "旧任务没有延期记录时详情面板不显示空白时间线。"
+      ]
+    },
+    {
+      "id": "UPG-007",
+      "priority": "P1",
+      "title": "四种互斥查看模式和树中定位",
+      "decision": "删除独立 sortMode 控件，查看模式本身决定组织方式和次级排序。",
+      "views": [
+        {
+          "mode": "tree_manual",
+          "label": "树状",
+          "organization": "文件夹层级、逾期区、高低分界和手动顺序",
+          "drag_enabled": true
+        },
+        {
+          "mode": "global_priority",
+          "label": "优先级",
+          "organization": "全局高优先级、低优先级分组，组内按自定义顺序",
+          "drag_enabled": false
+        },
+        {
+          "mode": "global_due_date",
+          "label": "截止日期",
+          "organization": "逾期、今天、近期、以后、无日期分组，日期升序",
+          "drag_enabled": false
+        },
+        {
+          "mode": "priority_then_due_date",
+          "label": "优先级后截止日期",
+          "organization": "先按高低优先级分组，再按截止日期升序",
+          "drag_enabled": false
+        }
+      ],
+      "shared_behavior": [
+        "三个全局视图中的每个任务都显示完整可点击文件夹路径。",
+        "每个任务提供“在树中定位”按钮。",
+        "定位操作切换到 tree_manual、展开全部祖先文件夹、切换到可见状态筛选、滚动到任务、选中并短暂高亮。",
+        "如果搜索或筛选阻挡目标，定位时临时解除相关条件并显示说明提示。",
+        "切换查看模式不会修改任务顺序、优先级、状态或文件夹归属。"
+      ],
+      "acceptance": [
+        "四种模式返回相同条件下的正确任务集合。",
+        "全局视图没有拖拽把手，也不能通过隐藏手势改变顺序。",
+        "任意层级任务均可通过定位操作回到正确树位置。",
+        "查看模式偏好刷新后恢复。"
+      ]
+    },
+    {
+      "id": "UPG-008",
+      "priority": "P1",
+      "title": "统一且高辨识度的视觉语义",
+      "color_roles": {
+        "folder": "青蓝色图标和轻量标题带",
+        "high_priority": "红色旗标或左侧强调线",
+        "low_priority": "蓝灰色旗标",
+        "overdue": "鲜明红色或珊瑚色强调线、浅红背景和逾期天数",
+        "pending_resolution": "琥珀色倒计时、半透明任务行和撤销按钮",
+        "completed": "绿色勾选和绿色状态标识",
+        "discarded": "灰紫色划除图标和状态标识",
+        "drop_target": "高对比蓝色边框、插入线和目标文件夹背景"
+      },
+      "rules": [
+        "颜色只增强分类，必须同时使用图标、文字、形状或位置表达状态。",
+        "避免整行高饱和填充，主要使用左侧强调线、浅色底、图标和状态标签。",
+        "浅色和深色主题分别定义颜色 token，普通文字对比度目标不低于 4.5:1，非文字控件边界目标不低于 3:1。",
+        "新建文件夹和新建任务使用不同图标，拖拽把手使用熟悉的 GripVertical 图标，过期操作使用 Check、Ban、CalendarPlus。",
+        "所有非文字图标按钮都有 tooltip、aria-label、可见焦点和至少 40x40px 的触控命中区，移动端优先 44x44px。",
+        "拖放完成、取消、目标变化和键盘移动通过 aria-live 宣布结果。"
+      ],
+      "acceptance": [
+        "用户在灰度或色觉差异环境下仍能区分文件夹、优先级、过期、已完成和不再需要。",
+        "拖拽过程中始终能识别当前投放目标和插入位置。",
+        "所有状态色在浅色和深色主题下通过对比度检查。"
+      ]
+    }
+  ],
+  "data_model": {
+    "schema_version": 4,
+    "priority_values": [
+      "high",
+      "low"
+    ],
+    "status_values": [
+      "active",
+      "completed",
+      "discarded"
+    ],
+    "task_additions": {
+      "resolvedAt": "number | null；任务最终进入已处理区的时间，用于最近三项排序",
+      "pendingResolution": "null | { targetStatus, executeAt, originFolderId, originOrder, originPriority }",
+      "rescheduleHistory": "RescheduleRecord[]"
+    },
+    "reschedule_record": {
+      "fromDate": "原截止日期",
+      "toDate": "新截止日期",
+      "changedAt": "延期操作时间",
+      "reason": "可选原因",
+      "source": "overdue_quick_action | detail_form"
+    },
+    "folder_rules": [
+      "真实 Folder 不增加系统已处理子文件夹；已处理区由 renderer 根据 folderId、status 和 pendingResolution 派生。",
+      "folder.collapsed 只控制主任务树；侧栏导航使用独立折叠偏好。",
+      "任务 order 在每个直接所属文件夹内保持稳定且可规范化。"
+    ],
+    "preferences": {
+      "viewMode": "tree_manual | global_priority | global_due_date | priority_then_due_date",
+      "defaultTaskDueDate": "today | tomorrow | next_workday | none",
+      "defaultTaskPriority": "high | low",
+      "expandedHandledContainers": "string[]",
+      "navigationCollapsedFolders": "string[]",
+      "folderScope": "all | root | folder id",
+      "theme": "system | light | dark"
+    },
+    "removed_or_replaced_fields": [
+      "Priority.medium",
+      "Preferences.sortMode"
+    ]
+  },
+  "state_actions": [
+    "move-task：原子更新目标文件夹、目标顺序和目标高低优先级",
+    "move-priority-divider：批量更新被分界线跨过任务的优先级",
+    "start-task-resolution：设置目标状态和八秒 pendingResolution",
+    "cancel-task-resolution：恢复 active 和原位置",
+    "finalize-task-resolution：清除 pendingResolution 并确认 resolvedAt",
+    "restore-task：从已处理区恢复到记录的活动位置",
+    "reschedule-task：更新 dueDate 并追加延期记录",
+    "apply-suggested-order：按截止日期建议算法重排单个文件夹",
+    "set-default-task-values：更新新任务默认截止日期和优先级",
+    "toggle-handled-section：展开或折叠已处理历史"
+  ],
+  "migration": {
+    "from_schema_version": 3,
+    "rules": [
+      "high 保持 high；medium 和 low 迁移为 low，避免未经用户确认把普通任务提升为高优先级。",
+      "每个文件夹内先按迁移后的高低优先级分区，再按原 order、createdAt 和 id 保持稳定顺序。",
+      "现有 completed 和 discarded 任务使用 updatedAt 作为初始 resolvedAt，pendingResolution 设为 null。",
+      "现有 active 任务的 resolvedAt 为 null。",
+      "所有旧任务的 rescheduleHistory 初始化为空数组。",
+      "tree 迁移为 tree_manual，priority 迁移为 global_priority，due_date 迁移为 global_due_date。",
+      "旧 sortMode 不再迁移为独立控件；各新视图使用固定定义的次级排序。",
+      "旧 folder.collapsed 迁移为主任务树折叠状态，侧栏导航默认展开。",
+      "继续支持 schema v2、schema v3 和旧版备份导入，导出统一写出 schema v4。"
+    ],
+    "data_safety": [
+      "迁移不得删除任务、文件夹、说明、标签、截止日期或历史状态。",
+      "迁移失败时回退到最后一个可验证的旧存储，并提示用户导出备份。",
+      "迁移和导入必须防止重复 id、孤立 folderId 和无效 pendingResolution。"
+    ]
+  },
+  "implementation_dependencies": {
+    "drag_and_drop": {
+      "recommended": "@atlaskit/pragmatic-drag-and-drop",
+      "reason": "当前项目为原生 TypeScript，该库提供原生元素适配器、嵌套投放目标、投放事件和可选自动滚动能力。",
+      "official_references": [
+        "https://atlassian.design/components/pragmatic-drag-and-drop/core-package/drop-targets",
+        "https://atlassian.design/components/pragmatic-drag-and-drop/optional-packages/auto-scroll/",
+        "https://atlassian.design/components/pragmatic-drag-and-drop/design-guidelines/"
+      ]
+    },
+    "icons": {
+      "recommended": "lucide",
+      "required_icons": [
+        "GripVertical",
+        "FolderPlus",
+        "ListPlus",
+        "Check",
+        "Ban",
+        "CalendarPlus",
+        "LocateFixed",
+        "ChevronDown",
+        "ChevronRight",
+        "Undo2"
+      ]
+    }
+  },
+  "implementation_plan": [
+    {
+      "phase": 1,
+      "title": "schema v4 与领域操作",
+      "work": [
+        "实现双层优先级、处理时间、待处理过渡、延期历史和新偏好模型。",
+        "实现 schema v3 到 v4 迁移及旧备份兼容。",
+        "实现 move-task、状态过渡、恢复和延期的 reducer 与撤销重做。"
+      ]
+    },
+    {
+      "phase": 2,
+      "title": "交互式任务树和内联新增",
+      "work": [
+        "接入拖放引擎、拖拽把手、插入线、自动滚动和文件夹悬停展开。",
+        "实现根区域及文件夹内两个新增按钮和内联任务录入。",
+        "分离主任务树与侧栏导航的折叠状态。"
+      ]
+    },
+    {
+      "phase": 3,
+      "title": "优先级分界和过期处置",
+      "work": [
+        "实现可拖动高低分界线和位置优先级一致性。",
+        "实现文件夹内系统逾期区、逾期天数和三个直接处置按钮。",
+        "实现延期日期面板、验证和详情时间线。"
+      ]
+    },
+    {
+      "phase": 4,
+      "title": "八秒过渡和已处理区域",
+      "work": [
+        "实现独立倒计时、刷新恢复、撤销和过渡动画。",
+        "实现每个文件夹的虚拟已处理区、最近三项和展开全部。",
+        "实现已处理任务恢复、文件夹删除策略和全局状态筛选兼容。"
+      ]
+    },
+    {
+      "phase": 5,
+      "title": "全局视图、定位和视觉系统",
+      "work": [
+        "重构四种互斥查看模式并删除独立排序组合。",
+        "实现文件夹路径和在树中定位。",
+        "统一颜色 token、Lucide 图标、焦点状态、触控尺寸和 aria-live 反馈。"
+      ]
+    },
+    {
+      "phase": 6,
+      "title": "回归、视觉与数据验收",
+      "work": [
+        "运行类型检查、单元测试、构建产物校验和端到端测试。",
+        "覆盖 1920、1536、1366、1024、768 和 390px 视口以及浅色、深色主题。",
+        "验证长列表拖拽、自动滚动、多重倒计时、刷新恢复、导入导出和迁移。"
+      ]
+    }
+  ],
+  "test_plan": {
+    "domain_and_store": [
+      "同文件夹和跨文件夹移动能生成正确的 folderId、priority 和连续 order。",
+      "跨分界线和移动分界线能保持位置与优先级一致。",
+      "原位置投放和无效投放为 no-op，不污染撤销历史。",
+      "过期判断严格区分过去日期与今天截止，并使用本地日期。",
+      "延期更新日期和历史记录可以一起撤销、重做。",
+      "八秒倒计时启动、取消、完成、并发和重新载入均正确。",
+      "已处理区最近三项按 resolvedAt 排序，普通详情编辑不改变顺序。",
+      "文件夹移动或删除时活动任务、待处理任务和已处理任务不会遗失。",
+      "schema v3 到 v4 迁移及 v2、v3、v4 备份往返均不丢数据。"
+    ],
+    "browser_e2e": [
+      "拖拽任务在同一文件夹重新排序。",
+      "拖到折叠文件夹后自动展开并完成跨文件夹投放。",
+      "拖到滚动边缘触发自动滚动，投放后任务可见且选中。",
+      "键盘菜单能够完成与拖拽等价的移动。",
+      "根区域和嵌套文件夹的两个新增按钮创建到正确上下文。",
+      "过期任务置顶并能执行完成、不再需要和延期。",
+      "状态任务八秒内可撤销，超时后进入正确文件夹的已处理区。",
+      "默认只显示最近三项，展开后显示全部，恢复待办返回原位置。",
+      "四种全局视图显示文件夹路径，并能定位回树状位置。",
+      "搜索、筛选和全局视图不会意外开启拖拽。"
+    ],
+    "visual_and_accessibility": [
+      "长任务标题、四层文件夹、三个过期操作按钮和已处理计数不重叠。",
+      "拖拽预览、插入线、文件夹投放目标和自动展开状态清晰可见。",
+      "过期、待移入、已完成、不再需要、高优先级和低优先级在浅色及深色主题中可区分。",
+      "图标按钮具备 tooltip、aria-label、可见焦点和足够触控区域。",
+      "颜色对比度和非颜色提示满足验收要求。",
+      "页面在全部目标视口下无横向溢出或内容遮挡。"
+    ]
+  },
+  "definition_of_done": [
+    "所有 P0 和 P1 升级需求实现，数据模型和界面行为与本文件一致。",
+    "npm run verify 通过，新增单元测试和端到端测试全部通过。",
+    "schema v3 本地数据自动迁移且旧备份可以导入。",
+    "拖拽、状态过渡、延期、已处理历史和树中定位可以完整撤销或恢复。",
+    "桌面、平板和移动视口完成浅色与深色视觉验收。",
+    "README、导入导出说明、默认示例数据和测试反馈与 v0.4 行为一致。",
+    "实现提交不包含与本次升级无关的用户工作区改动。"
+  ],
+  "known_risks_and_mitigations": [
+    {
+      "risk": "当前 renderer 会整体 replaceChildren，拖放绑定可能在渲染后失效或重复。",
+      "mitigation": "为每次任务树渲染建立明确的拖放 cleanup 生命周期，状态更新后统一解绑和重新绑定。"
+    },
+    {
+      "risk": "过期置顶顺序与手动顺序冲突。",
+      "mitigation": "过期区只改变渲染位置，不覆写任务原 order；延期后任务可恢复原位置。"
+    },
+    {
+      "risk": "已处理区域如果建成真实文件夹会污染层级和拖放。",
+      "mitigation": "只使用派生的系统区域，任务继续保留原 folderId。"
+    },
+    {
+      "risk": "浏览器关闭会中断八秒计时器。",
+      "mitigation": "持久化 executeAt，应用启动和恢复可见性时重新校准并完成过期过渡。"
+    },
+    {
+      "risk": "多个文件夹各展示三条历史会使大型树变长。",
+      "mitigation": "已处理区仅在文件夹展开时显示，并允许用户单独折叠整个已处理区。"
+    },
+    {
+      "risk": "仅鼠标拖放会排除键盘和触屏用户。",
+      "mitigation": "提供移动菜单和键盘等价操作，触屏端不要求精细拖放。"
+    }
+  ],
+  "out_of_scope_for_v0_4": [
+    "拖拽改变文件夹自身顺序或层级",
+    "云端同步和用户账号",
+    "多人协作与权限",
+    "系统级通知和提醒",
+    "日历月视图",
+    "任务依赖关系",
+    "超大数据量虚拟滚动"
+  ],
+  "repository_state": {
+    "branch": "develop",
+    "source_head": "9b36b6d",
+    "working_tree_before_write": "clean",
+    "staged_by_this_revision": false,
+    "committed_by_this_revision": false
+  }
+}

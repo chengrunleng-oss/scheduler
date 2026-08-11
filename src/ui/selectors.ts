@@ -4,22 +4,18 @@ export interface Elements {
   sidebar: HTMLElement;
   sidebarClose: HTMLButtonElement;
   navToggle: HTMLButtonElement;
-  taskForm: HTMLFormElement;
-  taskTitle: HTMLInputElement;
-  taskPriority: HTMLSelectElement;
-  taskDueDate: HTMLInputElement;
-  taskFolder: HTMLSelectElement;
-  taskTag: HTMLInputElement;
-  clearForm: HTMLButtonElement;
+  globalNewTask: HTMLButtonElement;
+  defaultDueDate: HTMLSelectElement;
+  defaultPriority: HTMLSelectElement;
   newFolder: HTMLButtonElement;
   folderTree: HTMLElement;
   workspaceTitle: HTMLElement;
   taskList: HTMLElement;
   emptyState: HTMLElement;
+  dragHint: HTMLElement;
   searchInput: HTMLInputElement;
   statusFilters: NodeListOf<HTMLButtonElement>;
   viewModes: NodeListOf<HTMLButtonElement>;
-  sortMode: HTMLSelectElement;
   metricActive: HTMLElement;
   metricCompleted: HTMLElement;
   metricDiscarded: HTMLElement;
@@ -35,15 +31,18 @@ export interface Elements {
   detailClose: HTMLButtonElement;
   detailEmpty: HTMLElement;
   detailForm: HTMLFormElement;
+  detailStatusBadge: HTMLElement;
   detailTitle: HTMLTextAreaElement;
   detailNotes: HTMLTextAreaElement;
-  detailStatus: HTMLSelectElement;
   detailPriority: HTMLSelectElement;
   detailFolder: HTMLSelectElement;
   detailDueDate: HTMLInputElement;
   detailTag: HTMLInputElement;
+  detailRescheduleReason: HTMLInputElement;
   detailCreatedAt: HTMLElement;
   detailUpdatedAt: HTMLElement;
+  timelineSection: HTMLElement;
+  rescheduleTimeline: HTMLOListElement;
   cancelDetail: HTMLButtonElement;
   folderDialog: HTMLDialogElement;
   folderDialogForm: HTMLFormElement;
@@ -62,72 +61,48 @@ export interface Elements {
   confirmClose: HTMLButtonElement;
   confirmCancel: HTMLButtonElement;
   confirmOk: HTMLButtonElement;
+  moveDialog: HTMLDialogElement;
+  moveDialogForm: HTMLFormElement;
+  moveFolder: HTMLSelectElement;
+  movePriority: HTMLSelectElement;
+  movePrevious: HTMLButtonElement;
+  moveNext: HTMLButtonElement;
+  moveRestriction: HTMLElement;
+  moveSubmit: HTMLButtonElement;
+  moveDelete: HTMLButtonElement;
+  rescheduleDialog: HTMLDialogElement;
+  rescheduleForm: HTMLFormElement;
+  rescheduleDate: HTMLInputElement;
+  rescheduleReason: HTMLInputElement;
   toast: HTMLElement;
+  liveRegion: HTMLElement;
 }
 
 export function queryElements(): Elements {
   return {
-    sidebar: requiredElement("#sidebar"),
-    sidebarClose: requiredElement("#sidebarClose"),
-    navToggle: requiredElement("#navToggle"),
-    taskForm: requiredElement("#taskForm"),
-    taskTitle: requiredElement("#taskTitle"),
-    taskPriority: requiredElement("#taskPriority"),
-    taskDueDate: requiredElement("#taskDueDate"),
-    taskFolder: requiredElement("#taskFolder"),
-    taskTag: requiredElement("#taskTag"),
-    clearForm: requiredElement("#clearForm"),
-    newFolder: requiredElement("#newFolder"),
-    folderTree: requiredElement("#folderTree"),
-    workspaceTitle: requiredElement("#workspaceTitle"),
-    taskList: requiredElement("#taskList"),
-    emptyState: requiredElement("#emptyState"),
-    searchInput: requiredElement("#searchInput"),
-    statusFilters: document.querySelectorAll<HTMLButtonElement>(".status-segment"),
-    viewModes: document.querySelectorAll<HTMLButtonElement>(".view-segment"),
-    sortMode: requiredElement("#sortMode"),
-    metricActive: requiredElement("#metricActive"),
-    metricCompleted: requiredElement("#metricCompleted"),
-    metricDiscarded: requiredElement("#metricDiscarded"),
-    metricDue: requiredElement("#metricDue"),
-    exportData: requiredElement("#exportData"),
-    importData: requiredElement("#importData"),
-    importFile: requiredElement("#importFile"),
-    resetDemo: requiredElement("#resetDemo"),
-    undoAction: requiredElement("#undoAction"),
-    redoAction: requiredElement("#redoAction"),
-    themeSelect: requiredElement("#themeSelect"),
-    taskDetail: requiredElement("#taskDetail"),
-    detailClose: requiredElement("#detailClose"),
-    detailEmpty: requiredElement("#detailEmpty"),
-    detailForm: requiredElement("#detailForm"),
-    detailTitle: requiredElement("#detailTitle"),
-    detailNotes: requiredElement("#detailNotes"),
-    detailStatus: requiredElement("#detailStatus"),
-    detailPriority: requiredElement("#detailPriority"),
-    detailFolder: requiredElement("#detailFolder"),
-    detailDueDate: requiredElement("#detailDueDate"),
-    detailTag: requiredElement("#detailTag"),
-    detailCreatedAt: requiredElement("#detailCreatedAt"),
-    detailUpdatedAt: requiredElement("#detailUpdatedAt"),
-    cancelDetail: requiredElement("#cancelDetail"),
-    folderDialog: requiredElement("#folderDialog"),
-    folderDialogForm: requiredElement("#folderDialogForm"),
-    folderDialogTitle: requiredElement("#folderDialogTitle"),
-    folderName: requiredElement("#folderName"),
-    folderParent: requiredElement("#folderParent"),
-    folderDeleteDialog: requiredElement("#folderDeleteDialog"),
-    folderDeleteText: requiredElement("#folderDeleteText"),
-    folderDeleteMove: requiredElement("#folderDeleteMove"),
-    folderDeleteBranch: requiredElement("#folderDeleteBranch"),
-    folderDeleteCancel: requiredElement("#folderDeleteCancel"),
-    folderDeleteClose: requiredElement("#folderDeleteClose"),
-    confirmDialog: requiredElement("#confirmDialog"),
-    confirmTitle: requiredElement("#confirmTitle"),
-    confirmText: requiredElement("#confirmText"),
-    confirmClose: requiredElement("#confirmClose"),
-    confirmCancel: requiredElement("#confirmCancel"),
-    confirmOk: requiredElement("#confirmOk"),
-    toast: requiredElement("#toast"),
+    sidebar: requiredElement("#sidebar"), sidebarClose: requiredElement("#sidebarClose"), navToggle: requiredElement("#navToggle"),
+    globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"),
+    newFolder: requiredElement("#newFolder"), folderTree: requiredElement("#folderTree"), workspaceTitle: requiredElement("#workspaceTitle"),
+    taskList: requiredElement("#taskList"), emptyState: requiredElement("#emptyState"), dragHint: requiredElement("#dragHint"), searchInput: requiredElement("#searchInput"),
+    statusFilters: document.querySelectorAll(".status-segment"), viewModes: document.querySelectorAll(".view-segment"),
+    metricActive: requiredElement("#metricActive"), metricCompleted: requiredElement("#metricCompleted"), metricDiscarded: requiredElement("#metricDiscarded"), metricDue: requiredElement("#metricDue"),
+    exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
+    undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
+    taskDetail: requiredElement("#taskDetail"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"), detailForm: requiredElement("#detailForm"),
+    detailStatusBadge: requiredElement("#detailStatusBadge"), detailTitle: requiredElement("#detailTitle"), detailNotes: requiredElement("#detailNotes"),
+    detailPriority: requiredElement("#detailPriority"), detailFolder: requiredElement("#detailFolder"), detailDueDate: requiredElement("#detailDueDate"),
+    detailTag: requiredElement("#detailTag"), detailRescheduleReason: requiredElement("#detailRescheduleReason"), detailCreatedAt: requiredElement("#detailCreatedAt"),
+    detailUpdatedAt: requiredElement("#detailUpdatedAt"), timelineSection: requiredElement("#timelineSection"), rescheduleTimeline: requiredElement("#rescheduleTimeline"), cancelDetail: requiredElement("#cancelDetail"),
+    folderDialog: requiredElement("#folderDialog"), folderDialogForm: requiredElement("#folderDialogForm"), folderDialogTitle: requiredElement("#folderDialogTitle"),
+    folderName: requiredElement("#folderName"), folderParent: requiredElement("#folderParent"), folderDeleteDialog: requiredElement("#folderDeleteDialog"),
+    folderDeleteText: requiredElement("#folderDeleteText"), folderDeleteMove: requiredElement("#folderDeleteMove"), folderDeleteBranch: requiredElement("#folderDeleteBranch"),
+    folderDeleteCancel: requiredElement("#folderDeleteCancel"), folderDeleteClose: requiredElement("#folderDeleteClose"), confirmDialog: requiredElement("#confirmDialog"),
+    confirmTitle: requiredElement("#confirmTitle"), confirmText: requiredElement("#confirmText"), confirmClose: requiredElement("#confirmClose"),
+    confirmCancel: requiredElement("#confirmCancel"), confirmOk: requiredElement("#confirmOk"), moveDialog: requiredElement("#moveDialog"),
+    moveDialogForm: requiredElement("#moveDialogForm"), moveFolder: requiredElement("#moveFolder"), movePriority: requiredElement("#movePriority"),
+    movePrevious: requiredElement("#movePrevious"), moveNext: requiredElement("#moveNext"), moveRestriction: requiredElement("#moveRestriction"),
+    moveSubmit: requiredElement("#moveSubmit"), moveDelete: requiredElement("#moveDelete"), rescheduleDialog: requiredElement("#rescheduleDialog"),
+    rescheduleForm: requiredElement("#rescheduleForm"), rescheduleDate: requiredElement("#rescheduleDate"), rescheduleReason: requiredElement("#rescheduleReason"),
+    toast: requiredElement("#toast"), liveRegion: requiredElement("#liveRegion"),
   };
 }

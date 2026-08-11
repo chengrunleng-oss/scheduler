@@ -1,262 +1,411 @@
 {
   "document_type": "scheduler_test_feedback",
   "format_version": 2,
-  "test_date": "2026-08-10",
+  "test_date": "2026-08-11",
   "target_branch": "develop",
   "tested_revision": {
-    "head": "09098ef",
+    "head": "9b36b6d",
     "workspace_changes_included": true,
-    "description": "develop 分支 09098ef 及当前工作区内尚未提交的最新改进"
+    "description": "develop 分支 9b36b6d 及当前工作区内尚未提交的 v0.4.0 升级实现"
   },
-  "source_requirements": "ENGINEERING_REVIEW.md",
-  "feedback_policy": "仅保留本轮仍可复现的问题；此前已整改的问题不再保留",
+  "source_requirements": "ENGINEERING_REVIEW.json",
+  "feedback_policy": "本文件已整体覆盖上一轮测试反馈，仅保留本轮仍可复现的问题；此前已经整改的问题不再保留。",
   "overall_result": {
     "status": "needs_revision",
-    "functional_regression": "passed",
-    "desktop_visual_acceptance": "failed",
-    "release_recommendation": "暂不建议结束桌面界面验收",
-    "summary": "核心功能和自动化回归均通过，但常见电脑浏览器尺寸下仍存在明显的布局断点跳变、详情保存操作落在首屏之外，以及多处含义不准确或阅读费力的中文文案。"
+    "all_requirements_completed": false,
+    "automated_verification": "passed",
+    "browser_acceptance": "failed",
+    "release_recommendation": "暂不建议将 v0.4 视为全部验收完成",
+    "summary": "类型检查、构建、34 项 Node 测试和 12 项浏览器测试均通过，拖拽、四种视图、逾期改期、延期记录及主要响应式流程已经可用。但逐条对照升级要求后，仍确认 1 项 P0 功能缺陷、7 项 P1 验收缺陷和 1 项 P2 交互缺陷；其中待办筛选下八秒撤销条目立即消失，会直接破坏核心可撤销流程。"
   },
-  "automated_verification": {
-    "command": "npm.cmd run verify",
-    "status": "passed",
-    "node_tests": {
-      "passed": 27,
-      "failed": 0
+  "test_execution": {
+    "automated": {
+      "command": "npm.cmd run verify",
+      "status": "passed",
+      "typecheck": "passed",
+      "build_and_bundle": "passed",
+      "dist_consistency": "passed",
+      "node_tests": {
+        "passed": 34,
+        "failed": 0
+      },
+      "browser_e2e_tests": {
+        "passed": 12,
+        "failed": 0,
+        "covered_flows": [
+          "高低双层优先级和四种互斥视图",
+          "文件夹内新建任务和子文件夹",
+          "八秒完成过渡、刷新恢复、立即撤销及进入已处理区",
+          "逾期任务快捷改期和延期时间线",
+          "菜单移动任务、鼠标拖拽跨文件夹及撤销",
+          "全局视图返回树中定位",
+          "详情修改截止日期及撤销时间线",
+          "1366px 长标题可读性",
+          "1440x900 与 390x844 无横向溢出",
+          "手机端任务行操作按钮达到 44x44px"
+        ]
+      }
     },
-    "browser_e2e_tests": {
-      "passed": 6,
-      "failed": 0,
-      "covered_flows": [
-        "详情保存与撤销",
-        "完成、筛选与恢复待办",
-        "空文件夹创建与删除",
-        "树状、优先级、截止日期三种视图切换",
-        "桌面端无横向溢出",
-        "移动端无横向溢出以及 44x44px 触控目标"
+    "manual_browser": {
+      "browser": "Codex 内置 Chromium 浏览器",
+      "viewports_checked": [
+        "1440x900",
+        "1024x800",
+        "390x844"
+      ],
+      "console_errors": 0,
+      "console_warnings": 0,
+      "scenarios_checked": [
+        "在待办筛选中完成任务并观察八秒过渡",
+        "创建子文件夹后检查父文件夹内容顺序",
+        "使用 Enter 提交内联文件夹",
+        "打开没有延期历史的任务详情",
+        "检查桌面、平板和手机端可见图标按钮命中尺寸",
+        "检查横向溢出和详情抽屉响应式行为"
       ]
     }
   },
-  "browser_verification": {
-    "browser": "Codex 内置浏览器",
-    "themes_checked": [
-      "跟随系统",
-      "浅色",
-      "深色"
-    ],
-    "viewports_checked": [
-      "1920x1080",
-      "1920x768",
-      "1536x864",
-      "1440x900",
-      "1366x768",
-      "1281x768",
-      "1280x768"
-    ],
-    "console_errors": 0,
-    "console_warnings": 0
-  },
+  "requirement_status": [
+    {
+      "requirement": "UPG-001",
+      "status": "partially_verified",
+      "summary": "跨文件夹拖拽、移动菜单、撤销和自动滚动实现已通过现有测试；折叠文件夹悬停展开、离开恢复及投放后保持展开尚无独立浏览器回归。"
+    },
+    {
+      "requirement": "UPG-002",
+      "status": "failed",
+      "summary": "树内新增基本可用，但 Enter 不会保存；根级新增按钮不在全部条目末尾；侧栏大型表单仍与树内入口重复；文件夹和任务按钮没有不同辅助色。"
+    },
+    {
+      "requirement": "UPG-003",
+      "status": "partially_verified",
+      "summary": "高低双层优先级、分界线和建议排序逻辑已实现，状态层测试通过；分界线真实拖拽及跨线后的浏览器持久化没有端到端覆盖，空文件夹仍显示无意义的建议排序按钮。"
+    },
+    {
+      "requirement": "UPG-004",
+      "status": "failed",
+      "summary": "全部筛选下的八秒过渡和刷新恢复可用，但待办筛选下条目会立即消失；已处理区还被渲染在子文件夹之前。"
+    },
+    {
+      "requirement": "UPG-005",
+      "status": "failed",
+      "summary": "逾期置顶、逾期天数和快捷改期可用，但逾期行仍把移动/优先级入口和删除按钮直接摆在三个主要处置按钮旁。"
+    },
+    {
+      "requirement": "UPG-006",
+      "status": "failed",
+      "summary": "延期记录的写入、排序和撤销可用，但旧任务没有记录时仍显示“暂无改期记录”空时间线，与验收条件相反。"
+    },
+    {
+      "requirement": "UPG-007",
+      "status": "passed",
+      "summary": "四种互斥视图、全局文件夹路径、禁止全局拖拽和返回树中定位均已验证。"
+    },
+    {
+      "requirement": "UPG-008",
+      "status": "failed",
+      "summary": "状态颜色、图标、tooltip 和 aria-label 已实现，但多类非文字图标按钮小于 40x40px，移动端也未普遍达到优先的 44x44px。"
+    }
+  ],
   "findings": [
     {
-      "id": "TEST-LAYOUT-001",
+      "id": "TEST-UPG-004-001",
+      "priority": "P0",
+      "category": "pending_resolution_filter",
+      "title": "待办筛选下完成或丢弃任务后，八秒撤销条目立即消失",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/store.ts:147",
+          "src/domain.ts:328",
+          "src/ui/renderer.ts:274"
+        ],
+        "browser_reproduction": [
+          "切换到“待办”筛选。",
+          "对“确定今天最重要的一件事”点击“标记为已完成”。",
+          "任务状态立即变为 completed，selectVisibleTasks 按 activeStatusFilter 精确过滤后立刻将其排除。",
+          "任务行、半透明状态、倒计时和撤销按钮在当前列表中全部不可见；只有切回“全部”才能看到过渡条目。"
+        ],
+        "control_case": "在“全部”筛选下，同一操作会正确显示 opacity=0.55 的 pending 任务并在八秒后进入已处理区。"
+      },
+      "impact": "用户在最常用的待办视图中无法看到操作反馈，也无法就地撤销，核心八秒容错流程失效。",
+      "recommendation": "筛选可见任务时，将 pendingResolution 视为其原 active 状态并保留原位置；仅在倒计时完成后再按 completed/discarded 筛选结果移动。为待办筛选下的完成、不再需要、撤销和超时各补一条端到端测试。",
+      "acceptance_criteria": [
+        "在“待办”筛选下操作后，任务原地保持约 55% 透明并显示实时倒计时和撤销按钮",
+        "八秒内切换筛选或刷新仍能恢复同一过渡状态",
+        "倒计时结束后才从待办列表消失并进入对应已处理历史"
+      ]
+    },
+    {
+      "id": "TEST-UPG-002-001",
       "priority": "P1",
-      "category": "desktop_responsive_layout",
-      "title": "1280px 断点前后布局突变，较宽窗口反而显著压缩任务区",
+      "category": "inline_creation_keyboard",
+      "title": "内联新建文件夹和任务不支持 Enter 保存",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:233",
+          "src/ui/renderer.ts:254",
+          "src/ui/renderer.ts:415",
+          "src/ui/events.ts:177",
+          "src/ui/events.ts:199"
+        ],
+        "browser_reproduction": "在工作文件夹点击新建子文件夹，输入“验收子文件夹”后按 Enter，表单仍停留且文件夹未创建；点击“保存文件夹”按钮后才成功。",
+        "root_cause": "iconButton 会把保存按钮统一设为 type=button，内联表单又只处理 Escape，没有把 Enter 转换为 requestSubmit。现有端到端测试只点击保存按钮。"
+      },
+      "impact": "键盘快速录入链路中断，且与升级方案明确写出的 Enter 保存行为不一致。",
+      "recommendation": "将内联保存按钮设为 submit，或在标题输入框处理 Enter 并调用 requestSubmit；保留 Escape 取消，同时为任务和文件夹分别添加 Enter/Escape 浏览器测试。",
+      "acceptance_criteria": [
+        "内联任务和内联文件夹输入有效标题后按 Enter 均立即保存",
+        "空标题按 Enter 不创建内容并保持可理解的校验状态",
+        "Escape 继续取消且不产生数据或撤销记录"
+      ]
+    },
+    {
+      "id": "TEST-UPG-004-002",
+      "priority": "P1",
+      "category": "tree_information_architecture",
+      "title": "已处理区排在子文件夹之前，没有位于文件夹队列末尾",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:183",
+          "src/ui/renderer.ts:194",
+          "src/ui/renderer.ts:283"
+        ],
+        "browser_observation": [
+          "在工作文件夹下创建“验收子文件夹”。",
+          "完成工作文件夹直属任务并等待八秒。",
+          "实际 DOM 顺序为：工作标题、已处理、已完成任务、验收子文件夹；目标顺序要求子文件夹在前、已处理在最后。"
+        ],
+        "root_cause": "appendContainer 先调用 renderDirectTasks，而 renderDirectTasks 内部已经追加已处理区，之后才递归追加子文件夹。"
+      },
+      "impact": "文件夹存在子层级时，已处理历史会插入活动树中间，破坏“活动内容优先、历史收尾”的浏览和折叠预期。",
+      "recommendation": "把已处理区从 renderDirectTasks 中拆出，在所有直属活动任务和子文件夹递归完成后再追加。",
+      "acceptance_criteria": [
+        "每个文件夹顺序固定为逾期、高优先级、分界线、低优先级、子文件夹、已处理",
+        "未分类区域和任意嵌套层级遵循相同顺序",
+        "已处理区只包含当前文件夹直属历史任务"
+      ]
+    },
+    {
+      "id": "TEST-UPG-002-002",
+      "priority": "P1",
+      "category": "creation_entry_information_architecture",
+      "title": "根级新增入口和侧栏新建区仍未按升级方案收敛",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:208",
+          "src/ui/renderer.ts:221",
+          "styles.css:203",
+          "index.html:20",
+          "index.html:43"
+        ],
+        "observations": [
+          "根级新建任务和新建文件夹按钮位于“未分类”标题内、全部根级条目之前，而不是所有根级条目最下方。",
+          "侧栏仍保留任务名称、优先级、截止日期、文件夹、标签和提交按钮组成的大型新建表单，同时又单独存在“新任务默认值”和树内新增入口。",
+          "ListPlus 与 FolderPlus 虽使用不同图标和 aria-label，但同为 .group-action，辅助色完全相同。"
+        ]
+      },
+      "impact": "用户在树首、各文件夹标题和侧栏同时看到多个新建入口，根级追加动作又不在列表末尾，增加寻找和判断成本。",
+      "recommendation": "在根树末尾增加独立的双按钮操作行；文件夹标题保留就地新增；侧栏只保留紧凑默认设置和一个全局新建入口；为任务与文件夹新增按钮使用统一但可区分的辅助色。",
+      "acceptance_criteria": [
+        "根级双按钮始终位于全部根任务和根文件夹之后",
+        "侧栏不再出现与树内录入重复的大型完整表单",
+        "任务与文件夹新增按钮在图标、颜色、tooltip 和 aria-label 上均可区分"
+      ]
+    },
+    {
+      "id": "TEST-UPG-005-001",
+      "priority": "P1",
+      "category": "overdue_task_actions",
+      "title": "逾期任务行仍直接显示低频移动和删除操作",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:385",
+          "src/ui/renderer.ts:391"
+        ],
+        "observation": "active 逾期任务依次追加完成、不再需要、延期、移动和设置优先级，随后还无条件追加删除，共五个直接按钮。",
+        "requirement_difference": "升级方案要求只直接突出完成、不再需要、延期三个处置动作；删除等低频动作进入更多菜单，并隐藏普通优先级调整。"
+      },
+      "impact": "最需要快速处置的逾期行操作区仍然拥挤，在中等宽度和手机端更难准确点击，也削弱三个主要动作的视觉优先级。",
+      "recommendation": "逾期行只保留三个直接处置按钮，把删除、移动和优先级调整收入单一更多菜单；菜单内对逾期任务禁用或解释不适用的普通排序操作。",
+      "acceptance_criteria": [
+        "逾期行默认只显示完成、不再需要、延期三个直接动作",
+        "删除和移动等低频动作仅从更多菜单进入",
+        "桌面和手机端三个主要按钮都保持足够命中区域"
+      ]
+    },
+    {
+      "id": "TEST-UPG-006-001",
+      "priority": "P1",
+      "category": "reschedule_timeline_empty_state",
+      "title": "没有延期历史的旧任务仍显示空时间线",
+      "status": "open",
+      "evidence": {
+        "files": [
+          "src/ui/renderer.ts:442",
+          "src/ui/renderer.ts:445",
+          "e2e/workbench.spec.mjs:128"
+        ],
+        "browser_observation": "打开示例任务“安排一段不被打扰的专注时间”的详情，延期记录区域可见，并显示“暂无改期记录”。",
+        "test_mismatch": "现有详情撤销测试反而断言“暂无改期记录”必须出现，和 ENGINEERING_REVIEW.json 中“旧任务没有延期记录时详情面板不显示空白时间线”的验收条件相反。"
+      },
+      "impact": "详情面板为不存在的历史长期占用空间，并让用户误以为该区域需要处理。",
+      "recommendation": "rescheduleHistory 为空时隐藏整个延期记录区；首次产生记录后再显示标题和时间线，并同步修正端到端断言。",
+      "acceptance_criteria": [
+        "无延期记录时详情中不渲染延期记录标题、列表或空提示",
+        "首次延期后立即显示时间线",
+        "撤销到零条记录时区域再次隐藏"
+      ]
+    },
+    {
+      "id": "TEST-UPG-008-001",
+      "priority": "P1",
+      "category": "interaction_target_size",
+      "title": "多类非文字图标按钮未达到最小命中尺寸",
       "status": "open",
       "evidence": {
         "files": [
           "styles.css:116",
-          "styles.css:919"
+          "styles.css:125",
+          "styles.css:133",
+          "styles.css:187",
+          "styles.css:203",
+          "styles.css:277",
+          "styles.css:301",
+          "styles.css:306"
         ],
         "measurements": [
-          "1280px 宽时使用 270px + 自适应任务区，任务行宽约 959px，详情为 380px 抽屉",
-          "1281px 宽时立即切换为 292px + 634px + 340px 三栏，任务行宽约 598px",
-          "视口只增加 1px，主要任务行反而缩窄约 361px",
-          "1366px 宽且未选择任务时，340px 详情栏长期显示空提示，占据约四分之一横向空间",
-          "长任务标题在 1366px 下被压缩到约 248px，出现四行密集换行"
-        ]
+          "1440x900：所有树标题 .group-action 实测为 36x36px。",
+          "宽度不超过 1180px：任务操作按钮被 CSS 降为 36x36px。",
+          "文件夹侧栏操作为 32x32px，任务拖拽把手为 32x32px，文件夹折叠按钮为 28x36px。",
+          "390x844：任务行状态操作已达到 44x44px，但树新增、顶部工具和多类折叠/拖拽按钮仍只有 28-40px。"
+        ],
+        "test_gap": "当前静态测试只匹配通用 40px 规则和手机任务行操作的 44px 规则，没有发现后续选择器把多类按钮重新缩小。"
       },
-      "impact": "布局变化与窗口变宽的用户预期相反，常见笔记本宽度下主任务内容被明显挤压；没有选中任务时还会长期浪费一整列空间。",
-      "recommendation": "在更宽的阈值之前继续使用详情抽屉，或仅在选中任务时才预留第三列；同时为任务区保留约 720-760px 的舒适最小宽度，并消除断点处的宽度倒退。",
+      "impact": "鼠标和触屏用户更容易误触，尤其是拖拽、折叠和文件夹管理等高频小图标操作；也不满足 UPG-008 的最小命中区规则。",
+      "recommendation": "用统一命中区 token 保证所有非文字图标按钮桌面至少 40x40px、移动端优先 44x44px；视觉图标可保持较小，但不要缩小按钮盒。把尺寸测试扩展到最终计算样式和全部图标按钮类别。",
       "acceptance_criteria": [
-        "连续检查 1200-1500px 宽度时，视口变宽不得导致任务行突然变窄",
-        "未选择任务时不长期保留 340px 空白详情列",
-        "1366px 下长标题不会因固定功能列而被压缩成难读的逐行堆叠"
+        "桌面所有非文字图标按钮最终计算尺寸均不小于 40x40px",
+        "手机端关键图标按钮最终计算尺寸均达到 44x44px，且没有横向溢出",
+        "测试遍历可见图标按钮，而不是只检查 CSS 文本或任务状态按钮"
       ]
     },
     {
-      "id": "TEST-LAYOUT-002",
+      "id": "TEST-COVERAGE-001",
       "priority": "P1",
-      "category": "desktop_detail_panel",
-      "title": "常见横屏高度下详情页的取消和保存按钮不在首屏内",
+      "category": "acceptance_test_coverage",
+      "title": "若干明确要求的高风险浏览器验收场景仍无自动化覆盖",
       "status": "open",
       "evidence": {
         "files": [
-          "styles.css:792",
-          "styles.css:805",
-          "styles.css:845"
+          "e2e/workbench.spec.mjs",
+          "tests/ui.test.mjs"
         ],
-        "measurements": [
-          "1536x864：详情面板高约 906px，操作区位于 y=843.8-883.8，未完整显示",
-          "1920x768：详情面板仍高约 906px，操作区位于 y=843.8-883.8，完全落在首屏之外",
-          "1366x768：同样需要滚动整个页面后才能看到取消和保存"
+        "missing_browser_cases": [
+          "折叠文件夹悬停约 600ms 自动展开、移开恢复、投放后保持展开",
+          "同文件夹精确重排、投放到未分类、原位置 no-op 及重做",
+          "拖动高低分界线、任务跨分界线后的优先级与顺序一致性",
+          "超过三条已处理任务时默认三条、展开其余和 resolvedAt 排序",
+          "待办筛选下的八秒过渡、多个独立倒计时和筛选切换",
+          "逾期行三个处置动作在桌面与手机端的最终布局和命中尺寸",
+          "根级末尾双按钮、Enter 保存及不同辅助色"
         ],
-        "root_cause": "桌面三栏下详情面板被页面最高内容拉伸，表单没有受视口高度约束，操作区随表单内容落到页面底部。"
+        "current_limitation": "tests/ui.test.mjs 中多项检查只是正则匹配源码片段，能够证明代码文本存在，不能证明浏览器中的真实行为和最终计算样式。"
       },
-      "impact": "用户选中任务后看不到最关键的提交操作，容易误以为修改会自动保存或界面缺少保存功能。",
-      "recommendation": "将桌面详情栏限制为 100dvh 并使用 sticky 定位；让表单内容在面板内部滚动，操作区固定或粘附在面板底部。",
+      "impact": "本轮已经出现“测试全绿但核心待办筛选撤销失效”和“通用尺寸规则存在但被后续 CSS 覆盖”的情况，说明当前套件不足以证明全部升级内容完成。",
+      "recommendation": "按 ENGINEERING_REVIEW.json 的 acceptance 条目补齐真实浏览器测试，并使用可控时钟覆盖八秒状态机，使用最终计算样式检查所有图标按钮。",
       "acceptance_criteria": [
-        "在 1366x768、1536x864 和 1920x768 下，取消与保存按钮无需滚动整页即可看到并操作",
-        "内容超高时只滚动详情正文，底部操作区保持可见"
+        "每个 P0 要求至少有正常流程、撤销/恢复和关键边界条件的浏览器测试",
+        "源码正则契约不能作为真实交互和视觉验收的唯一依据",
+        "本轮已发现的所有问题先新增失败用例，再修复实现"
       ]
     },
     {
-      "id": "TEST-COPY-001",
-      "priority": "P1",
-      "category": "status_copy",
-      "title": "截止日期文案没有区分今天到期、已经逾期和无截止日期",
-      "status": "open",
-      "evidence": {
-        "files": [
-          "src/ui/renderer.ts:377",
-          "index.html:77"
-        ],
-        "observations": [
-          "2026-08-09 的过期任务在 2026-08-10 仍显示为“08/09 到期”，没有提示“已逾期”",
-          "今天截止的任务也显示为“08/10 到期”，与已经逾期共用同一种表达",
-          "没有日期的任务只显示“未设置”，在窄布局隐藏列表头后缺少“截止日期”语境",
-          "概览指标“到期/逾期”把今天到期和已经逾期合并为一个含义模糊的标签"
-        ]
-      },
-      "impact": "用户不能快速判断任务是否已经延误，时间状态的紧迫性表达不准确。",
-      "recommendation": "分别使用“已逾期 1 天”或“逾期 · 08/09”、“今天截止”、未来日期，以及“无截止日期”；概览改为“今日/逾期”或拆分统计。",
-      "acceptance_criteria": [
-        "过去、今天、未来、无日期四种状态使用互不混淆的自然中文",
-        "逾期任务在任务行和截止日期视图中的语义保持一致"
-      ]
-    },
-    {
-      "id": "TEST-COPY-002",
+      "id": "TEST-UPG-003-001",
       "priority": "P2",
-      "category": "misleading_control_copy",
-      "title": "“手动顺序”选项暗示了当前并不存在的手动排序能力",
+      "category": "empty_folder_action",
+      "title": "空文件夹仍显示无效果的建议排序按钮",
       "status": "open",
       "evidence": {
         "files": [
-          "index.html:132",
-          "src/domain.ts:573"
+          "src/ui/renderer.ts:226"
         ],
-        "observations": [
-          "界面没有拖放、上移、下移或其他调整任务顺序的控件",
-          "当前顺序实际由任务的 order、创建时间和 id 稳定决定，用户无法手动改变"
-        ]
+        "browser_observation": "未分类 0 项和新建的验收子文件夹 0 项都显示“建议按截止日期整理”按钮；确认后不会产生可见变化。",
+        "root_cause": "createTreeHeading 对所有文件夹和根区域无条件创建 suggest-order 按钮。"
       },
-      "impact": "用户选择“手动顺序”后找不到对应操作，会误以为拖放失效或功能未加载。",
-      "recommendation": "若计划支持排序，增加拖放或明确的顺序调整操作并改称“手动排序”；若本版不实现，则改为“添加顺序”或“创建顺序”。",
+      "impact": "无效果操作增加标题栏噪声，并让用户怀疑点击未生效。",
+      "recommendation": "仅当当前容器存在至少两个可排序的普通待办任务时显示或启用建议排序；禁用时提供明确原因。",
       "acceptance_criteria": [
-        "选项名称准确描述现有行为，或提供可以实际改变顺序的完整交互"
-      ]
-    },
-    {
-      "id": "TEST-TYPOGRAPHY-001",
-      "priority": "P2",
-      "category": "desktop_readability",
-      "title": "多处中文辅助信息使用 11px 字号，阅读感受偏小偏挤",
-      "status": "open",
-      "evidence": {
-        "file": "styles.css",
-        "selectors": [
-          ".folder-count（约 406-409 行）",
-          ".metric small（约 441-453 行）",
-          ".eyebrow（约 474-476 行）",
-          ".list-head（约 589-592 行）",
-          ".task-main small（约 649-660 行）"
-        ],
-        "computed_style": "11px，部分位置未明确设置适合中文的行高"
-      },
-      "impact": "列表表头、任务元信息、概览标签和范围提示在 100% 缩放的电脑屏幕上显得轻、密、费眼。",
-      "recommendation": "重要辅助信息最小使用 12px，任务元信息和关键标签可使用 13px，并为中文小字设置约 1.4-1.5 的明确行高；层级主要通过颜色和字重区分。",
-      "acceptance_criteria": [
-        "桌面端重要可见文字不低于 12px",
-        "在浏览器 100% 缩放下，任务元信息和列表表头能够快速辨读"
-      ]
-    },
-    {
-      "id": "TEST-COPY-003",
-      "priority": "P2",
-      "category": "wording_and_affordance",
-      "title": "界面存在重复说明和含义不够准确的操作文案",
-      "status": "open",
-      "evidence": {
-        "files": [
-          "index.html:71",
-          "index.html:87",
-          "index.html:163",
-          "index.html:164"
-        ],
-        "observations": [
-          "“当前范围”紧邻“全部任务”，信息重复",
-          "空详情栏同时显示“选择一项任务”和“任务的完整信息和编辑操作会显示在这里”，重复解释同一件事",
-          "回转箭头按钮称为“恢复初始数据”，实际会用示例数据替换全部当前任务和文件夹；“恢复”容易被理解为恢复备份",
-          "侧栏标题“快速新增”与按钮“新增任务”术语不统一"
-        ]
-      },
-      "impact": "重复文字加重空白区域的视觉负担，破坏性重置操作的名称又没有充分表达后果。",
-      "recommendation": "删除“当前范围”或只保留当前列表名；空详情缩为“选择任务以查看详情”；将重置操作移入设置或更多菜单并命名为“重置为示例数据”；新建入口统一使用“新建任务”。",
-      "acceptance_criteria": [
-        "相邻区域不重复解释同一状态",
-        "会覆盖数据的操作在按钮名称和确认框中都明确写出“重置为示例数据”及影响范围",
-        "同一任务创建动作使用统一术语"
+        "空文件夹和不足以排序的文件夹不显示无效果按钮",
+        "存在可排序任务时按钮行为可撤销且不改变文件夹归属或状态"
       ]
     }
   ],
   "verified_passes": [
-    "任务列表在已检查尺寸下没有横向溢出",
-    "任务、优先级、截止日期、操作四列表头与实际任务列保持对齐",
-    "单击任务后的选中高亮和可编辑详情仍可用",
-    "完成、不再需要、恢复待办、优先级调整和删除操作仍可用",
-    "树状、优先级、截止日期三种视图仍可切换",
-    "移动端任务操作按钮已经达到 44x44px，旧反馈已整改",
-    "真实浏览器端到端回归已经加入验证流程，旧反馈已整改",
-    "页面运行期间没有控制台错误或警告"
+    "项目已升级到 schema v4，优先级只保留高和低两档。",
+    "默认视图为树状手动模式，四种互斥查看模式都可切换并持久化。",
+    "任务单击高亮和可编辑详情框可用。",
+    "任务、优先级、截止日期、操作四列表头与任务行继续共享同一列布局。",
+    "跨文件夹拖拽、移动菜单、撤销、自动滚动和全局视图树中定位的核心链路可用。",
+    "逾期任务位于普通高优先级之前，显示逾期天数，并可快捷改期到未来日期。",
+    "快捷改期和详情调晚日期都会写入延期历史，撤销会同时恢复日期与历史。",
+    "全部筛选下，完成或不再需要会显示八秒半透明过渡，刷新可恢复倒计时，超时后进入已处理区。",
+    "已处理任务可恢复为待办，完成和不再需要使用不同状态颜色。",
+    "三个全局视图显示文件夹路径并支持跳回树中原位置，且不提供拖拽把手。",
+    "1440x900、1024x800 和 390x844 均未出现页面级横向溢出。",
+    "本轮浏览器运行期间没有控制台错误或警告。"
   ],
   "recommended_fix_order": [
     {
       "order": 1,
       "items": [
-        "TEST-LAYOUT-001",
-        "TEST-LAYOUT-002"
+        "TEST-UPG-004-001"
       ],
-      "reason": "先解决桌面主体空间分配和保存操作可达性，这两项直接影响主要工作流。"
+      "reason": "先恢复待办筛选下完整可见的八秒撤销链路，这是唯一 P0 且直接影响误操作恢复。"
     },
     {
       "order": 2,
       "items": [
-        "TEST-COPY-001",
-        "TEST-COPY-002"
+        "TEST-UPG-002-001",
+        "TEST-UPG-004-002",
+        "TEST-UPG-005-001",
+        "TEST-UPG-006-001"
       ],
-      "reason": "再修正会误导任务状态判断或功能预期的文案。"
+      "reason": "修正键盘录入、树内容顺序、逾期主要操作层级和详情时间线，使核心信息架构与交互符合方案。"
     },
     {
       "order": 3,
       "items": [
-        "TEST-TYPOGRAPHY-001",
-        "TEST-COPY-003"
+        "TEST-UPG-002-002",
+        "TEST-UPG-008-001",
+        "TEST-UPG-003-001"
       ],
-      "reason": "最后统一桌面文字尺度、空状态和操作术语。"
+      "reason": "收敛重复入口、统一命中尺寸并减少空文件夹无效操作。"
+    },
+    {
+      "order": 4,
+      "items": [
+        "TEST-COVERAGE-001"
+      ],
+      "reason": "为已修复问题和剩余 P0/P1 边界补齐真实浏览器回归，避免再次出现全绿但未满足验收要求。"
     }
   ],
   "limitations": [
-    "本轮视觉检查基于内置 Chromium 浏览器，未覆盖 Firefox 和 Safari 的字体及原生日期控件差异",
-    "未使用真实屏幕阅读器进行语音导航测试",
-    "未进行数千条任务场景下的性能和长列表压力测试"
+    "本轮未使用 Firefox、Safari 或真实移动设备验证字体、原生日期控件和拖拽差异。",
+    "未使用真实屏幕阅读器完成语音导航测试。",
+    "未进行数千条任务、深层文件夹和大量历史记录场景下的性能压力测试。",
+    "折叠文件夹悬停自动展开和分界线鼠标拖拽已做源码与状态层核对，但由于当前浏览器套件缺少对应场景，本轮不能将其标记为完整浏览器验收通过。"
   ],
   "repository_state": {
     "branch": "develop",
-    "head": "09098ef",
+    "head": "9b36b6d",
     "tracking": "origin/develop",
-    "ahead_by_commits": 2,
-    "working_tree_before_feedback_write": "存在当前改进实现的未提交修改，测试已包含这些修改，未改动或回退它们",
+    "ahead_by_commits": 3,
+    "working_tree_before_feedback_write": "存在 v0.4 升级实现和需求文档的未提交修改；本轮测试包含这些修改，未回退或改写应用实现。",
     "staged_by_this_test_round": false,
     "committed_by_this_test_round": false
   }

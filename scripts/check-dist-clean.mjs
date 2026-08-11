@@ -3,11 +3,11 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
-const expectedDir = await mkdtemp(join(tmpdir(), "task-workbench-dist-"));
+const expectedDir = await mkdtemp(join(tmpdir(), "task-workbench-vite-dist-"));
 
 try {
-  const compiler = join("node_modules", "typescript", "bin", "tsc");
-  const result = spawnSync(process.execPath, [compiler, "--outDir", expectedDir], {
+  const vite = join("node_modules", "vite", "bin", "vite.js");
+  const result = spawnSync(process.execPath, [vite, "build", "--outDir", expectedDir, "--logLevel", "silent"], {
     encoding: "utf8",
     shell: false,
   });
@@ -32,7 +32,7 @@ try {
     }
 
     if (mismatches.length > 0) {
-      process.stderr.write(`dist is out of sync with src: ${mismatches.join(", ")}\nRun \`npm run build\` and retry.\n`);
+      process.stderr.write(`dist is out of sync with the Vite build: ${mismatches.join(", ")}\nRun \`npm run build\` and retry.\n`);
       process.exitCode = 1;
     }
   }
@@ -48,11 +48,8 @@ async function listFiles(root) {
   async function walk(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const path = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        await walk(path);
-      } else if (entry.isFile()) {
-        files.push(relative(root, path));
-      }
+      if (entry.isDirectory()) await walk(path);
+      else if (entry.isFile()) files.push(relative(root, path));
     }
   }
 }

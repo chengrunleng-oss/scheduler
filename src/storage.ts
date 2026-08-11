@@ -1,8 +1,8 @@
 import { createDefaultState, hydrateState, validateBackupPayload, validateStoredPayload } from "./domain.js";
 import type { AppState } from "./types.js";
 
-export const STORAGE_KEY = "task-workbench-state-v3";
-export const LEGACY_STORAGE_KEYS = ["task-workbench-state-v2", "plan-workbench-state-v1"] as const;
+export const STORAGE_KEY = "task-workbench-state-v4";
+export const LEGACY_STORAGE_KEYS = ["task-workbench-state-v3", "task-workbench-state-v2", "plan-workbench-state-v1"] as const;
 
 export interface StorageResult {
   state: AppState;
