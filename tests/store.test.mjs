@@ -28,7 +28,7 @@ function legacyV2State() {
   };
 }
 
-test("add-task creates the complete schema v4 shape without mutating original", () => {
+test("add-task creates the complete schema v5 shape without mutating original", () => {
   const state = createDefaultState(now);
   const next = reduceState(state, { type: "add-task", now: now + 1_000, draft: taskDraft() });
   assert.equal(state.tasks.length, 2);
@@ -146,21 +146,38 @@ test("folder deletion moves direct contents and repairs pending origin", () => {
   assert.equal(task.pendingResolution.originFolderId, null);
 });
 
-test("storage migrates v2 fallback to v4 and writes the v4 key", () => {
+test("folder move changes parent and sibling order atomically with undo and rejects cycles", () => {
+  let state = createDefaultState(now);
+  state = reduceState(state, { type: "add-folder", draft: { name: "工作子项", parentId: "folder-work" }, now: now + 1 });
+  const child = state.folders.find((folder) => folder.name === "工作子项");
+  const rejected = reduceState(state, { type: "move-folder", id: "folder-work", parentId: child.id, targetIndex: 0, now: now + 2 });
+  assert.equal(rejected, state);
+
+  const store = createStore(state);
+  store.dispatch({ type: "move-folder", id: "folder-personal", parentId: "folder-work", targetIndex: 0, now: now + 3 });
+  assert.equal(store.getState().folders.find((folder) => folder.id === "folder-personal").parentId, "folder-work");
+  assert.equal(store.getState().folders.find((folder) => folder.id === "folder-personal").order, 0);
+  store.undo();
+  assert.equal(store.getState().folders.find((folder) => folder.id === "folder-personal").parentId, null);
+  store.redo();
+  assert.equal(store.getState().folders.find((folder) => folder.id === "folder-personal").parentId, "folder-work");
+});
+
+test("storage migrates v2 fallback to v5 and writes the v5 key", () => {
   const values = new Map([[STORAGE_KEY, "{broken"], [LEGACY_STORAGE_KEYS[1], JSON.stringify(legacyV2State())]]);
   const storage = { getItem(key) { return values.get(key) ?? null; }, setItem(key, value) { values.set(key, value); } };
   const loaded = loadStateFromStorage(storage);
   assert.equal(loaded.recovered, true);
-  assert.equal(loaded.state.schemaVersion, 4);
+  assert.equal(loaded.state.schemaVersion, 5);
   assert.match(loaded.message, /迁移旧版/);
   assert.equal(saveStateToStorage(createDefaultState(now), storage).saved, true);
-  assert.ok(values.has("task-workbench-state-v4"));
+  assert.ok(values.has("task-workbench-state-v5"));
 });
 
 test("backup parsing migrates v2 and rejects unrelated JSON", () => {
   const migrated = parseBackupFile(JSON.stringify(legacyV2State()));
   assert.equal(migrated.recovered, true);
-  assert.equal(migrated.state.schemaVersion, 4);
+  assert.equal(migrated.state.schemaVersion, 5);
   assert.match(migrated.message, /迁移并导入/);
   assert.equal(parseBackupFile("{}").recovered, false);
 });

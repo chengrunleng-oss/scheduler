@@ -4,7 +4,8 @@ import type { Elements } from "./selectors.js";
 
 export interface Dialogs {
   editFolder(folder: Folder | null, folders: Folder[], initialParentId?: string | null): Promise<FolderDraft | null>;
-  chooseFolderDeletion(folder: Folder): Promise<FolderDeleteStrategy | null>;
+  moveFolder(folder: Folder, folders: Folder[]): Promise<{ parentId: string | null; targetIndex: number } | null>;
+  chooseFolderDeletion(folder: Folder, childFolderCount: number, taskCount: number): Promise<FolderDeleteStrategy | null>;
   confirm(title: string, message: string): Promise<boolean>;
   toast(message: string): void;
 }
@@ -25,17 +26,18 @@ export function createDialogs(els: Elements): Dialogs {
 
   return {
     editFolder(folder, folders, initialParentId = null) {
-      els.folderDialogTitle.textContent = folder ? "编辑文件夹" : "新建文件夹";
+      els.folderDialogTitle.textContent = folder ? "重命名文件夹" : "新建文件夹";
       els.folderName.value = folder?.name ?? "";
       fillFolderParents(els.folderParent, folders, folder);
       const preferredParent = folder?.parentId ?? initialParentId;
       els.folderParent.value = preferredParent && hasOption(els.folderParent, preferredParent) ? preferredParent : "";
+      els.folderParent.disabled = Boolean(folder);
 
       return new Promise((resolve) => {
         const onSubmit = (event: SubmitEvent) => {
           event.preventDefault();
           const name = normalizeText(els.folderName.value);
-          const parentId = els.folderParent.value || null;
+          const parentId = (folder?.parentId ?? els.folderParent.value) || null;
           cleanup();
           closeDialog(els.folderDialog);
           resolve(name ? { name, parentId } : null);
@@ -56,8 +58,49 @@ export function createDialogs(els: Elements): Dialogs {
       });
     },
 
-    chooseFolderDeletion(folder) {
-      els.folderDeleteText.textContent = `“${folder.name}”中仍有任务或子文件夹。请选择如何处理这些内容。`;
+    moveFolder(folder, folders) {
+      els.folderMoveName.textContent = `移动“${folder.name}”，并指定它在目标上级中的位置。`;
+      fillFolderParents(els.folderMoveParent, folders, folder);
+      els.folderMoveParent.value = folder.parentId ?? "";
+      const fillPositions = () => {
+        const parentId = els.folderMoveParent.value || null;
+        const siblings = folders
+          .filter((item) => item.id !== folder.id && item.parentId === parentId)
+          .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+        els.folderMovePosition.replaceChildren(new Option("第一位", "0"));
+        siblings.forEach((item, index) => els.folderMovePosition.add(new Option(`在“${item.name}”之后`, String(index + 1))));
+        const currentIndex = folder.parentId === parentId
+          ? folders.filter((item) => item.id !== folder.id && item.parentId === parentId && item.order < folder.order).length
+          : siblings.length;
+        els.folderMovePosition.value = String(currentIndex);
+      };
+      fillPositions();
+
+      return new Promise((resolve) => {
+        const onParentChange = () => fillPositions();
+        const onSubmit = (event: SubmitEvent) => {
+          event.preventDefault();
+          const result = { parentId: els.folderMoveParent.value || null, targetIndex: Number(els.folderMovePosition.value) };
+          cleanup();
+          closeDialog(els.folderMoveDialog);
+          resolve(result);
+        };
+        const onClose = () => { cleanup(); resolve(null); };
+        const cleanup = () => {
+          els.folderMoveParent.removeEventListener("change", onParentChange);
+          els.folderMoveForm.removeEventListener("submit", onSubmit);
+          els.folderMoveDialog.removeEventListener("close", onClose);
+        };
+        els.folderMoveParent.addEventListener("change", onParentChange);
+        els.folderMoveForm.addEventListener("submit", onSubmit);
+        els.folderMoveDialog.addEventListener("close", onClose, { once: true });
+        els.folderMoveDialog.showModal();
+        els.folderMoveParent.focus();
+      });
+    },
+
+    chooseFolderDeletion(folder, childFolderCount, taskCount) {
+      els.folderDeleteText.textContent = `“${folder.name}”包含 ${childFolderCount} 个子文件夹和 ${taskCount} 个任务。请选择将内容移到上一级，或删除整个分支；附件仍保留在本地备份数据中。`;
       return new Promise((resolve) => {
         const finish = (value: FolderDeleteStrategy | null) => {
           cleanup();

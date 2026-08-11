@@ -115,6 +115,13 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       return normalizeActiveOrders(updateOneTask(state, target.id, updated));
     }
 
+    case "set-task-description": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      const descriptionMarkdown = action.descriptionMarkdown.replace(/\r\n?/g, "\n");
+      if (!target || target.descriptionMarkdown === descriptionMarkdown) return state;
+      return updateOneTask(state, target.id, { ...target, descriptionMarkdown, updatedAt: action.now ?? Date.now() });
+    }
+
     case "move-task": {
       const target = state.tasks.find((task) => task.id === action.id);
       if (!target || target.status !== "active" || isOverdue(target, toISODate(action.now))) return state;
@@ -263,6 +270,11 @@ export function reduceState(state: AppState, action: StateAction): AppState {
         ? state
         : { ...state, preferences: { ...state.preferences, defaultTaskDueDate: action.dueDate, defaultTaskPriority: action.priority } };
 
+    case "set-workspace-width": {
+      const width = Math.max(560, Math.min(680, Math.round(action.width)));
+      return state.preferences.workspaceWidth === width ? state : { ...state, preferences: { ...state.preferences, workspaceWidth: width } };
+    }
+
     case "toggle-handled-section":
       return { ...state, preferences: { ...state.preferences, expandedHandledContainers: toggleId(state.preferences.expandedHandledContainers, action.containerId) } };
 
@@ -285,6 +297,9 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       const order = folder.parentId === action.draft.parentId ? folder.order : nextFolderOrder(state.folders, action.draft.parentId);
       return { ...state, folders: state.folders.map((item) => item.id === folder.id ? { ...item, name, parentId: action.draft.parentId, order, updatedAt: action.now ?? Date.now() } : item) };
     }
+
+    case "move-folder":
+      return moveFolder(state, action.id, action.parentId, action.targetIndex, action.now ?? Date.now());
 
     case "toggle-folder": {
       const folder = state.folders.find((item) => item.id === action.id);
@@ -344,6 +359,32 @@ function normalizeActiveOrders(state: AppState): AppState {
 
 function updateOneTask(state: AppState, id: string, replacement: Task): AppState {
   return { ...state, tasks: state.tasks.map((task) => task.id === id ? replacement : task) };
+}
+
+function moveFolder(state: AppState, id: string, parentId: string | null, targetIndex: number, now: number): AppState {
+  const folder = state.folders.find((item) => item.id === id);
+  if (!folder || !canMoveFolder(state.folders, id, parentId)) return state;
+  const oldParentId = folder.parentId;
+  const targetSiblings = state.folders
+    .filter((item) => item.id !== id && item.parentId === parentId)
+    .sort(stableFolderOrder);
+  const index = Math.max(0, Math.min(targetSiblings.length, Math.round(targetIndex)));
+  targetSiblings.splice(index, 0, { ...folder, parentId, updatedAt: now });
+  const targetOrders = new Map(targetSiblings.map((item, order) => [item.id, order]));
+  const oldOrders = oldParentId === parentId
+    ? new Map<string, number>()
+    : new Map(state.folders.filter((item) => item.id !== id && item.parentId === oldParentId).sort(stableFolderOrder).map((item, order) => [item.id, order]));
+  const folders = state.folders.map((item) => {
+    if (item.id === id) return { ...item, parentId, order: targetOrders.get(id) ?? 0, updatedAt: now };
+    if (targetOrders.has(item.id)) return { ...item, order: targetOrders.get(item.id) ?? item.order };
+    if (oldOrders.has(item.id)) return { ...item, order: oldOrders.get(item.id) ?? item.order };
+    return item;
+  });
+  const unchanged = folders.every((item, itemIndex) => {
+    const previous = state.folders[itemIndex];
+    return previous && item.parentId === previous.parentId && item.order === previous.order;
+  });
+  return unchanged ? state : { ...state, folders };
 }
 
 function deleteFolder(state: AppState, id: string, strategy: "move-contents" | "delete-branch"): AppState {
@@ -408,6 +449,10 @@ function stableTaskOrder(a: Task, b: Task): number {
   return a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
 }
 
+function stableFolderOrder(a: Folder, b: Folder): number {
+  return a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+}
+
 function priorityRank(priority: Priority): number {
   return priority === "high" ? 0 : 1;
 }
@@ -423,6 +468,8 @@ function isHistoryAction(action: StateAction): boolean {
     "set-view-mode",
     "set-folder-scope",
     "set-default-task-values",
+    "set-workspace-width",
+    "set-task-description",
     "toggle-handled-section",
     "toggle-navigation-folder",
     "toggle-folder",

@@ -9,12 +9,15 @@ import {
   selectVisibleTasks,
   toISODate,
 } from "../domain.js";
-import { createBackupBlob, parseBackupFile } from "../storage.js";
+import { createBackupArchive, parseBackupPackage } from "../backup.js";
 import type { AppStore } from "../store.js";
-import type { DefaultTaskDueDate, FolderScope, Priority, Task, TaskDraft, TaskFilter, ThemeMode, ViewMode } from "../types.js";
+import type { DefaultTaskDueDate, FolderScope, Priority, Task, TaskDraft, TaskFilter, ThemeMode, ViewMode, WorkspaceTab } from "../types.js";
+import type { WorkspaceRepository } from "../workspace-db.js";
 import type { Dialogs } from "./dialogs.js";
+import { consumeSuppressedTaskClick } from "./drag-drop.js";
 import { fillFolderSelect, type InlineCreateState, type ViewState } from "./renderer.js";
 import type { Elements } from "./selectors.js";
+import type { WorkspaceController } from "./workspace.js";
 
 export interface EventBindings {
   getViewState(): ViewState;
@@ -22,15 +25,25 @@ export interface EventBindings {
   reconcileResolutionTimers(): void;
 }
 
-export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, requestRender: () => void): EventBindings {
+export function bindEvents(
+  els: Elements,
+  store: AppStore,
+  dialogs: Dialogs,
+  workspace: WorkspaceController,
+  repository: WorkspaceRepository,
+  persistState: () => boolean,
+  requestRender: () => void,
+): EventBindings {
   let selectedTaskId: string | null = null;
   let detailPanelOpen = false;
   let detailDirty = false;
+  let workspaceTab: WorkspaceTab = "overview";
   let inlineCreate: InlineCreateState | null = null;
   let flashTaskId: string | null = null;
   let moveTaskId: string | null = null;
   let rescheduleTaskId: string | null = null;
   let flashTimer = 0;
+  let overviewTimer = 0;
   const resolutionTimers = new Map<string, number>();
 
   function currentFolderForNewTask(): string {
@@ -45,38 +58,92 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     };
   }
 
+  async function saveOverview(): Promise<boolean> {
+    window.clearTimeout(overviewTimer);
+    if (!detailDirty) return true;
+    const task = store.getState().tasks.find((item) => item.id === selectedTaskId);
+    if (!task) return true;
+    const draft = readDetailDraft(task);
+    if (!draft.title) { els.detailTitle.focus(); return false; }
+    els.overviewSaveStatus.className = "save-status saving";
+    els.overviewSaveStatus.textContent = "保存中…";
+    store.dispatch({ type: "update-task", id: task.id, draft, rescheduleReason: els.detailRescheduleReason.value });
+    if (!persistState()) {
+      els.overviewSaveStatus.className = "save-status error";
+      els.overviewSaveStatus.textContent = "保存失败";
+      return false;
+    }
+    detailDirty = false;
+    els.overviewSaveStatus.className = "save-status saved";
+    els.overviewSaveStatus.textContent = "已保存";
+    requestRender();
+    return true;
+  }
+
+  async function flushWorkspace(): Promise<boolean> {
+    return (await saveOverview()) && (await workspace.beforeTaskChange());
+  }
+
   async function selectTask(taskId: string): Promise<void> {
     if (selectedTaskId === taskId) {
       detailPanelOpen = true;
       requestRender();
+      await workspace.activateTask(taskId, workspaceTab);
       return;
     }
-    if (detailDirty && !(await dialogs.confirm("放弃未保存更改", "切换任务会丢失详情中尚未保存的修改，继续吗？"))) return;
+    if (!(await flushWorkspace())) { dialogs.toast("当前任务仍有内容未保存，请重试后再切换。"); return; }
     selectedTaskId = taskId;
     detailPanelOpen = true;
     detailDirty = false;
     requestRender();
+    await workspace.activateTask(taskId, workspaceTab);
   }
 
   async function closeDetail(): Promise<void> {
-    if (detailDirty && !(await dialogs.confirm("放弃未保存更改", "关闭详情会丢失尚未保存的修改，继续吗？"))) return;
+    if (!(await flushWorkspace())) { dialogs.toast("当前任务仍有内容未保存，请重试后再关闭。"); return; }
     selectedTaskId = null;
     detailPanelOpen = false;
     detailDirty = false;
     requestRender();
+    await workspace.activateTask(null, workspaceTab);
   }
 
   async function prepareSelectedTaskMutation(taskId: string): Promise<boolean> {
-    if (selectedTaskId !== taskId || !detailDirty) return true;
-    const discard = await dialogs.confirm("放弃未保存更改", "此操作会更新任务并丢失详情中尚未保存的修改，继续吗？");
-    if (discard) detailDirty = false;
-    return discard;
+    return selectedTaskId !== taskId || await flushWorkspace();
   }
 
   async function deleteTask(task: Task): Promise<void> {
-    if (!(await dialogs.confirm("删除任务", `确认删除“${task.title}”吗？此操作可以撤销。`))) return;
+    if (!(await dialogs.confirm("删除任务", `确认删除“${task.title}”吗？任务的工作记录和附件会保留以支持撤销。`))) return;
     if (selectedTaskId === task.id) { selectedTaskId = null; detailPanelOpen = false; }
     store.dispatch({ type: "delete-task", id: task.id });
+    await workspace.activateTask(null, workspaceTab);
+  }
+
+  async function manageFolder(action: string, folderId: string): Promise<void> {
+    const state = store.getState();
+    const folder = state.folders.find((item) => item.id === folderId);
+    if (!folder) return;
+    if (action === "edit-folder" || action === "rename-folder") {
+      const draft = await dialogs.editFolder(folder, state.folders);
+      if (draft) store.dispatch({ type: "update-folder", id: folder.id, draft: { ...draft, parentId: folder.parentId } });
+      return;
+    }
+    if (action === "move-folder") {
+      const target = await dialogs.moveFolder(folder, state.folders);
+      if (!target) return;
+      store.dispatch({ type: "move-folder", id: folder.id, ...target });
+      announce(`已移动文件夹“${folder.name}”。`);
+      return;
+    }
+    if (action !== "delete-folder") return;
+    const descendants = getFolderDescendantIds(state.folders, folder.id);
+    const taskCount = state.tasks.filter((task) => task.folderId === folder.id || Boolean(task.folderId && descendants.has(task.folderId))).length;
+    if (descendants.size > 0 || taskCount > 0) {
+      const strategy = await dialogs.chooseFolderDeletion(folder, descendants.size, taskCount);
+      if (strategy) store.dispatch({ type: "delete-folder", id: folder.id, strategy });
+    } else if (await dialogs.confirm("删除文件夹", `确认删除空文件夹“${folder.name}”吗？`)) {
+      store.dispatch({ type: "delete-folder", id: folder.id, strategy: "delete-branch" });
+    }
   }
 
   function announce(message: string): void {
@@ -106,6 +173,7 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
   }
 
   async function locateTask(task: Task): Promise<void> {
+    if (!(await flushWorkspace())) { dialogs.toast("当前任务仍有内容未保存，请重试后再定位。"); return; }
     const cleared = Boolean(els.searchInput.value) || store.getState().preferences.activeStatusFilter !== "all" || store.getState().preferences.viewMode !== "tree_manual";
     els.searchInput.value = "";
     store.dispatch({ type: "set-view-mode", viewMode: "tree_manual" });
@@ -119,6 +187,7 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     window.clearTimeout(flashTimer);
     flashTimer = window.setTimeout(() => { flashTaskId = null; requestRender(); }, 2_000);
     requestRender();
+    await workspace.activateTask(task.id, workspaceTab);
     requestAnimationFrame(() => els.taskList.querySelector<HTMLElement>(`.task-item[data-id="${CSS.escape(task.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
     if (cleared) dialogs.toast("已清除搜索或筛选，并在任务树中定位。")
     announce(`已在任务树中定位“${task.title}”。`);
@@ -191,7 +260,17 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     if (target.closest("form.inline-create") && event.key === "Escape") {
       event.preventDefault(); inlineCreate = null; requestRender(); return;
     }
-    if (target.closest("button, input, select")) return;
+    const divider = target.closest<HTMLElement>(".priority-divider");
+    if (divider && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+      const folderId = divider.dataset.dividerFolderId === "root" ? null : divider.dataset.dividerFolderId ?? null;
+      const candidates = store.getState().tasks.filter((task) => task.status === "active" && task.folderId === folderId && !isOverdue(task)).sort(stableTaskOrder);
+      const highCount = candidates.filter((task) => task.priority === "high").length + (event.key === "ArrowDown" ? 1 : -1);
+      store.dispatch({ type: "move-priority-divider", folderId, highCount });
+      announce("已调整高、低优先级分界。");
+      return;
+    }
+    if (target.closest("button, input, select, summary")) return;
     const row = target.closest<HTMLElement>(".task-item");
     if (!row?.dataset.id) return;
     const task = store.getState().tasks.find((item) => item.id === row.dataset.id);
@@ -225,11 +304,18 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
       if (await dialogs.confirm("按截止日期整理", "将保持高、低优先级分区，并在各分区内按截止日期重新排列。继续吗？")) store.dispatch({ type: "apply-suggested-order", folderId });
       return;
     }
+    if ((action === "rename-folder" || action === "move-folder" || action === "delete-folder") && button?.dataset.folderId) {
+      await manageFolder(action, button.dataset.folderId);
+      return;
+    }
     const row = target.closest<HTMLElement>(".task-item");
     if (!row?.dataset.id) return;
     const task = store.getState().tasks.find((item) => item.id === row.dataset.id);
     if (!task) return;
-    if (!button) { await selectTask(task.id); return; }
+    if (consumeSuppressedTaskClick(task.id)) return;
+    const interactive = target.closest("button, input, select, textarea, summary, a, [contenteditable='true']");
+    if (!interactive) { await selectTask(task.id); return; }
+    if (!button) return;
     if (action === "drag-task") return;
     if (!(await prepareSelectedTaskMutation(task.id))) return;
     if (action === "delete") {
@@ -247,20 +333,34 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     if (action === "locate-task") await locateTask(task);
   });
 
-  els.detailForm.addEventListener("input", () => { detailDirty = true; });
-  els.detailForm.addEventListener("submit", (event) => {
+  els.detailForm.addEventListener("input", () => {
+    detailDirty = true;
+    els.overviewSaveStatus.className = "save-status dirty";
+    els.overviewSaveStatus.textContent = "未保存";
+    window.clearTimeout(overviewTimer);
+    overviewTimer = window.setTimeout(() => { void saveOverview(); }, 700);
+  });
+  els.detailForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const task = store.getState().tasks.find((item) => item.id === selectedTaskId);
-    if (!task) return;
-    const draft = readDetailDraft(task);
-    if (!draft.title) { els.detailTitle.focus(); return; }
-    detailDirty = false;
-    store.dispatch({ type: "update-task", id: task.id, draft, rescheduleReason: els.detailRescheduleReason.value });
-    dialogs.toast("任务详情已保存。");
-    requestRender();
+    if (await saveOverview()) dialogs.toast("任务概览已保存。");
   });
   els.cancelDetail.addEventListener("click", () => { detailDirty = false; requestRender(); });
   els.detailClose.addEventListener("click", closeDetail);
+  els.workspaceTabs.addEventListener("click", async (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-workspace-tab]");
+    if (!button) return;
+    workspaceTab = (button.dataset.workspaceTab ?? "overview") as WorkspaceTab;
+    requestRender();
+    await workspace.setTab(workspaceTab);
+  });
+  els.workspaceTabs.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const tabs = Array.from(els.workspaceTabButtons);
+    const index = tabs.indexOf(event.target as HTMLButtonElement);
+    if (index < 0) return;
+    event.preventDefault();
+    tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length]?.click();
+  });
 
   els.newFolder.addEventListener("click", async () => {
     const draft = await dialogs.editFolder(null, store.getState().folders, null);
@@ -286,21 +386,7 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
     }
     if (!folderId) return;
     if (action === "toggle-navigation-folder") { store.dispatch({ type: "toggle-navigation-folder", id: folderId }); return; }
-    const folder = store.getState().folders.find((item) => item.id === folderId);
-    if (!folder) return;
-    if (action === "edit-folder") {
-      const draft = await dialogs.editFolder(folder, store.getState().folders);
-      if (draft) store.dispatch({ type: "update-folder", id: folder.id, draft });
-    }
-    if (action === "delete-folder") {
-      const state = store.getState();
-      const descendants = getFolderDescendantIds(state.folders, folder.id);
-      const nonEmpty = descendants.size > 0 || state.tasks.some((task) => task.folderId === folder.id || Boolean(task.folderId && descendants.has(task.folderId)));
-      if (nonEmpty) {
-        const strategy = await dialogs.chooseFolderDeletion(folder);
-        if (strategy) store.dispatch({ type: "delete-folder", id: folder.id, strategy });
-      } else if (await dialogs.confirm("删除文件夹", `确认删除空文件夹“${folder.name}”吗？`)) store.dispatch({ type: "delete-folder", id: folder.id, strategy: "delete-branch" });
-    }
+    await manageFolder(action, folderId);
   });
 
   els.moveDialogForm.addEventListener("submit", (event) => {
@@ -341,36 +427,82 @@ export function bindEvents(els: Elements, store: AppStore, dialogs: Dialogs, req
 
   els.navToggle.addEventListener("click", () => els.sidebar.classList.add("is-open"));
   els.sidebarClose.addEventListener("click", () => els.sidebar.classList.remove("is-open"));
+  window.addEventListener("resize", requestRender);
   els.undoAction.addEventListener("click", () => store.undo());
   els.redoAction.addEventListener("click", () => store.redo());
-  els.exportData.addEventListener("click", () => {
-    const url = URL.createObjectURL(createBackupBlob(store.getState()));
+  els.detailResizer.addEventListener("pointerdown", (event) => {
+    if (window.innerWidth < 1340) return;
+    event.preventDefault();
+    els.detailResizer.setPointerCapture(event.pointerId);
+    const move = (moveEvent: PointerEvent) => {
+      const sidebarWidth = els.sidebar.getBoundingClientRect().width || 220;
+      const maximum = Math.max(560, Math.min(680, window.innerWidth - sidebarWidth - 500));
+      const width = Math.max(560, Math.min(maximum, window.innerWidth - moveEvent.clientX));
+      document.documentElement.style.setProperty("--workspace-width", `${width}px`);
+    };
+    const end = (endEvent: PointerEvent) => {
+      els.detailResizer.releasePointerCapture(endEvent.pointerId);
+      els.detailResizer.removeEventListener("pointermove", move);
+      els.detailResizer.removeEventListener("pointerup", end);
+      const width = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue("--workspace-width"), 10);
+      store.dispatch({ type: "set-workspace-width", width });
+    };
+    els.detailResizer.addEventListener("pointermove", move);
+    els.detailResizer.addEventListener("pointerup", end);
+  });
+  els.detailResizer.addEventListener("keydown", (event) => {
+    if (window.innerWidth < 1340) return;
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const delta = event.key === "ArrowLeft" ? 16 : -16;
+    store.dispatch({ type: "set-workspace-width", width: store.getState().preferences.workspaceWidth + delta });
+  });
+  els.exportData.addEventListener("click", async () => {
+    if (!(await flushWorkspace())) { dialogs.toast("仍有内容未保存，备份已取消。"); return; }
+    if (!repository.available) { dialogs.toast("工作记录存储不可用，无法生成完整备份。"); return; }
+    const archive = await createBackupArchive(store.getState(), repository);
+    const url = URL.createObjectURL(archive);
     const link = document.createElement("a");
-    link.href = url; link.download = `task-workbench-${toISODate()}.json`; link.click(); URL.revokeObjectURL(url);
+    link.href = url; link.download = `task-workbench-${toISODate()}.zip`; link.click(); URL.revokeObjectURL(url);
   });
   els.importData.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", async () => {
     const file = els.importFile.files?.[0]; els.importFile.value = ""; if (!file) return;
-    const result = parseBackupFile(await file.text());
+    const result = await parseBackupPackage(file);
     if (!result.recovered) { dialogs.toast(result.message); return; }
-    if (!(await dialogs.confirm("导入备份", "导入会替换当前浏览器里的数据，继续吗？"))) return;
+    if (!(await dialogs.confirm("导入备份", "导入会替换当前任务、工作记录和附件，继续吗？"))) return;
+    const previousState = store.getState();
+    let previousWorkspace;
+    try { previousWorkspace = await repository.exportSnapshot(); await repository.replaceAll(result.workspace); }
+    catch { dialogs.toast("工作记录或附件恢复失败，原有数据未替换。"); return; }
     selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null;
-    store.dispatch({ type: "replace-state", state: result.state }); dialogs.toast(result.message);
+    store.dispatch({ type: "replace-state", state: result.state });
+    if (!persistState()) {
+      await repository.replaceAll(previousWorkspace);
+      store.dispatch({ type: "replace-state", state: previousState });
+      persistState();
+      dialogs.toast("本地任务存储不可用，原有数据已恢复。");
+      return;
+    }
+    await workspace.activateTask(null, workspaceTab);
+    dialogs.toast(result.message);
   });
   els.resetDemo.addEventListener("click", async () => {
     if (!(await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前浏览器中的全部数据，继续吗？"))) return;
+    try { await repository.clear(); }
+    catch { dialogs.toast("工作记录存储无法清理，重置已取消。"); return; }
     selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null; els.searchInput.value = "";
-    store.dispatch({ type: "reset" }); dialogs.toast("已重置为示例数据。");
+    store.dispatch({ type: "reset" }); await workspace.activateTask(null, workspaceTab); dialogs.toast("已重置为示例数据。");
   });
 
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") store.dispatch({ type: "finalize-expired-resolutions" }); });
 
   return {
-    getViewState: () => ({ query: els.searchInput.value, selectedTaskId, detailPanelOpen, detailDirty, inlineCreate, flashTaskId }),
+    getViewState: () => ({ query: els.searchInput.value, selectedTaskId, detailPanelOpen, detailDirty, workspaceTab, inlineCreate, flashTaskId }),
     reconcileSelection() {
       if (!selectedTaskId) return;
       const visibleIds = new Set(selectVisibleTasks(store.getState(), els.searchInput.value).map((task) => task.id));
-      if (!visibleIds.has(selectedTaskId)) { selectedTaskId = null; detailPanelOpen = false; detailDirty = false; }
+      if (!visibleIds.has(selectedTaskId)) { selectedTaskId = null; detailPanelOpen = false; detailDirty = false; void workspace.activateTask(null, workspaceTab); }
     },
     reconcileResolutionTimers() {
       store.dispatch({ type: "finalize-expired-resolutions" });

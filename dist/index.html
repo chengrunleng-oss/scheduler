@@ -6,11 +6,13 @@
     <meta name="theme-color" content="#126575" />
     <title>任务工作台</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23126575'/%3E%3Cpath d='M9 9h14v3H9zm0 6h9v3H9zm0 6h14v3H9z' fill='white'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="/assets/index-DX_F0666.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-C7s9N4ZE.css">
+    <script type="module" crossorigin src="/assets/index-tUjwYfJT.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-Dd_uD5pT.js">
+    <link rel="modulepreload" crossorigin href="/assets/purify.es-DrVcFY1Q.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-DEtc75Sk.css">
   </head>
   <body>
-    <div class="app-shell">
+    <div id="appShell" class="app-shell">
       <aside id="sidebar" class="sidebar" aria-label="任务导航">
         <header class="brand">
           <div class="brand-mark" aria-hidden="true">任</div>
@@ -59,7 +61,7 @@
             <button class="icon-button" id="undoAction" type="button" title="撤销" aria-label="撤销"><i data-lucide="undo-2"></i></button>
             <button class="icon-button" id="redoAction" type="button" title="重做" aria-label="重做"><i data-lucide="redo-2"></i></button>
             <label class="theme-control" title="主题"><span class="sr-only">主题</span><select id="themeSelect" aria-label="主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
-            <input id="importFile" class="file-input" type="file" accept="application/json,.json" />
+            <input id="importFile" class="file-input" type="file" accept="application/zip,application/json,.zip,.json" />
             <button class="icon-button" id="importData" type="button" title="导入备份" aria-label="导入备份"><i data-lucide="upload"></i></button>
             <button class="icon-button" id="exportData" type="button" title="导出备份" aria-label="导出备份"><i data-lucide="download"></i></button>
           </div>
@@ -90,38 +92,76 @@
         </section>
       </main>
 
-      <aside id="taskDetail" class="detail-panel" aria-label="任务详情">
-        <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务详情</h2></div><button class="icon-button detail-close" id="detailClose" type="button" title="关闭详情" aria-label="关闭详情"><i data-lucide="x"></i></button></header>
+      <aside id="taskDetail" class="detail-panel" aria-label="任务工作区">
+        <div id="detailResizer" class="detail-resizer" role="separator" aria-label="调整任务工作区宽度" aria-orientation="vertical" tabindex="0"></div>
+        <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></header>
+        <div id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="任务工作区页面">
+          <button id="overviewTab" class="workspace-tab active" type="button" role="tab" data-workspace-tab="overview" aria-controls="overviewPanel" aria-selected="true">概览</button>
+          <button id="worklogTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="worklog" aria-controls="worklogPanel" aria-selected="false">工作记录</button>
+          <button id="attachmentsTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="attachments" aria-controls="attachmentsPanel" aria-selected="false">附件</button>
+        </div>
         <div id="detailEmpty" class="detail-empty"><strong>选择任务以查看详情</strong></div>
-        <form id="detailForm" class="detail-form" autocomplete="off" hidden>
-          <div class="detail-fields">
-            <div id="detailStatusBadge" class="detail-status"></div>
-            <label class="field"><span>任务名称</span><textarea id="detailTitle" rows="3" maxlength="180" required></textarea></label>
-            <label class="field"><span>说明</span><textarea id="detailNotes" rows="6" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea></label>
-            <div class="field-grid">
-              <label class="field"><span>优先级</span><select id="detailPriority"><option value="high">高</option><option value="low">低</option></select></label>
-              <label class="field"><span>文件夹</span><select id="detailFolder"></select></label>
+        <div id="workspaceContent" class="workspace-content" hidden>
+          <section id="overviewPanel" class="workspace-panel active" role="tabpanel" aria-labelledby="overviewTab">
+            <form id="detailForm" class="detail-form" autocomplete="off">
+              <div class="detail-fields">
+                <div class="status-line"><div id="detailStatusBadge" class="detail-status"></div><span id="overviewSaveStatus" class="save-status" aria-live="polite">已保存</span></div>
+                <label class="field"><span>任务名称</span><textarea id="detailTitle" rows="3" maxlength="180" required></textarea></label>
+                <label class="field"><span>说明</span><textarea id="detailNotes" rows="5" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea></label>
+                <div class="field-grid">
+                  <label class="field"><span>优先级</span><select id="detailPriority"><option value="high">高</option><option value="low">低</option></select></label>
+                  <label class="field"><span>文件夹</span><select id="detailFolder"></select></label>
+                </div>
+                <div class="field-grid">
+                  <label class="field"><span>截止日期</span><input id="detailDueDate" type="date" /></label>
+                  <label class="field"><span>标签</span><input id="detailTag" type="text" maxlength="24" /></label>
+                </div>
+                <label class="field"><span>改期原因</span><input id="detailRescheduleReason" type="text" maxlength="120" placeholder="延期时可选填" /></label>
+                <dl class="timestamps"><div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div><div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div></dl>
+                <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden><h3 id="timelineTitle">改期记录</h3><ol id="rescheduleTimeline" class="timeline"></ol></section>
+              </div>
+              <div class="detail-actions"><button class="button ghost" id="cancelDetail" type="button">取消</button><button class="button primary" type="submit">保存更改</button></div>
+            </form>
+          </section>
+          <section id="worklogPanel" class="workspace-panel worklog-panel" role="tabpanel" aria-labelledby="worklogTab" hidden>
+            <div class="editor-section">
+              <div class="workspace-section-heading"><h3>长期描述</h3><span id="descriptionSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="descriptionRetry" class="button text-button" type="button" hidden>重试</button></div>
+              <div id="descriptionEditor" class="markdown-editor" aria-label="长期描述编辑器"></div>
             </div>
-            <div class="field-grid">
-              <label class="field"><span>截止日期</span><input id="detailDueDate" type="date" /></label>
-              <label class="field"><span>标签</span><input id="detailTag" type="text" maxlength="24" /></label>
+            <div class="editor-section daily-section">
+              <div class="workspace-section-heading daily-heading"><h3>每日记录</h3><button id="newWorklog" class="button secondary compact-button" type="button"><i data-lucide="circle-plus"></i><span>新建记录</span></button><label class="compact-field"><span class="sr-only">工作日期</span><input id="worklogDate" type="date" /></label><label class="progress-field"><span>进度</span><input id="worklogProgress" type="number" min="0" max="100" step="1" inputmode="numeric" /><span>%</span></label></div>
+              <div class="editor-save-line"><span id="worklogSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="worklogRetry" class="button text-button" type="button" hidden>重试</button></div>
+              <div id="worklogEditor" class="markdown-editor" aria-label="每日工作记录编辑器"></div>
             </div>
-            <label class="field"><span>改期原因</span><input id="detailRescheduleReason" type="text" maxlength="120" placeholder="延期时可选填" /></label>
-            <dl class="timestamps"><div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div><div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div></dl>
-            <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden><h3 id="timelineTitle">改期记录</h3><ol id="rescheduleTimeline" class="timeline"></ol></section>
-          </div>
-          <div class="detail-actions"><button class="button ghost" id="cancelDetail" type="button">取消</button><button class="button primary" type="submit">保存更改</button></div>
-        </form>
+            <section class="worklog-history-section" aria-labelledby="worklogHistoryTitle"><h3 id="worklogHistoryTitle">历史记录</h3><div id="worklogUndo" class="worklog-undo" role="status" hidden><span id="worklogUndoText"></span><button id="undoWorklogDelete" class="button text-button" type="button">撤销删除</button></div><div id="worklogHistory" class="worklog-history"></div></section>
+          </section>
+          <section id="attachmentsPanel" class="workspace-panel attachments-panel" role="tabpanel" aria-labelledby="attachmentsTab" hidden>
+            <input id="attachmentFile" class="file-input" type="file" multiple />
+            <input id="descriptionImportFile" class="file-input" type="file" accept="text/markdown,text/plain,.md,.markdown,.txt" />
+            <input id="worklogImportFile" class="file-input" type="file" accept="text/markdown,text/plain,application/json,text/csv,.md,.markdown,.txt,.json,.csv,.log" />
+            <div class="attachment-toolbar">
+              <button id="addAttachment" class="button primary" type="button"><i data-lucide="paperclip"></i><span>添加附件</span></button>
+              <button id="importDescription" class="button secondary" type="button"><i data-lucide="file-input"></i><span>导入长期描述</span></button>
+              <button id="importWorklog" class="button secondary" type="button"><i data-lucide="notebook-tabs"></i><span>导入每日记录</span></button>
+            </div>
+            <div class="storage-meter"><div class="storage-copy"><span>本地附件空间</span><strong id="storageUsage">0 B</strong></div><progress id="storageProgress" max="100" value="0"></progress></div>
+            <div id="attachmentList" class="attachment-list"></div>
+            <div id="attachmentPreview" class="attachment-preview" hidden></div>
+          </section>
+        </div>
       </aside>
     </div>
 
     <dialog id="folderDialog" class="modal"><form id="folderDialogForm" class="modal-card stack"><div class="modal-head"><h2 id="folderDialogTitle">新建文件夹</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><label class="field"><span>名称</span><input id="folderName" type="text" maxlength="48" required /></label><label class="field"><span>上级文件夹</span><select id="folderParent"></select></label><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">保存</button></div></form></dialog>
+    <dialog id="folderMoveDialog" class="modal"><form id="folderMoveForm" class="modal-card stack"><div class="modal-head"><h2>移动文件夹</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><p id="folderMoveName" class="confirm-text"></p><label class="field"><span>目标上级</span><select id="folderMoveParent"></select></label><label class="field"><span>同级位置</span><select id="folderMovePosition"></select></label><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">确认移动</button></div></form></dialog>
     <dialog id="folderDeleteDialog" class="modal"><form class="modal-card stack"><div class="modal-head"><h2>删除非空文件夹</h2><button class="icon-button" id="folderDeleteClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button></div><p id="folderDeleteText" class="confirm-text"></p><div class="choice-actions"><button class="button secondary" id="folderDeleteMove" type="button">内容移到上一级</button><button class="button danger-button" id="folderDeleteBranch" type="button">删除整个分支</button><button class="button ghost" id="folderDeleteCancel" type="button">取消</button></div></form></dialog>
     <dialog id="confirmDialog" class="modal"><form class="modal-card stack"><div class="modal-head"><h2 id="confirmTitle">确认操作</h2><button class="icon-button" id="confirmClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button></div><p id="confirmText" class="confirm-text"></p><div class="modal-actions"><button class="button ghost" id="confirmCancel" type="button">取消</button><button class="button primary" id="confirmOk" type="button">确认</button></div></form></dialog>
 
     <dialog id="moveDialog" class="modal"><form id="moveDialogForm" class="modal-card stack"><div class="modal-head"><h2>更多任务操作</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><p id="moveRestriction" class="field-note" hidden>逾期任务改期后可调整文件夹、优先级和顺序。</p><label class="field"><span>目标文件夹</span><select id="moveFolder"></select></label><label class="field"><span>优先级</span><select id="movePriority"><option value="high">高</option><option value="low">低</option></select></label><div class="move-step-actions"><button class="button secondary" id="movePrevious" type="button">移到上一项</button><button class="button secondary" id="moveNext" type="button">移到下一项</button></div><button class="button danger-button" id="moveDelete" type="button"><i data-lucide="trash-2"></i><span>删除任务</span></button><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" id="moveSubmit" type="submit">移动到末尾</button></div></form></dialog>
 
     <dialog id="rescheduleDialog" class="modal"><form id="rescheduleForm" class="modal-card stack"><div class="modal-head"><h2>重新安排截止日期</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><div class="preset-grid" role="group" aria-label="日期快捷选项"><button class="button secondary" type="button" data-reschedule-days="1">明天</button><button class="button secondary" type="button" data-reschedule-days="3">3 天后</button><button class="button secondary" type="button" data-reschedule-days="7">7 天后</button></div><label class="field"><span>新日期</span><input id="rescheduleDate" type="date" required /></label><label class="field"><span>原因</span><input id="rescheduleReason" type="text" maxlength="120" placeholder="可选" /></label><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">确认改期</button></div></form></dialog>
+
+    <dialog id="attachmentRenameDialog" class="modal"><form id="attachmentRenameForm" class="modal-card stack"><div class="modal-head"><h2>重命名附件</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><label class="field"><span>文件名</span><input id="attachmentRenameName" type="text" maxlength="160" required /></label><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">保存</button></div></form></dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <div id="liveRegion" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>

@@ -1,6 +1,7 @@
 import { requiredElement } from "./dom.js";
 
 export interface Elements {
+  appShell: HTMLElement;
   sidebar: HTMLElement;
   sidebarClose: HTMLButtonElement;
   navToggle: HTMLButtonElement;
@@ -28,8 +29,13 @@ export interface Elements {
   redoAction: HTMLButtonElement;
   themeSelect: HTMLSelectElement;
   taskDetail: HTMLElement;
+  detailResizer: HTMLElement;
   detailClose: HTMLButtonElement;
   detailEmpty: HTMLElement;
+  workspaceTabs: HTMLElement;
+  workspaceTabButtons: NodeListOf<HTMLButtonElement>;
+  workspaceContent: HTMLElement;
+  workspacePanels: NodeListOf<HTMLElement>;
   detailForm: HTMLFormElement;
   detailStatusBadge: HTMLElement;
   detailTitle: HTMLTextAreaElement;
@@ -44,11 +50,43 @@ export interface Elements {
   timelineSection: HTMLElement;
   rescheduleTimeline: HTMLOListElement;
   cancelDetail: HTMLButtonElement;
+  overviewSaveStatus: HTMLElement;
+  descriptionSaveStatus: HTMLElement;
+  descriptionRetry: HTMLButtonElement;
+  descriptionEditor: HTMLElement;
+  worklogDate: HTMLInputElement;
+  worklogProgress: HTMLInputElement;
+  worklogSaveStatus: HTMLElement;
+  worklogRetry: HTMLButtonElement;
+  worklogEditor: HTMLElement;
+  worklogHistory: HTMLElement;
+  newWorklog: HTMLButtonElement;
+  worklogUndo: HTMLElement;
+  worklogUndoText: HTMLElement;
+  undoWorklogDelete: HTMLButtonElement;
+  attachmentFile: HTMLInputElement;
+  descriptionImportFile: HTMLInputElement;
+  worklogImportFile: HTMLInputElement;
+  addAttachment: HTMLButtonElement;
+  importDescription: HTMLButtonElement;
+  importWorklog: HTMLButtonElement;
+  storageUsage: HTMLElement;
+  storageProgress: HTMLProgressElement;
+  attachmentList: HTMLElement;
+  attachmentPreview: HTMLElement;
+  attachmentRenameDialog: HTMLDialogElement;
+  attachmentRenameForm: HTMLFormElement;
+  attachmentRenameName: HTMLInputElement;
   folderDialog: HTMLDialogElement;
   folderDialogForm: HTMLFormElement;
   folderDialogTitle: HTMLElement;
   folderName: HTMLInputElement;
   folderParent: HTMLSelectElement;
+  folderMoveDialog: HTMLDialogElement;
+  folderMoveForm: HTMLFormElement;
+  folderMoveName: HTMLElement;
+  folderMoveParent: HTMLSelectElement;
+  folderMovePosition: HTMLSelectElement;
   folderDeleteDialog: HTMLDialogElement;
   folderDeleteText: HTMLElement;
   folderDeleteMove: HTMLButtonElement;
@@ -80,6 +118,7 @@ export interface Elements {
 
 export function queryElements(): Elements {
   return {
+    appShell: requiredElement("#appShell"),
     sidebar: requiredElement("#sidebar"), sidebarClose: requiredElement("#sidebarClose"), navToggle: requiredElement("#navToggle"),
     globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"),
     newFolder: requiredElement("#newFolder"), folderTree: requiredElement("#folderTree"), workspaceTitle: requiredElement("#workspaceTitle"),
@@ -88,13 +127,19 @@ export function queryElements(): Elements {
     metricActive: requiredElement("#metricActive"), metricCompleted: requiredElement("#metricCompleted"), metricDiscarded: requiredElement("#metricDiscarded"), metricDue: requiredElement("#metricDue"),
     exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
-    taskDetail: requiredElement("#taskDetail"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"), detailForm: requiredElement("#detailForm"),
+    taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
+    workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),
     detailStatusBadge: requiredElement("#detailStatusBadge"), detailTitle: requiredElement("#detailTitle"), detailNotes: requiredElement("#detailNotes"),
     detailPriority: requiredElement("#detailPriority"), detailFolder: requiredElement("#detailFolder"), detailDueDate: requiredElement("#detailDueDate"),
     detailTag: requiredElement("#detailTag"), detailRescheduleReason: requiredElement("#detailRescheduleReason"), detailCreatedAt: requiredElement("#detailCreatedAt"),
     detailUpdatedAt: requiredElement("#detailUpdatedAt"), timelineSection: requiredElement("#timelineSection"), rescheduleTimeline: requiredElement("#rescheduleTimeline"), cancelDetail: requiredElement("#cancelDetail"),
+    overviewSaveStatus: requiredElement("#overviewSaveStatus"), descriptionSaveStatus: requiredElement("#descriptionSaveStatus"), descriptionRetry: requiredElement("#descriptionRetry"), descriptionEditor: requiredElement("#descriptionEditor"),
+    worklogDate: requiredElement("#worklogDate"), worklogProgress: requiredElement("#worklogProgress"), worklogSaveStatus: requiredElement("#worklogSaveStatus"), worklogRetry: requiredElement("#worklogRetry"), worklogEditor: requiredElement("#worklogEditor"), worklogHistory: requiredElement("#worklogHistory"),
+    newWorklog: requiredElement("#newWorklog"), worklogUndo: requiredElement("#worklogUndo"), worklogUndoText: requiredElement("#worklogUndoText"), undoWorklogDelete: requiredElement("#undoWorklogDelete"),
+    attachmentFile: requiredElement("#attachmentFile"), descriptionImportFile: requiredElement("#descriptionImportFile"), worklogImportFile: requiredElement("#worklogImportFile"), addAttachment: requiredElement("#addAttachment"), importDescription: requiredElement("#importDescription"), importWorklog: requiredElement("#importWorklog"),
+    storageUsage: requiredElement("#storageUsage"), storageProgress: requiredElement("#storageProgress"), attachmentList: requiredElement("#attachmentList"), attachmentPreview: requiredElement("#attachmentPreview"), attachmentRenameDialog: requiredElement("#attachmentRenameDialog"), attachmentRenameForm: requiredElement("#attachmentRenameForm"), attachmentRenameName: requiredElement("#attachmentRenameName"),
     folderDialog: requiredElement("#folderDialog"), folderDialogForm: requiredElement("#folderDialogForm"), folderDialogTitle: requiredElement("#folderDialogTitle"),
-    folderName: requiredElement("#folderName"), folderParent: requiredElement("#folderParent"), folderDeleteDialog: requiredElement("#folderDeleteDialog"),
+    folderName: requiredElement("#folderName"), folderParent: requiredElement("#folderParent"), folderMoveDialog: requiredElement("#folderMoveDialog"), folderMoveForm: requiredElement("#folderMoveForm"), folderMoveName: requiredElement("#folderMoveName"), folderMoveParent: requiredElement("#folderMoveParent"), folderMovePosition: requiredElement("#folderMovePosition"), folderDeleteDialog: requiredElement("#folderDeleteDialog"),
     folderDeleteText: requiredElement("#folderDeleteText"), folderDeleteMove: requiredElement("#folderDeleteMove"), folderDeleteBranch: requiredElement("#folderDeleteBranch"),
     folderDeleteCancel: requiredElement("#folderDeleteCancel"), folderDeleteClose: requiredElement("#folderDeleteClose"), confirmDialog: requiredElement("#confirmDialog"),
     confirmTitle: requiredElement("#confirmTitle"), confirmText: requiredElement("#confirmText"), confirmClose: requiredElement("#confirmClose"),

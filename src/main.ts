@@ -1,33 +1,42 @@
 import { hydrateState } from "./domain.js";
 import { loadStateFromStorage, saveStateToStorage } from "./storage.js";
 import { createStore } from "./store.js";
+import { WorkspaceRepository } from "./workspace-db.js";
 import { createDialogs } from "./ui/dialogs.js";
 import { createDragAndDrop } from "./ui/drag-drop.js";
 import { bindEvents } from "./ui/events.js";
 import { refreshStaticIcons } from "./ui/icons.js";
 import { createRenderer } from "./ui/renderer.js";
 import { queryElements } from "./ui/selectors.js";
+import { createWorkspaceController } from "./ui/workspace.js";
 
 const els = queryElements();
 const loaded = loadStateFromStorage();
 const store = createStore(hydrateState(loaded.state));
 const renderer = createRenderer(els);
 const dialogs = createDialogs(els);
+const repository = await WorkspaceRepository.open();
 refreshStaticIcons(document);
-const bindings = bindEvents(els, store, dialogs, render);
-const dragAndDrop = createDragAndDrop(els.taskList, store, bindings.getViewState, (message) => {
-  els.liveRegion.textContent = message;
-});
 let lastStorageFailureMessage = "";
 
-store.subscribe((state) => {
-  const saveResult = saveStateToStorage(state);
+function persistState(): boolean {
+  const saveResult = saveStateToStorage(store.getState());
   if (!saveResult.saved && saveResult.message !== lastStorageFailureMessage) {
     lastStorageFailureMessage = saveResult.message;
     dialogs.toast(saveResult.message);
   } else if (saveResult.saved) {
     lastStorageFailureMessage = "";
   }
+  return saveResult.saved;
+}
+
+const workspace = createWorkspaceController(els, store, repository, dialogs, persistState);
+const bindings = bindEvents(els, store, dialogs, workspace, repository, persistState, render);
+const dragAndDrop = createDragAndDrop(els.taskList, store, bindings.getViewState, (message) => {
+  els.liveRegion.textContent = message;
+});
+store.subscribe((state) => {
+  persistState();
   bindings.reconcileResolutionTimers();
   render();
 });
@@ -35,6 +44,7 @@ store.subscribe((state) => {
 function render(): void {
   bindings.reconcileSelection();
   renderer.render(store.getState(), bindings.getViewState(), store.canUndo(), store.canRedo());
+  workspace.syncTaskState();
   dragAndDrop.refresh();
 }
 
@@ -47,4 +57,6 @@ window.setInterval(() => {
 
 if (loaded.message) {
   dialogs.toast(loaded.message);
+} else if (repository.errorMessage) {
+  dialogs.toast(repository.errorMessage);
 }

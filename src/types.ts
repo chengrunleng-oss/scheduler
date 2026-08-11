@@ -7,6 +7,8 @@ export type ViewMode = "tree_manual" | "global_priority" | "global_due_date" | "
 export type DefaultTaskDueDate = "today" | "tomorrow" | "next_workday" | "none";
 export type FolderScope = "all" | "root" | string;
 export type RescheduleSource = "quick" | "detail";
+export type WorkspaceTab = "overview" | "worklog" | "attachments";
+export type AttachmentKind = "image" | "pdf" | "text" | "office" | "binary";
 
 export interface RescheduleRecord {
   fromDate: string;
@@ -28,6 +30,7 @@ export interface Task {
   id: string;
   title: string;
   notes: string;
+  descriptionMarkdown: string;
   priority: Priority;
   dueDate: string;
   tag: string;
@@ -75,13 +78,35 @@ export interface Preferences {
   defaultTaskPriority: Priority;
   expandedHandledContainers: string[];
   navigationCollapsedFolders: string[];
+  workspaceWidth: number;
 }
 
 export interface AppState {
-  schemaVersion: 4;
+  schemaVersion: 5;
   preferences: Preferences;
   tasks: Task[];
   folders: Folder[];
+}
+
+export interface WorkLog {
+  id: string;
+  taskId: string;
+  workDate: string;
+  contentMarkdown: string;
+  progressPercent: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AttachmentMeta {
+  id: string;
+  taskId: string;
+  name: string;
+  type: string;
+  size: number;
+  lastModified: number;
+  kind: AttachmentKind;
+  createdAt: number;
 }
 
 export type FolderDeleteStrategy = "move-contents" | "delete-branch";
@@ -89,6 +114,7 @@ export type FolderDeleteStrategy = "move-contents" | "delete-branch";
 export type StateAction =
   | { type: "add-task"; draft: TaskDraft; now?: number }
   | { type: "update-task"; id: string; draft: TaskDraft; rescheduleReason?: string; now?: number }
+  | { type: "set-task-description"; id: string; descriptionMarkdown: string; now?: number }
   | { type: "move-task"; id: string; folderId: string | null; targetIndex: number; priority: Priority; now?: number }
   | { type: "set-task-priority"; id: string; priority: Priority; now?: number }
   | { type: "move-priority-divider"; folderId: string | null; highCount: number; now?: number }
@@ -105,10 +131,12 @@ export type StateAction =
   | { type: "set-view-mode"; viewMode: ViewMode }
   | { type: "set-folder-scope"; folderScope: FolderScope }
   | { type: "set-default-task-values"; dueDate: DefaultTaskDueDate; priority: Priority }
+  | { type: "set-workspace-width"; width: number }
   | { type: "toggle-handled-section"; containerId: string }
   | { type: "toggle-navigation-folder"; id: string }
   | { type: "add-folder"; draft: FolderDraft; now?: number }
   | { type: "update-folder"; id: string; draft: FolderDraft; now?: number }
+  | { type: "move-folder"; id: string; parentId: string | null; targetIndex: number; now?: number }
   | { type: "toggle-folder"; id: string; collapsed?: boolean }
   | { type: "delete-folder"; id: string; strategy: FolderDeleteStrategy }
   | { type: "replace-state"; state: AppState }

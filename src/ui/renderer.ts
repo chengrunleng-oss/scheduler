@@ -14,7 +14,7 @@ import {
   taskComparator,
   toISODate,
 } from "../domain.js";
-import type { AppState, Folder, Priority, Task, ThemeMode } from "../types.js";
+import type { AppState, Folder, Priority, Task, ThemeMode, WorkspaceTab } from "../types.js";
 import { createElement, setHidden } from "./dom.js";
 import { icon, type IconName } from "./icons.js";
 import type { Elements } from "./selectors.js";
@@ -29,6 +29,7 @@ export interface ViewState {
   selectedTaskId: string | null;
   detailPanelOpen: boolean;
   detailDirty: boolean;
+  workspaceTab: WorkspaceTab;
   inlineCreate: InlineCreateState | null;
   flashTaskId: string | null;
 }
@@ -63,10 +64,20 @@ export function createRenderer(els: Elements): Renderer {
     els.themeSelect.value = state.preferences.theme;
     els.defaultDueDate.value = state.preferences.defaultTaskDueDate;
     els.defaultPriority.value = state.preferences.defaultTaskPriority;
+    const preferredWorkspaceWidth = Number.isFinite(state.preferences.workspaceWidth) ? state.preferences.workspaceWidth : 620;
+    const workspaceWidth = window.innerWidth >= 1340
+      ? Math.min(preferredWorkspaceWidth, Math.max(560, window.innerWidth - 720))
+      : preferredWorkspaceWidth;
+    document.documentElement.style.setProperty("--workspace-width", `${workspaceWidth}px`);
+    const workspaceOpen = view.detailPanelOpen && Boolean(view.selectedTaskId);
+    els.appShell.classList.toggle("workspace-open", workspaceOpen);
+    els.appShell.style.gridTemplateColumns = workspaceOpen && window.innerWidth >= 1340
+      ? `220px minmax(500px, 1fr) ${workspaceWidth}px`
+      : "";
     els.undoAction.disabled = !canUndo;
     els.redoAction.disabled = !canRedo;
     const dragEnabled = isDragMode(state, view);
-    els.dragHint.textContent = dragEnabled ? "可拖动待办任务和高 / 低分界线" : "切换到无搜索的任务树待办视图可拖动";
+    els.dragHint.textContent = dragEnabled ? "可拖动待办任务和左侧优先级标签" : "切换到无搜索的任务树待办视图可拖动";
     els.dragHint.classList.toggle("is-disabled", !dragEnabled);
     if (state.preferences.folderScope === "all") els.workspaceTitle.textContent = "全部任务";
     else if (state.preferences.folderScope === "root") els.workspaceTitle.textContent = "未分类";
@@ -99,12 +110,26 @@ export function createRenderer(els: Elements): Renderer {
   function renderDetail(state: AppState, view: ViewState): void {
     const task = state.tasks.find((item) => item.id === view.selectedTaskId);
     setHidden(els.detailEmpty, Boolean(task));
-    setHidden(els.detailForm, !task);
+    setHidden(els.workspaceContent, !task);
+    setHidden(els.workspaceTabs, !task);
     els.taskDetail.classList.toggle("is-open", Boolean(task) && view.detailPanelOpen);
+    els.workspaceTabButtons.forEach((button) => {
+      const active = button.dataset.workspaceTab === view.workspaceTab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    els.workspacePanels.forEach((panel) => {
+      const active = panel.id === `${view.workspaceTab}Panel`;
+      panel.classList.toggle("active", active);
+      setHidden(panel, !active);
+    });
     if (!task) return;
     fillFolderSelect(els.detailFolder, state.folders, view.detailDirty ? els.detailFolder.value : task.folderId ?? "", "未分类");
     els.detailStatusBadge.className = `detail-status ${task.status}${task.pendingResolution ? " pending" : ""}`;
     els.detailStatusBadge.textContent = task.pendingResolution ? `${STATUS_LABELS[task.status]} · 等待确认` : STATUS_LABELS[task.status];
+    els.overviewSaveStatus.textContent = view.detailDirty ? "未保存" : "已保存";
+    els.overviewSaveStatus.className = `save-status${view.detailDirty ? " dirty" : ""}`;
     setHidden(els.timelineSection, task.rescheduleHistory.length === 0);
     renderTimeline(task, els.rescheduleTimeline);
     if (view.detailDirty) return;
@@ -184,8 +209,10 @@ function renderTreeView(state: AppState, visibleTasks: Task[], view: ViewState, 
     if (!showEmpty && branchCount === 0 && view.inlineCreate?.folderId !== folderId) return;
     const sortableCount = direct.filter((task) => task.status === "active" && !isOverdue(task)).length;
     const heading = createTreeHeading(state, folder, folder ? branchCount : direct.length, sortableCount, depth);
-    const branch = createElement("section", { className: "tree-container" });
+    const layer = folder ? Math.max(1, Math.min(4, getFolderDepth(state.folders, folder.id))) : 0;
+    const branch = createElement("section", { className: `tree-container tree-depth-${layer}${folder ? " folder-container" : " root-container"}` });
     branch.dataset.treeFolderId = folderId ?? "root";
+    branch.style.setProperty("--tree-depth", String(depth));
     const contents = createElement("div", { className: "tree-container-contents" });
     if (folder?.collapsed && !view.query) contents.hidden = true;
     branch.append(heading, contents);
@@ -230,7 +257,7 @@ function createTreeHeading(state: AppState, folder: Folder | null, count: number
     const addFolder = iconButton("start-inline-folder", "FolderPlus", "新建子文件夹", "group-action create-folder-action");
     addFolder.dataset.folderId = folder.id;
     addFolder.disabled = getFolderDepth(state.folders, folder.id) >= MAX_FOLDER_DEPTH;
-    actions.append(addTask, addFolder);
+    actions.append(addTask, addFolder, createFolderMenu(folder));
   }
   if (sortableCount >= 2) {
     const suggest = iconButton("suggest-order", "CalendarPlus", "建议按截止日期整理", "group-action");
@@ -239,6 +266,29 @@ function createTreeHeading(state: AppState, folder: Folder | null, count: number
   }
   if (actions.childElementCount) heading.append(actions);
   return heading;
+}
+
+function createFolderMenu(folder: Folder): HTMLElement {
+  const menu = createElement("details", { className: "folder-menu" });
+  const trigger = createElement("summary", { className: "group-action folder-menu-trigger", title: `管理“${folder.name}”` });
+  trigger.setAttribute("aria-label", `管理文件夹“${folder.name}”`);
+  trigger.append(icon("MoreHorizontal"));
+  const popup = createElement("div", { className: "folder-menu-popup" });
+  const items = [
+    ["rename-folder", "Pencil", "重命名"],
+    ["move-folder", "FolderInput", "移动"],
+    ["delete-folder", "Trash2", "删除"],
+  ] as const;
+  for (const [action, iconName, label] of items) {
+    const button = createElement("button", { className: `folder-menu-item${action === "delete-folder" ? " danger" : ""}` });
+    button.type = "button";
+    button.dataset.action = action;
+    button.dataset.folderId = folder.id;
+    button.append(icon(iconName, 16), document.createTextNode(label));
+    popup.append(button);
+  }
+  menu.append(trigger, popup);
+  return menu;
 }
 
 function createRootCreateActions(): HTMLElement {
@@ -300,11 +350,9 @@ function renderDirectTasks(state: AppState, tasks: Task[], view: ViewState, fold
   const ordinary = tasks.filter((task) => task.status === "active" && !isOverdue(task, today));
   const high = [...ordinary.filter((task) => task.priority === "high"), ...pending.filter((task) => task.priority === "high")].sort(stableTaskOrder);
   const low = [...ordinary.filter((task) => task.priority === "low"), ...pending.filter((task) => task.priority === "low")].sort(stableTaskOrder);
-  if (high.length) container.append(createSubheading("高优先级", high.length, "priority-heading high"));
-  for (const task of high) container.append(createTaskNode(task, state, view, depth, dragEnabled));
+  for (const task of high) container.append(createTaskNode(task, state, view, depth, dragEnabled, false, "high"));
   if (state.preferences.activeStatusFilter !== "all" || ordinary.length || pending.length) container.append(createPriorityDivider(folderId, dragEnabled));
-  if (low.length) container.append(createSubheading("低优先级", low.length, "priority-heading low"));
-  for (const task of low) container.append(createTaskNode(task, state, view, depth, dragEnabled));
+  for (const task of low) container.append(createTaskNode(task, state, view, depth, dragEnabled, false, "low"));
 }
 
 function createPriorityDivider(folderId: string | null, draggable: boolean): HTMLElement {
@@ -312,8 +360,15 @@ function createPriorityDivider(folderId: string | null, draggable: boolean): HTM
   divider.dataset.dividerFolderId = folderId ?? "root";
   divider.tabIndex = draggable ? 0 : -1;
   divider.setAttribute("role", "separator");
-  divider.setAttribute("aria-label", "高优先级和低优先级分界线");
-  divider.append(icon("GripVertical", 16), createElement("span", { text: "高 / 低分界" }));
+  divider.setAttribute("aria-label", "调整高优先级和低优先级分界");
+  divider.title = "拖动调整优先级分界";
+  const threshold = createElement("span", { className: "priority-threshold" });
+  threshold.append(
+    createElement("span", { className: "priority-threshold-high" }),
+    createElement("span", { className: "priority-threshold-low" }),
+    icon("GripHorizontal", 16),
+  );
+  divider.append(threshold);
   return divider;
 }
 
@@ -361,16 +416,17 @@ function renderGlobalView(state: AppState, tasks: Task[], view: ViewState, conta
   }
 }
 
-function createTaskNode(task: Task, state: AppState, view: ViewState, depth: number, draggable: boolean, global = false): HTMLElement {
+function createTaskNode(task: Task, state: AppState, view: ViewState, depth: number, draggable: boolean, global = false, priorityBand?: Priority): HTMLElement {
   const selected = task.id === view.selectedTaskId;
   const overdue = isOverdue(task);
   const pending = Boolean(task.pendingResolution);
   const node = createElement("article", {
-    className: `task-item ${task.status}${selected ? " selected" : ""}${view.query ? " search-match" : ""}${overdue ? " overdue" : ""}${pending ? " pending" : ""}${view.flashTaskId === task.id ? " locating" : ""}`,
+    className: `task-item ${task.status}${priorityBand ? ` priority-band priority-band-${priorityBand}` : ""}${selected ? " selected" : ""}${view.query ? " search-match" : ""}${overdue ? " overdue" : ""}${pending ? " pending" : ""}${view.flashTaskId === task.id ? " locating" : ""}`,
   });
   node.dataset.id = task.id;
   node.dataset.folderId = task.folderId ?? "root";
   node.dataset.priority = task.priority;
+  node.style.setProperty("--task-depth", String(depth));
   node.tabIndex = 0;
   node.setAttribute("role", "option");
   node.setAttribute("aria-selected", String(selected));
@@ -379,7 +435,6 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
 
   const main = createElement("div", { className: "task-main" });
   const titleLine = createElement("div", { className: "task-title-line" });
-  titleLine.style.setProperty("--task-depth", String(depth));
   if (draggable && task.status === "active" && !overdue) {
     const handle = iconButton("drag-task", "GripVertical", "拖动任务", "drag-handle");
     handle.dataset.taskId = task.id;

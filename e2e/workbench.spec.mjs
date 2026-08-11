@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { createServer } from "vite";
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
+import JSZip from "jszip";
 
 const primaryTask = "确定今天最重要的一件事";
 const workspace = fileURLToPath(new URL("..", import.meta.url));
@@ -22,6 +24,19 @@ test.afterAll(async () => {
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
+  await page.evaluate(async () => {
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open("task-workbench-content-v5", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(["workLogs", "attachments", "attachmentBlobs"], "readwrite");
+        for (const name of ["workLogs", "attachments", "attachmentBlobs"]) transaction.objectStore(name).clear();
+        transaction.oncomplete = () => { db.close(); resolve(); };
+        transaction.onerror = () => reject(transaction.error);
+      };
+    });
+  });
   await page.reload();
 });
 
@@ -64,7 +79,7 @@ async function dragWithHover(page, source, hoverTarget, dropTarget = hoverTarget
   await page.mouse.up();
 }
 
-test("v4 only exposes high/low priority and four exclusive views", async ({ page }) => {
+test("v5 only exposes high/low priority and four exclusive views", async ({ page }) => {
   await expect(page.locator("#defaultPriority option")).toHaveCount(2);
   await expect(page.locator('option[value="medium"]')).toHaveCount(0);
   await expect(page.locator("#sortMode")).toHaveCount(0);
@@ -94,6 +109,29 @@ test("folder headings create tasks and child folders inline", async ({ page }) =
   await folderForm.locator('input[name="title"]').fill("取消创建");
   await folderForm.locator('input[name="title"]').press("Escape");
   await expect(page.locator(".tree-group-heading").filter({ hasText: "取消创建" })).toHaveCount(0);
+});
+
+test("main tree folder menu moves by parent and position, deletes with exact impact, and supports undo", async ({ page }) => {
+  const workHeading = page.locator('[data-drop-folder-id="folder-work"]');
+  await workHeading.locator('summary[aria-label^="管理文件夹"]').click();
+  await workHeading.getByRole("button", { name: "移动" }).click();
+  const moveDialog = page.locator("#folderMoveDialog");
+  await moveDialog.getByLabel("目标上级").selectOption("folder-personal");
+  await moveDialog.getByLabel("同级位置").selectOption("0");
+  await moveDialog.getByRole("button", { name: "确认移动" }).click();
+  expect(await page.locator('[data-tree-folder-id="folder-work"]').evaluate((node) => node.parentElement?.closest("[data-tree-folder-id]")?.dataset.treeFolderId)).toBe("folder-personal");
+  await page.getByRole("button", { name: "撤销" }).click();
+  expect(await page.locator('[data-tree-folder-id="folder-work"]').evaluate((node) => node.parentElement?.closest("[data-tree-folder-id]")?.dataset.treeFolderId)).toBe("root");
+
+  await workHeading.locator('summary[aria-label^="管理文件夹"]').click();
+  await workHeading.getByRole("button", { name: "删除" }).click();
+  await expect(page.locator("#folderDeleteText")).toContainText("0 个子文件夹和 1 个任务");
+  await page.locator("#folderDeleteMove").click();
+  await expect(page.locator('[data-drop-folder-id="folder-work"]')).toHaveCount(0);
+  await expect(page.getByRole("option", { name: new RegExp(primaryTask) })).toHaveAttribute("data-folder-id", "root");
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(page.locator('[data-drop-folder-id="folder-work"]')).toBeVisible();
+  await expect(page.getByRole("option", { name: new RegExp(primaryTask) })).toHaveAttribute("data-folder-id", "folder-work");
 });
 
 test("root create actions stay at the tree end and use distinct accessible colors", async ({ page }) => {
@@ -150,7 +188,7 @@ test("completion remains undoable across refresh and finalizes into handled sect
 test("handled tasks render after child folders and show the latest three by resolved time", async ({ page }) => {
   await persistDefaultState(page);
   await page.evaluate(() => {
-    const key = "task-workbench-state-v4";
+    const key = "task-workbench-state-v5";
     const state = JSON.parse(localStorage.getItem(key));
     const now = Date.now();
     state.folders.push({ id: "folder-work-child", name: "工作子文件夹", parentId: "folder-work", order: 0, collapsed: false, createdAt: now, updatedAt: now });
@@ -266,9 +304,24 @@ test("move menu changes folder and priority without drag", async ({ page }) => {
   await expect(row).toHaveAttribute("data-folder-id", "folder-work");
 });
 
-test("dragging a task to a folder heading moves it atomically", async ({ page }) => {
+test("task name, tag, and six-dot handle each start drag while click still selects", async ({ page }) => {
   const row = page.getByRole("option", { name: new RegExp(primaryTask) });
   const target = page.locator(".tree-group-heading").filter({ hasText: "个人" }).first();
+
+  await row.locator(".task-title-line strong").click();
+  await expect(page.locator("#taskDetail")).toHaveClass(/is-open/);
+  await page.locator("#detailClose").click();
+
+  await row.locator(".task-title-line strong").dragTo(target);
+  await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(row).toHaveAttribute("data-folder-id", "folder-work");
+
+  await row.locator(".task-meta").dragTo(target);
+  await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(row).toHaveAttribute("data-folder-id", "folder-work");
+
   await row.getByRole("button", { name: "拖动任务" }).dragTo(target);
   await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
   await expect(page.getByRole("button", { name: "撤销" })).toBeEnabled();
@@ -300,6 +353,66 @@ test("task drag supports exact reorder, undo, redo, root drop, and self-drop no-
   await expect(first).toHaveAttribute("data-folder-id", "folder-work");
 });
 
+test("task drag previews the insertion and sibling motion before one atomic drop", async ({ page }) => {
+  await createFolderTask(page, "工作", "实时预排列目标", "high");
+  await page.reload();
+  const source = page.getByRole("option", { name: new RegExp(primaryTask) });
+  const target = page.getByRole("option", { name: /实时预排列目标/ });
+  const handleBox = await source.getByRole("button", { name: "拖动任务" }).boundingBox();
+  expect(handleBox).not.toBeNull();
+  const persistedBefore = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("task-workbench-state-v5")).tasks));
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2 + 8, handleBox.y + handleBox.height / 2 + 8, { steps: 4 });
+  await expect(page.locator(".task-drop-placeholder")).toHaveCount(1);
+  await expect(source).toHaveClass(/drag-source-collapsed/);
+  const targetBefore = await target.boundingBox();
+  expect(targetBefore).not.toBeNull();
+  await page.mouse.move(targetBefore.x + targetBefore.width / 2, targetBefore.y + targetBefore.height * 0.8, { steps: 12 });
+  const currentTarget = await target.boundingBox();
+  await page.mouse.move(currentTarget.x + currentTarget.width / 2, currentTarget.y + currentTarget.height - 3);
+  await page.waitForTimeout(35);
+  const activeAnimations = await target.evaluate((node) => node.getAnimations().length);
+  expect(activeAnimations).toBeGreaterThan(0);
+  const placeholderAfterTarget = await page.locator(".task-drop-placeholder").evaluate((placeholder, targetId) => placeholder.previousElementSibling?.getAttribute("data-id") === targetId, await target.getAttribute("data-id"));
+  expect(placeholderAfterTarget).toBe(true);
+  await page.waitForTimeout(200);
+  const targetAfter = await target.boundingBox();
+  expect(Math.abs(targetAfter.y - targetBefore.y)).toBeGreaterThan(20);
+  const persistedDuringPreview = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("task-workbench-state-v5")).tasks));
+  expect(persistedDuringPreview).toBe(persistedBefore);
+  await page.mouse.up();
+  await expect(page.locator(".task-drop-placeholder")).toHaveCount(0);
+  const titles = await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents();
+  expect(titles).toEqual(["实时预排列目标", primaryTask]);
+  await page.getByRole("button", { name: "撤销" }).click();
+  expect(await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents()).toEqual([primaryTask, "实时预排列目标"]);
+});
+
+test("invalid drop restores preview immediately and reduced motion skips FLIP animation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await createFolderTask(page, "工作", "取消拖拽目标", "high");
+  await page.reload();
+  const source = page.getByRole("option", { name: new RegExp(primaryTask) });
+  const target = page.getByRole("option", { name: /取消拖拽目标/ });
+  const orderBefore = await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents();
+  const handleBox = await source.getByRole("button", { name: "拖动任务" }).boundingBox();
+  expect(handleBox).not.toBeNull();
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2 + 8, handleBox.y + handleBox.height / 2 + 8, { steps: 4 });
+  const targetBox = await target.boundingBox();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.8, { steps: 10 });
+  await expect(page.locator(".task-drop-placeholder")).toHaveCount(1);
+  const animationCount = await page.locator(".task-list").evaluate((node) => node.getAnimations({ subtree: true }).length);
+  expect(animationCount).toBe(0);
+  await page.mouse.move(1438, 10);
+  await page.mouse.up();
+  await expect(page.locator(".task-drop-placeholder")).toHaveCount(0);
+  await expect(source).not.toHaveClass(/drag-source-collapsed/);
+  expect(await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents()).toEqual(orderBefore);
+});
+
 test("priority divider changes crossed priorities atomically and persists", async ({ page }) => {
   const low = await createFolderTask(page, "工作", "分界线低优先级", "low");
   await page.reload();
@@ -312,6 +425,70 @@ test("priority divider changes crossed priorities atomically and persists", asyn
   await expect(low).toHaveAttribute("data-priority", "high");
   await page.reload();
   await expect(low).toHaveAttribute("data-priority", "high");
+});
+
+test("priority groups use two compact full-row fills and a keyboard-adjustable left label", async ({ page }) => {
+  const low = await createFolderTask(page, "工作", "冷色低优先级", "low");
+  await page.reload();
+  const high = page.getByRole("option", { name: new RegExp(primaryTask) });
+  const divider = page.locator('[data-divider-folder-id="folder-work"]');
+  await expect(page.locator(".priority-heading")).toHaveCount(0);
+  await expect(high).toHaveClass(/priority-band-high/);
+  await expect(low).toHaveClass(/priority-band-low/);
+  const colors = await Promise.all([high, low].map((row) => row.evaluate((node) => getComputedStyle(node).backgroundColor)));
+  const surface = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--surface").trim());
+  expect(colors[0]).not.toBe(colors[1]);
+  expect(colors[0]).not.toBe(surface);
+  expect(colors[1]).not.toBe(surface);
+  const geometry = await Promise.all([high, divider, low].map((item) => item.boundingBox()));
+  expect(geometry.every(Boolean)).toBe(true);
+  expect(geometry[1].width).toBeGreaterThanOrEqual(40);
+  expect(geometry[1].height).toBeGreaterThanOrEqual(40);
+  expect(geometry[2].y - (geometry[0].y + geometry[0].height)).toBeLessThan(20);
+  await divider.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(low).toHaveAttribute("data-priority", "high");
+  await page.getByRole("button", { name: "撤销" }).click();
+  await expect(low).toHaveAttribute("data-priority", "low");
+});
+
+test("priority-aware selection stays distinct and every non-control task region selects the row", async ({ page }) => {
+  const high = page.getByRole("option", { name: new RegExp(primaryTask) });
+  const low = page.getByRole("option", { name: /安排一段不被打扰的专注时间/ });
+  for (const theme of ["light", "dark"]) {
+    await page.locator("#themeSelect").selectOption(theme);
+    await high.locator(".task-meta").click();
+    const highColor = await high.evaluate((node) => getComputedStyle(node).backgroundColor);
+    await low.locator(".priority").click();
+    const lowColor = await low.evaluate((node) => getComputedStyle(node).backgroundColor);
+    expect(highColor).not.toBe(lowColor);
+    await expect(low).toHaveAttribute("aria-selected", "true");
+  }
+
+  const actions = high.locator(".task-actions");
+  await actions.click({ position: { x: 42, y: 20 } });
+  await expect(high).toHaveAttribute("aria-selected", "true");
+  await low.locator("time").click();
+  await expect(low).toHaveAttribute("aria-selected", "true");
+  await high.click({ position: { x: 8, y: 8 } });
+  await expect(high).toHaveAttribute("aria-selected", "true");
+});
+
+test("priority threshold, folder headings, and workspace resizer use discoverable quiet styling", async ({ page }) => {
+  const divider = page.locator('[data-divider-folder-id="folder-work"]');
+  await expect(divider).toHaveAttribute("title", "拖动调整优先级分界");
+  await expect(divider).toHaveText("");
+  await expect(divider.locator(".priority-threshold-high")).toHaveCount(1);
+  await expect(divider.locator(".priority-threshold-low")).toHaveCount(1);
+  const threshold = await divider.locator(".priority-threshold").boundingBox();
+  expect(Math.round(threshold.width)).toBe(28);
+  expect(Math.round(threshold.height)).toBe(32);
+  const folderBorders = await page.locator(".tree-group-heading").evaluateAll((headings) => headings.map((heading) => getComputedStyle(heading).borderBottomStyle));
+  expect(folderBorders.every((style) => style === "none")).toBe(true);
+
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-meta").click();
+  const trackColor = await page.locator("#detailResizer").evaluate((node) => getComputedStyle(node, "::after").backgroundColor);
+  expect(trackColor).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("collapsed folder expands after hover, restores when left, and stays open after drop", async ({ page }) => {
@@ -356,6 +533,314 @@ test("task detail saves later due date and undo restores the timeline", async ({
   await expect(page.locator("#timelineSection")).toBeHidden();
 });
 
+test("task workspace autosaves Markdown description and dated work log before switching tasks", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#workspaceTabs")).toBeVisible();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#descriptionEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  const description = page.locator("#descriptionEditor [contenteditable='true'], #descriptionEditor textarea").first();
+  const daily = page.locator("#worklogEditor [contenteditable='true'], #worklogEditor textarea").first();
+  await description.fill("# 长期目标\n\n完成工作区升级");
+  await daily.fill("- [x] 完成数据迁移\n- [ ] 验证附件备份");
+  await page.locator("#worklogProgress").fill("65");
+  await expect(page.locator("#descriptionSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+
+  const saved = await page.evaluate(async () => {
+    const state = JSON.parse(localStorage.getItem("task-workbench-state-v5"));
+    const log = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("task-workbench-content-v5", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const result = request.result.transaction("workLogs", "readonly").objectStore("workLogs").getAll();
+        result.onsuccess = () => resolve(result.result[0]);
+        result.onerror = () => reject(result.error);
+      };
+    });
+    return { description: state.tasks.find((task) => task.id === "task-1").descriptionMarkdown, log };
+  });
+  expect(saved.description).toContain("长期目标");
+  expect(saved.log.contentMarkdown).toContain("完成数据迁移");
+  expect(saved.log.progressPercent).toBe(65);
+
+  await page.getByRole("option", { name: /安排一段不被打扰的专注时间/ }).locator(".task-main").click();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#descriptionEditor")).toContainText("长期目标", { timeout: 20_000 });
+  await expect(page.locator("#worklogDate")).toHaveAttribute("max", /^\d{4}-\d{2}-\d{2}$/);
+  const currentDate = await page.locator("#worklogDate").inputValue();
+  await page.locator("#worklogDate").evaluate((input) => { input.value = "2999-01-01"; input.dispatchEvent(new Event("change", { bubbles: true })); });
+  await expect(page.locator("#worklogDate")).toHaveValue(currentDate);
+
+  await page.locator("#detailClose").click();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).getByRole("button", { name: "标记为已完成" }).click();
+  await page.getByRole("option", { name: new RegExp(`${primaryTask}，等待确认`) }).locator(".task-main").click();
+  await expect(page.locator("#descriptionEditor [role='textbox'][contenteditable='false']")).toBeVisible();
+  await page.locator("#detailClose").click();
+  await page.getByRole("option", { name: new RegExp(`${primaryTask}，等待确认`) }).getByRole("button", { name: "撤销处理" }).click();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#descriptionEditor [role='textbox'][contenteditable='true']")).toBeVisible();
+});
+
+test("work logs support explicit create, open, delete, IndexedDB removal, and short undo", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#newWorklog").click();
+  const editor = page.locator("#worklogEditor [contenteditable='true'], #worklogEditor textarea").first();
+  await editor.fill("今天完成了可撤销删除验证");
+  await page.locator("#worklogProgress").fill("80");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  const history = page.locator(".worklog-history-item");
+  await expect(history).toHaveCount(1);
+  await history.getByRole("button", { name: /编辑/ }).click();
+  await expect(editor).toContainText("可撤销删除验证");
+
+  await history.getByRole("button", { name: /删除/ }).click();
+  await page.locator("#confirmOk").click();
+  await expect(page.locator("#worklogUndo")).toBeVisible();
+  await expect(history).toHaveCount(0);
+  expect(await page.evaluate(async () => new Promise((resolve, reject) => {
+    const request = indexedDB.open("task-workbench-content-v5", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const count = request.result.transaction("workLogs", "readonly").objectStore("workLogs").count();
+      count.onsuccess = () => resolve(count.result);
+      count.onerror = () => reject(count.error);
+    };
+  }))).toBe(0);
+
+  await page.locator("#undoWorklogDelete").click();
+  await expect(page.locator("#worklogUndo")).toBeHidden();
+  await expect(history).toHaveCount(1);
+  await expect(editor).toContainText("可撤销删除验证");
+});
+
+test("attachments persist blobs, preview text, and insert image references into Markdown", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await page.locator("#attachmentFile").setInputFiles([
+    { name: "进展.log", mimeType: "text/plain", buffer: Buffer.from("build ok\nall checks passed") },
+    { name: "截图.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64") },
+  ]);
+  await expect(page.locator(".attachment-row")).toHaveCount(2);
+  const textRow = page.locator(".attachment-row").filter({ hasText: "进展.log" });
+  await textRow.getByRole("button", { name: "预览附件" }).click();
+  await expect(page.locator("#attachmentPreview")).toContainText("all checks passed");
+  const imageRow = page.locator(".attachment-row").filter({ hasText: "截图.png" });
+  await imageRow.getByRole("button", { name: "插入长期描述" }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem("task-workbench-state-v5");
+    return raw ? JSON.parse(raw).tasks.find((task) => task.id === "task-1").descriptionMarkdown : "";
+  })).toContain("attachment:");
+  const blobCount = await page.evaluate(async () => new Promise((resolve, reject) => {
+    const request = indexedDB.open("task-workbench-content-v5", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const count = request.result.transaction("attachmentBlobs", "readonly").objectStore("attachmentBlobs").count();
+      count.onsuccess = () => resolve(count.result);
+      count.onerror = () => reject(count.error);
+    };
+  }));
+  expect(blobCount).toBe(2);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.locator("#exportData").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/task-workbench-\d{4}-\d{2}-\d{2}\.zip/);
+  const downloadPath = await download.path();
+  const archive = await JSZip.loadAsync(await readFile(downloadPath));
+  const manifest = JSON.parse(await archive.file("manifest.json").async("text"));
+  expect(manifest.schemaVersion).toBe(5);
+  expect(manifest.attachments).toHaveLength(2);
+  for (const item of manifest.attachments) expect(archive.file(item.path)).not.toBeNull();
+
+  await page.locator("#resetDemo").click();
+  await page.locator("#confirmOk").click();
+  await page.locator("#importFile").setInputFiles(downloadPath);
+  await page.locator("#confirmOk").click();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await expect(page.locator(".attachment-row")).toHaveCount(2);
+});
+
+test("workspace width persists on wide desktop and becomes full-screen on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#taskDetail")).toHaveCSS("width", "620px");
+  await page.locator("#detailResizer").focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator("#taskDetail")).toHaveCSS("width", "636px");
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("task-workbench-state-v5")).preferences.workspaceWidth)).toBe(636);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  const box = await page.locator("#taskDetail").boundingBox();
+  expect(Math.round(box.x)).toBe(0);
+  expect(Math.round(box.width)).toBe(390);
+  expect(Math.round(box.height)).toBe(844);
+});
+
+test("workspace-open task rows stay compact at all supported panel widths", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await persistDefaultState(page);
+  for (const workspaceWidth of [560, 620, 680]) {
+    await page.evaluate((width) => {
+      const key = "task-workbench-state-v5";
+      const state = JSON.parse(localStorage.getItem(key));
+      state.preferences.workspaceWidth = width;
+      localStorage.setItem(key, JSON.stringify(state));
+    }, workspaceWidth);
+    await page.reload();
+    const row = page.getByRole("option", { name: new RegExp(primaryTask) });
+    await row.locator(".task-meta").click();
+    await expect(page.locator("#taskDetail")).toHaveCSS("width", `${workspaceWidth}px`);
+    const metrics = await row.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const actions = node.querySelector(".task-actions").getBoundingClientRect();
+      const title = node.querySelector(".task-title-line").getBoundingClientRect();
+      const meta = node.querySelector(".task-meta").getBoundingClientRect();
+      const priority = node.querySelector(".priority").getBoundingClientRect();
+      const time = node.querySelector("time").getBoundingClientRect();
+      const overlap = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      return {
+        height: rect.height,
+        unusedAfterActions: rect.right - actions.right,
+        titleActionsOverlap: overlap(title, actions),
+        metaPriorityOverlap: overlap(meta, priority),
+        priorityTimeOverlap: overlap(priority, time),
+      };
+    });
+    expect(metrics.height).toBeLessThanOrEqual(112);
+    expect(metrics.unusedAfterActions).toBeLessThanOrEqual(80);
+    expect(metrics.titleActionsOverlap).toBe(0);
+    expect(metrics.metaPriorityOverlap).toBe(0);
+    expect(metrics.priorityTimeOverlap).toBe(0);
+  }
+});
+
+test("workspace and task list never overlap across target desktop and mobile viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  for (const viewport of [
+    { width: 1440, height: 900, split: true },
+    { width: 1366, height: 768, split: true },
+    { width: 1180, height: 800, split: false },
+    { width: 1024, height: 768, split: false },
+    { width: 390, height: 844, split: false },
+  ]) {
+    await page.setViewportSize(viewport);
+    const geometry = await page.evaluate(() => {
+      const list = document.querySelector("#taskList");
+      const main = document.querySelector("main.workspace");
+      const panel = document.querySelector("#taskDetail");
+      const visible = (node) => {
+        const style = getComputedStyle(node);
+        return style.display !== "none" && style.visibility !== "hidden" && node.getBoundingClientRect().width > 0;
+      };
+      const listVisible = visible(list);
+      const listRect = list.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const overlapWidth = listVisible ? Math.max(0, Math.min(listRect.right, panelRect.right) - Math.max(listRect.left, panelRect.left)) : 0;
+      const overlapHeight = listVisible ? Math.max(0, Math.min(listRect.bottom, panelRect.bottom) - Math.max(listRect.top, panelRect.top)) : 0;
+      return {
+        listVisible,
+        overlapArea: overlapWidth * overlapHeight,
+        mainWidth: visible(main) ? main.getBoundingClientRect().width : 0,
+        panelLeft: panelRect.left,
+        panelRight: panelRect.right,
+      };
+    });
+    expect(geometry.overlapArea).toBe(0);
+    expect(geometry.listVisible).toBe(viewport.split);
+    if (viewport.split) expect(geometry.mainWidth).toBeGreaterThanOrEqual(500);
+    expect(geometry.panelLeft).toBeGreaterThanOrEqual(0);
+    expect(geometry.panelRight).toBeLessThanOrEqual(viewport.width + 1);
+  }
+});
+
+test("four-level sticky-note folders retain parent edges, distinct layers, and no overflow", async ({ page }) => {
+  await persistDefaultState(page);
+  await page.evaluate(() => {
+    const key = "task-workbench-state-v5";
+    const state = JSON.parse(localStorage.getItem(key));
+    const now = Date.now();
+    state.folders = ["一级目录", "二级目录", "三级目录", "四级目录"].map((name, index) => ({
+      id: `depth-${index + 1}`, name, parentId: index ? `depth-${index}` : null, order: 0, collapsed: false, createdAt: now + index, updatedAt: now + index,
+    }));
+    state.tasks[0].folderId = "depth-4";
+    state.tasks[0].title = "完成四级目录下超长中文任务名称在放大显示时的可读性检查并确保文字和操作不会互相遮挡";
+    state.tasks[1].folderId = null;
+    localStorage.setItem(key, JSON.stringify(state));
+  });
+  await page.reload();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const inspectLayers = () => page.evaluate(() => {
+    const ids = ["depth-1", "depth-2", "depth-3", "depth-4"];
+    const layers = ids.map((id) => {
+      const node = document.querySelector(`[data-tree-folder-id="${id}"]`);
+      const parent = node.parentElement?.closest("[data-tree-folder-id]");
+      const rect = node.getBoundingClientRect();
+      const parentRect = parent?.getBoundingClientRect();
+      return {
+        id,
+        className: node.className,
+        background: getComputedStyle(node).backgroundColor,
+        width: rect.width,
+        leftInset: parentRect ? rect.left - parentRect.left : 0,
+        rightInset: parentRect ? parentRect.right - rect.right : 0,
+      };
+    });
+    const row = document.querySelector('[data-folder-id="depth-4"]');
+    return { layers, documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, rowOverflow: row.scrollWidth - row.clientWidth };
+  });
+  let geometry = await inspectLayers();
+  expect(new Set(geometry.layers.map((layer) => layer.background)).size).toBe(4);
+  geometry.layers.forEach((layer, index) => {
+    expect(layer.className).toContain(`tree-depth-${index + 1}`);
+    expect(layer.leftInset).toBeGreaterThanOrEqual(5);
+    expect(layer.rightInset).toBeGreaterThanOrEqual(2);
+    if (index) expect(layer.width).toBeLessThan(geometry.layers[index - 1].width);
+  });
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
+  expect(geometry.rowOverflow).toBeLessThanOrEqual(1);
+
+  await page.locator("#themeSelect").evaluate((select) => { select.value = "dark"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+  await page.evaluate(() => { document.documentElement.style.zoom = "150%"; });
+  geometry = await inspectLayers();
+  expect(new Set(geometry.layers.map((layer) => layer.background)).size).toBe(4);
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
+  expect(geometry.rowOverflow).toBeLessThanOrEqual(1);
+});
+
+test("manual dark theme uses distinct charcoal surfaces with readable contrast", async ({ page }) => {
+  await page.locator("#themeSelect").selectOption("dark");
+  const colors = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const parse = (value) => {
+      const input = value.trim();
+      if (input.startsWith("#")) {
+        const hex = input.slice(1);
+        return (hex.length === 3 ? hex.split("").map((part) => part + part) : [hex.slice(0, 2), hex.slice(2, 4), hex.slice(4, 6)]).map((part) => Number.parseInt(part, 16));
+      }
+      return input.match(/[\d.]+/g).slice(0, 3).map(Number);
+    };
+    const luminance = (rgb) => {
+      const values = rgb.map((value) => { const channel = value / 255; return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4; });
+      return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+    };
+    const contrast = (a, b) => { const [high, low] = [luminance(parse(a)), luminance(parse(b))].sort((x, y) => y - x); return (high + 0.05) / (low + 0.05); };
+    const bg = root.getPropertyValue("--bg");
+    const surface = root.getPropertyValue("--surface");
+    const raised = root.getPropertyValue("--surface-raised");
+    return { bg, surface, raised, textContrast: contrast(root.getPropertyValue("--text"), surface), mutedContrast: contrast(root.getPropertyValue("--muted"), surface) };
+  });
+  expect(new Set([colors.bg.trim(), colors.surface.trim(), colors.raised.trim()]).size).toBe(3);
+  expect(colors.textContrast).toBeGreaterThanOrEqual(7);
+  expect(colors.mutedContrast).toBeGreaterThanOrEqual(4.5);
+});
+
 test("long task title retains a readable task column at common desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   const title = "完成常见笔记本窗口下超长任务标题的可读性检查并确认内容不会被固定功能列压缩成逐字堆叠";
@@ -373,7 +858,7 @@ for (const viewport of [{ name: "桌面", width: 1440, height: 900 }, { name: "�
     await persistDefaultState(page);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.evaluate(() => {
-      const key = "task-workbench-state-v4";
+      const key = "task-workbench-state-v5";
       const state = JSON.parse(localStorage.getItem(key));
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);

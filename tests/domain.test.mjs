@@ -33,7 +33,7 @@ function legacyV2State() {
   };
 }
 
-test("schema v3 migrates to v4, removes medium priority, and maps views", () => {
+test("schema v3 migrates to v5, removes medium priority, and maps views", () => {
   const base = createDefaultState(now);
   const v3 = {
     schemaVersion: 3,
@@ -43,11 +43,13 @@ test("schema v3 migrates to v4, removes medium priority, and maps views", () => 
   };
   const state = hydrateState(v3, now);
 
-  assert.equal(state.schemaVersion, 4);
+  assert.equal(state.schemaVersion, 5);
   assert.equal(state.preferences.viewMode, "global_priority");
   assert.equal(state.preferences.defaultTaskPriority, "low");
   assert.ok(state.tasks.every((task) => task.priority === "high" || task.priority === "low"));
   assert.ok(state.tasks.every((task) => task.pendingResolution === null && Array.isArray(task.rescheduleHistory)));
+  assert.ok(state.tasks.every((task) => task.descriptionMarkdown === ""));
+  assert.equal(state.preferences.workspaceWidth, 620);
 });
 
 test("schema v3 resolved tasks receive resolvedAt while active tasks do not", () => {
@@ -61,7 +63,7 @@ test("schema v3 resolved tasks receive resolvedAt while active tasks do not", ()
   assert.equal(state.tasks[1].resolvedAt, null);
 });
 
-test("validateBackupPayload enforces the complete v4 task and preference shape", () => {
+test("validateBackupPayload enforces the complete v5 task and preference shape", () => {
   const state = createDefaultState(now);
   assert.deepEqual(validateBackupPayload(state), { valid: true, message: "", kind: "current" });
   const missingTimeline = structuredClone(state);
@@ -70,6 +72,9 @@ test("validateBackupPayload enforces the complete v4 task and preference shape",
   const invalidPriority = structuredClone(state);
   invalidPriority.tasks[0].priority = "medium";
   assert.equal(validateBackupPayload(invalidPriority).valid, false);
+  const missingDescription = structuredClone(state);
+  delete missingDescription.tasks[0].descriptionMarkdown;
+  assert.equal(validateBackupPayload(missingDescription).valid, false);
 });
 
 test("v2 and legacy backups remain accepted for migration", () => {

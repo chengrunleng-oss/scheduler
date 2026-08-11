@@ -17,7 +17,8 @@ import type {
   ViewMode,
 } from "./types.js";
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
+export const DEFAULT_WORKSPACE_WIDTH = 620;
 export const MAX_FOLDER_DEPTH = 4;
 
 export const PRIORITY_LABELS: Record<Priority, string> = { high: "高", low: "低" };
@@ -33,7 +34,7 @@ type UnknownRecord = Record<string, unknown>;
 export interface BackupValidation {
   valid: boolean;
   message: string;
-  kind?: "current" | "v3" | "v2" | "legacy";
+  kind?: "current" | "v4" | "v3" | "v2" | "legacy";
 }
 
 export type DueDateGroup = "overdue" | "today" | "next_seven_days" | "later" | "unscheduled";
@@ -53,6 +54,7 @@ export function createDefaultState(now = Date.now()): AppState {
       defaultTaskPriority: "low",
       expandedHandledContainers: [],
       navigationCollapsedFolders: [],
+      workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
     },
     folders: [workFolder, personalFolder],
     tasks: [
@@ -94,6 +96,7 @@ export function createTask(draft: TaskDraft, now = Date.now(), id = createId("ta
     id,
     title: normalizeText(draft.title),
     notes: normalizeMultiline(draft.notes),
+    descriptionMarkdown: "",
     priority: coercePriority(draft.priority),
     dueDate: normalizeDate(draft.dueDate),
     tag: normalizeText(draft.tag),
@@ -358,7 +361,7 @@ export function taskComparator(viewMode: ViewMode): (a: Task, b: Task) => number
 
 export function hydrateState(input: unknown, now = Date.now()): AppState {
   if (!isRecord(input)) return createDefaultState(now);
-  if (input.schemaVersion === 4 || input.schemaVersion === 3 || Array.isArray(input.folders)) return hydrateStructuredState(input, now);
+  if (input.schemaVersion === 5 || input.schemaVersion === 4 || input.schemaVersion === 3 || Array.isArray(input.folders)) return hydrateStructuredState(input, now);
   return migrateLegacyState(input, now);
 }
 
@@ -372,11 +375,17 @@ export function validateStoredPayload(input: unknown): BackupValidation {
 
 function validatePayload(input: unknown, sourceLabel: string): BackupValidation {
   if (!isRecord(input)) return invalid(sourceLabel, "根节点必须是对象。");
+  if (input.schemaVersion === 5) {
+    if (!isRecord(input.preferences) || !isValidV5Preferences(input.preferences)) return invalid(sourceLabel, "preferences 中存在无效偏好设置。");
+    if (!Array.isArray(input.tasks) || input.tasks.some((task) => !isValidV5Task(task))) return invalid(sourceLabel, "tasks 中存在无效任务。");
+    if (!Array.isArray(input.folders) || input.folders.some((folder) => !isValidFolder(folder))) return invalid(sourceLabel, "folders 中存在无效文件夹。");
+    return { valid: true, message: "", kind: "current" };
+  }
   if (input.schemaVersion === 4) {
     if (!isRecord(input.preferences) || !isValidV4Preferences(input.preferences)) return invalid(sourceLabel, "preferences 中存在无效偏好设置。");
     if (!Array.isArray(input.tasks) || input.tasks.some((task) => !isValidV4Task(task))) return invalid(sourceLabel, "tasks 中存在无效任务。");
     if (!Array.isArray(input.folders) || input.folders.some((folder) => !isValidFolder(folder))) return invalid(sourceLabel, "folders 中存在无效文件夹。");
-    return { valid: true, message: "", kind: "current" };
+    return { valid: true, message: "", kind: "v4" };
   }
   if (input.schemaVersion === 3 && isRecord(input.preferences) && Array.isArray(input.tasks) && Array.isArray(input.folders)) {
     if (input.tasks.some((task) => !isValidV3Task(task)) || input.folders.some((folder) => !isValidFolder(folder))) return invalid(sourceLabel, "v3 数据结构不完整。");
@@ -424,6 +433,7 @@ function migrateLegacyState(source: UnknownRecord, now: number): AppState {
       defaultTaskPriority: "low",
       expandedHandledContainers: [],
       navigationCollapsedFolders: [],
+      workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
     },
     folders: [],
     tasks: normalizeTaskOrders(uniqueById(tasks)),
@@ -443,6 +453,7 @@ function hydratePreferences(value: unknown, legacyRoot: UnknownRecord, folderIds
     defaultTaskPriority: coercePriority(source.defaultTaskPriority),
     expandedHandledContainers: stringArray(source.expandedHandledContainers).filter((id) => id === "root" || folderIds.has(id)),
     navigationCollapsedFolders: stringArray(source.navigationCollapsedFolders).filter((id) => folderIds.has(id)),
+    workspaceWidth: coerceWorkspaceWidth(source.workspaceWidth),
   };
 }
 
@@ -459,6 +470,7 @@ function hydrateTask(value: unknown, now: number, fallbackOrder: number, folderI
     id: normalizeText(value.id) || createId("task", now),
     title,
     notes: normalizeMultiline(value.notes),
+    descriptionMarkdown: normalizeMarkdown(value.descriptionMarkdown),
     priority: coercePriority(value.priority),
     dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),
     tag: normalizeText(value.tag),
@@ -482,6 +494,7 @@ function migrateLegacyTask(value: unknown, now: number, order: number): Task | n
     id: normalizeText(value.id) || createId("task", now),
     title: normalizeText(value.title),
     notes: normalizeMultiline(value.notes),
+    descriptionMarkdown: "",
     priority: coercePriority(value.priority),
     dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),
     tag: normalizeText(value.tag),
@@ -610,6 +623,10 @@ function isValidV4Task(value: unknown): boolean {
   return Array.isArray(value.rescheduleHistory) && hydrateRescheduleHistory(value.rescheduleHistory).length === value.rescheduleHistory.length;
 }
 
+function isValidV5Task(value: unknown): boolean {
+  return isValidV4Task(value) && isRecord(value) && typeof value.descriptionMarkdown === "string";
+}
+
 function isValidV3Task(value: unknown): boolean {
   if (!isRecord(value) || !normalizeText(value.id) || !normalizeText(value.title)) return false;
   if (!(value.priority === "high" || value.priority === "medium" || value.priority === "low") || !isTaskStatus(value.status)) return false;
@@ -636,6 +653,18 @@ function isValidV4Preferences(value: UnknownRecord): boolean {
     Array.isArray(value.expandedHandledContainers) &&
     Array.isArray(value.navigationCollapsedFolders)
   );
+}
+
+function isValidV5Preferences(value: UnknownRecord): boolean {
+  return isValidV4Preferences(value) && typeof value.workspaceWidth === "number" && value.workspaceWidth >= 560 && value.workspaceWidth <= 680;
+}
+
+function coerceWorkspaceWidth(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(560, Math.min(680, Math.round(value))) : DEFAULT_WORKSPACE_WIDTH;
+}
+
+function normalizeMarkdown(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\r\n?/g, "\n") : "";
 }
 
 function isV2Payload(input: UnknownRecord): boolean {
