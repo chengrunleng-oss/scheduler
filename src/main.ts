@@ -1,3 +1,5 @@
+import { createApp, nextTick } from "vue";
+import App from "./App.vue";
 import { hydrateState } from "./domain.js";
 import { loadStateFromStorage, saveStateToStorage } from "./storage.js";
 import { createStore } from "./store.js";
@@ -9,6 +11,9 @@ import { refreshStaticIcons } from "./ui/icons.js";
 import { createRenderer } from "./ui/renderer.js";
 import { queryElements } from "./ui/selectors.js";
 import { createWorkspaceController } from "./ui/workspace.js";
+
+createApp(App).mount("#app");
+await nextTick();
 
 const els = queryElements();
 const loaded = loadStateFromStorage();

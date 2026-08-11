@@ -2,8 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, css, renderer, events, dragDrop, types, workspace, workspaceDb, backup, markdownEditor] = await Promise.all([
+const [html, app, sidebar, board, taskWorkspace, dialogs, css, renderer, events, dragDrop, types, workspace, workspaceDb, backup, markdownEditor] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
+  readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/AppSidebar.vue", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/TaskBoard.vue", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/TaskWorkspace.vue", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/AppDialogs.vue", import.meta.url), "utf8"),
   readFile(new URL("../styles.css", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/renderer.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/events.ts", import.meta.url), "utf8"),
@@ -14,6 +19,7 @@ const [html, css, renderer, events, dragDrop, types, workspace, workspaceDb, bac
   readFile(new URL("../src/backup.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
 ]);
+const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 
 test("hidden elements cannot be revealed by component display rules", () => {
   assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
@@ -23,14 +29,14 @@ test("task header and rows share a stable four-column layout contract", () => {
   assert.match(css, /--task-columns:/);
   assert.match(css, /\.list-head,\s*\.task-item\s*\{[^}]*grid-template-columns:\s*var\(--task-columns\)/s);
   assert.match(css, /\.task-title-line strong\s*\{[^}]*overflow-wrap:\s*break-word[^}]*word-break:\s*normal/s);
-  assert.match(html, /<div class="list-head"[^>]*><span>任务<\/span><span>优先级<\/span><span>截止日期<\/span><span>操作<\/span>/);
+  assert.match(uiMarkup, /<div class="list-head"[^>]*><span>任务<\/span><span>优先级<\/span><span>截止日期<\/span><span>操作<\/span>/);
 });
 
 test("schema v5 exposes only high and low priority with four exclusive views", () => {
   assert.match(types, /export type Priority = "high" \| "low";/);
-  assert.doesNotMatch(html, /value="medium"/);
-  assert.doesNotMatch(html, /id="sortMode"/);
-  for (const mode of ["tree_manual", "global_priority", "global_due_date", "priority_then_due_date"]) assert.match(html, new RegExp(`data-view="${mode}"`));
+  assert.doesNotMatch(uiMarkup, /value="medium"/);
+  assert.doesNotMatch(uiMarkup, /id="sortMode"/);
+  for (const mode of ["tree_manual", "global_priority", "global_due_date", "priority_then_due_date"]) assert.match(uiMarkup, new RegExp(`data-view="${mode}"`));
 });
 
 test("tree inline creation uses distinct folder and task icon actions", () => {
@@ -44,8 +50,8 @@ test("tree inline creation uses distinct folder and task icon actions", () => {
   assert.match(renderer, /root-create-actions/);
   assert.match(css, /\.create-task-action/);
   assert.match(css, /\.create-folder-action/);
-  assert.match(html, /id="globalNewTask"/);
-  assert.doesNotMatch(html, /id="taskForm"/);
+  assert.match(uiMarkup, /id="globalNewTask"/);
+  assert.doesNotMatch(uiMarkup, /id="taskForm"/);
 });
 
 test("drag and drop uses Pragmatic DnD, explicit handles, auto-scroll, and gated activation", () => {
@@ -101,14 +107,14 @@ test("compact priority bands, overdue region, pending resolution, and handled co
 });
 
 test("reschedule workflow and detail timeline are present", () => {
-  assert.match(html, /id="rescheduleDialog"/);
-  assert.match(html, /data-reschedule-days="1"/);
-  assert.match(html, /data-reschedule-days="3"/);
-  assert.match(html, /data-reschedule-days="7"/);
-  assert.match(html, /id="rescheduleTimeline"/);
+  assert.match(uiMarkup, /id="rescheduleDialog"/);
+  assert.match(uiMarkup, /data-reschedule-days="1"/);
+  assert.match(uiMarkup, /data-reschedule-days="3"/);
+  assert.match(uiMarkup, /data-reschedule-days="7"/);
+  assert.match(uiMarkup, /id="rescheduleTimeline"/);
   assert.match(events, /source:\s*"quick"/);
   assert.match(renderer, /rescheduleHistory/);
-  assert.match(html, /id="timelineSection"[^>]*hidden/);
+  assert.match(uiMarkup, /id="timelineSection"[^>]*hidden/);
   assert.match(renderer, /setHidden\(els\.timelineSection/);
 });
 
@@ -122,15 +128,15 @@ test("global tasks offer folder-path location and location clears blocking state
 });
 
 test("Lucide icons, tooltips, aria labels, live announcements, and touch targets are wired", () => {
-  assert.match(html, /data-lucide="folder-plus"/);
+  assert.match(uiMarkup, /data-lucide="folder-plus"/);
   assert.match(renderer, /setAttribute\("aria-label", label\)/);
-  assert.match(html, /id="liveRegion"[^>]*aria-live="assertive"/);
+  assert.match(uiMarkup, /id="liveRegion"[^>]*aria-live="assertive"/);
   assert.match(css, /\.icon-button, \.folder-action, \.group-action, \.drag-handle, \.folder-toggle[^}]*min-height:\s*40px/s);
   assert.match(css, /@media \(max-width:\s*560px\)[^]*\.icon-button, \.folder-action, \.group-action, \.drag-handle, \.folder-toggle[^}]*min-height:\s*44px/s);
 });
 
 test("task workspace has tabs, resizable desktop width, and full-screen mobile layout", () => {
-  for (const id of ["overviewTab", "worklogTab", "attachmentsTab", "detailResizer"]) assert.match(html, new RegExp(`id="${id}"`));
+  for (const id of ["overviewTab", "worklogTab", "attachmentsTab", "detailResizer"]) assert.match(uiMarkup, new RegExp(`id="${id}"`));
   assert.match(types, /export type WorkspaceTab = "overview" \| "worklog" \| "attachments"/);
   assert.match(css, /--workspace-width/);
   assert.match(css, /width:\s*100vw/);
@@ -150,8 +156,8 @@ test("work logs and attachments use IndexedDB, autosave, Crepe, fallback preview
   assert.match(markdownEditor, /markdown-fallback/);
   assert.match(workspaceDb, /deleteWorkLog/);
   assert.match(workspaceDb, /restoreWorkLog/);
-  assert.match(html, /id="newWorklog"/);
-  assert.match(html, /id="undoWorklogDelete"/);
+  assert.match(uiMarkup, /id="newWorklog"/);
+  assert.match(uiMarkup, /id="undoWorklogDelete"/);
   assert.match(backup, /manifest\.json/);
   assert.match(backup, /JSZip/);
 });
@@ -160,13 +166,13 @@ test("sticky-note folder layers and discoverable folder management are wired", (
   for (const depth of [0, 1, 2, 3, 4]) assert.match(css, new RegExp(`\\.tree-container\\.tree-depth-${depth}`));
   assert.match(renderer, /createFolderMenu/);
   for (const action of ["rename-folder", "move-folder", "delete-folder"]) assert.match(renderer, new RegExp(`"${action}"`));
-  assert.match(html, /id="folderMoveDialog"/);
+  assert.match(uiMarkup, /id="folderMoveDialog"/);
   assert.match(events, /type:\s*"move-folder"/);
   assert.match(types, /type: "move-folder"/);
 });
 
 test("workspace layout retains internal scrolling and a persistent overview action area", () => {
-  assert.match(html, /class="detail-fields"/);
+  assert.match(uiMarkup, /class="detail-fields"/);
   assert.match(css, /\.detail-panel\s*\{[^}]*height:\s*100dvh/s);
   assert.match(css, /\.detail-fields\s*\{[^}]*overflow-y:\s*auto/s);
   assert.match(css, /\.detail-actions\s*\{[^}]*flex:\s*0 0 auto/s);

@@ -1,0 +1,1 @@
+import{t as e,u as t}from"./purify.es-uVx_0VWa.js";import{E as n}from"./lib-FemPHOH5.js";function r({icon:r,class:i,onClick:a}){return t(`span`,{class:n(`milkdown-icon`,i),onPointerdown:a,innerHTML:r?e.sanitize(r.trim()):void 0})}r.props={icon:{type:String,required:!1},class:{type:String,required:!1},onClick:{type:Function,required:!1}};export{r as t};

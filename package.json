@@ -5,19 +5,21 @@
   "type": "module",
   "scripts": {
     "clean": "node scripts/clean-dist.mjs",
-    "build": "npm run clean && tsc --noEmit && vite build",
+    "build": "npm run clean && vue-tsc --noEmit && vite build",
     "dev": "vite",
     "preview": "vite preview",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "vue-tsc --noEmit",
     "check:dist": "node scripts/check-dist-clean.mjs",
     "verify": "npm run typecheck && npm test && npm run check:dist && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@vitejs/plugin-vue": "^6.0.8",
     "typescript": "^5.5.0",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vue-tsc": "^3.3.9"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^2.0.2",
@@ -26,6 +28,7 @@
     "dompurify": "^3.4.13",
     "jszip": "^3.10.1",
     "lucide": "^1.31.0",
-    "marked": "^16.2.1"
+    "marked": "^16.2.1",
+    "vue": "^3.5.41"
   }
 }

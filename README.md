@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-然后访问终端显示的地址，默认是 `http://127.0.0.1:5173/`。Vite 会处理 TypeScript、HTML 和 CSS 的热更新，不需要手动修改资源版本号；如果 5173 已被占用，Vite 会自动选择后续可用端口。
+然后访问终端显示的地址，默认是 `http://127.0.0.1:5173/`。界面使用 Vue 3 单文件组件，Vite 会处理 Vue、TypeScript、HTML 和 CSS 的热更新，不需要手动修改资源版本号；如果 5173 已被占用，Vite 会自动选择后续可用端口。
 
 也可以明确指定端口：
 
@@ -62,7 +62,9 @@ npm run preview
 - `src/storage.ts`：轻量状态保存、旧版本 fallback 和旧 JSON 导入。
 - `src/workspace-db.ts`：工作记录、附件元数据和附件 Blob 的 IndexedDB 仓库。
 - `src/backup.ts`：完整 ZIP 备份生成、校验和恢复。
-- `src/ui/`：选择器、渲染、事件、任务工作区、Markdown 编辑器、弹窗、Lucide 图标和 Pragmatic DnD 拖拽控制。
+- `src/App.vue`：Vue 应用根组件，组合导航、任务看板、任务工作区和全局弹窗。
+- `src/components/`：Vue 界面组件，负责稳定的页面结构和无障碍语义。
+- `src/ui/`：现有业务控制器适配层，负责动态渲染、事件、Markdown 编辑器、Lucide 图标和 Pragmatic DnD 拖拽控制。
 - `vite.config.mjs`：Vite 开发服务器、正式构建和本地预览配置。
 - `tests/`：领域、状态、存储和关键 UI 契约回归测试。
 - `e2e/`：真实浏览器交互和桌面、手机视口回归测试。

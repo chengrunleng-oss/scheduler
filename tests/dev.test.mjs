@@ -11,13 +11,30 @@ test("Vite owns development, production build, and preview commands", async () =
   const packageJson = JSON.parse(packageText);
 
   assert.equal(packageJson.scripts.dev, "vite");
-  assert.equal(packageJson.scripts.build, "npm run clean && tsc --noEmit && vite build");
+  assert.equal(packageJson.scripts.build, "npm run clean && vue-tsc --noEmit && vite build");
   assert.equal(packageJson.scripts.preview, "vite preview");
   assert.doesNotMatch(html, /(?:styles\.css|main\.ts)\?v=/);
   assert.match(html, /src="\/src\/main\.ts"/);
   await assert.rejects(access(new URL("../scripts/dev.mjs", import.meta.url)));
   await assert.rejects(access(new URL("../scripts/bundle.mjs", import.meta.url)));
   await assert.rejects(access(new URL("../scripts/serve.mjs", import.meta.url)));
+});
+
+test("Vue owns the interface shell and is compiled by the official Vite plugin", async () => {
+  const [main, app, packageText] = await Promise.all([
+    readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageText);
+
+  assert.match(main, /createApp\(App\)\.mount\("#app"\)/);
+  assert.match(app, /<AppSidebar\s*\/>/);
+  assert.match(app, /<TaskBoard\s*\/>/);
+  assert.match(app, /<TaskWorkspace\s*\/>/);
+  assert.ok(packageJson.dependencies.vue);
+  assert.ok(packageJson.devDependencies["@vitejs/plugin-vue"]);
+  assert.equal(packageJson.scripts.typecheck, "vue-tsc --noEmit");
 });
 
 test("Vite defaults to localhost ports with automatic fallback", () => {

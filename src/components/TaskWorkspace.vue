@@ -1,0 +1,60 @@
+<template>
+  <aside id="taskDetail" class="detail-panel" aria-label="任务工作区">
+    <div id="detailResizer" class="detail-resizer" role="separator" aria-label="调整任务工作区宽度" aria-orientation="vertical" tabindex="0"></div>
+    <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></header>
+    <div id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="任务工作区页面">
+      <button id="overviewTab" class="workspace-tab active" type="button" role="tab" data-workspace-tab="overview" aria-controls="overviewPanel" aria-selected="true">概览</button>
+      <button id="worklogTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="worklog" aria-controls="worklogPanel" aria-selected="false">工作记录</button>
+      <button id="attachmentsTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="attachments" aria-controls="attachmentsPanel" aria-selected="false">附件</button>
+    </div>
+    <div id="detailEmpty" class="detail-empty"><strong>选择任务以查看详情</strong></div>
+    <div id="workspaceContent" class="workspace-content" hidden>
+      <section id="overviewPanel" class="workspace-panel active" role="tabpanel" aria-labelledby="overviewTab">
+        <form id="detailForm" class="detail-form" autocomplete="off">
+          <div class="detail-fields">
+            <div class="status-line"><div id="detailStatusBadge" class="detail-status"></div><span id="overviewSaveStatus" class="save-status" aria-live="polite">已保存</span></div>
+            <label class="field"><span>任务名称</span><textarea id="detailTitle" rows="3" maxlength="180" required></textarea></label>
+            <label class="field"><span>说明</span><textarea id="detailNotes" rows="5" maxlength="2000" placeholder="补充背景、步骤或结果"></textarea></label>
+            <div class="field-grid">
+              <label class="field"><span>优先级</span><select id="detailPriority"><option value="high">高</option><option value="low">低</option></select></label>
+              <label class="field"><span>文件夹</span><select id="detailFolder"></select></label>
+            </div>
+            <div class="field-grid">
+              <label class="field"><span>截止日期</span><input id="detailDueDate" type="date" /></label>
+              <label class="field"><span>标签</span><input id="detailTag" type="text" maxlength="24" /></label>
+            </div>
+            <label class="field"><span>改期原因</span><input id="detailRescheduleReason" type="text" maxlength="120" placeholder="延期时可选填" /></label>
+            <dl class="timestamps"><div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div><div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div></dl>
+            <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden><h3 id="timelineTitle">改期记录</h3><ol id="rescheduleTimeline" class="timeline"></ol></section>
+          </div>
+          <div class="detail-actions"><button class="button ghost" id="cancelDetail" type="button">取消</button><button class="button primary" type="submit">保存更改</button></div>
+        </form>
+      </section>
+      <section id="worklogPanel" class="workspace-panel worklog-panel" role="tabpanel" aria-labelledby="worklogTab" hidden>
+        <div class="editor-section">
+          <div class="workspace-section-heading"><h3>长期描述</h3><span id="descriptionSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="descriptionRetry" class="button text-button" type="button" hidden>重试</button></div>
+          <div id="descriptionEditor" class="markdown-editor" aria-label="长期描述编辑器"></div>
+        </div>
+        <div class="editor-section daily-section">
+          <div class="workspace-section-heading daily-heading"><h3>每日记录</h3><button id="newWorklog" class="button secondary compact-button" type="button"><i data-lucide="circle-plus"></i><span>新建记录</span></button><label class="compact-field"><span class="sr-only">工作日期</span><input id="worklogDate" type="date" /></label><label class="progress-field"><span>进度</span><input id="worklogProgress" type="number" min="0" max="100" step="1" inputmode="numeric" /><span>%</span></label></div>
+          <div class="editor-save-line"><span id="worklogSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="worklogRetry" class="button text-button" type="button" hidden>重试</button></div>
+          <div id="worklogEditor" class="markdown-editor" aria-label="每日工作记录编辑器"></div>
+        </div>
+        <section class="worklog-history-section" aria-labelledby="worklogHistoryTitle"><h3 id="worklogHistoryTitle">历史记录</h3><div id="worklogUndo" class="worklog-undo" role="status" hidden><span id="worklogUndoText"></span><button id="undoWorklogDelete" class="button text-button" type="button">撤销删除</button></div><div id="worklogHistory" class="worklog-history"></div></section>
+      </section>
+      <section id="attachmentsPanel" class="workspace-panel attachments-panel" role="tabpanel" aria-labelledby="attachmentsTab" hidden>
+        <input id="attachmentFile" class="file-input" type="file" multiple />
+        <input id="descriptionImportFile" class="file-input" type="file" accept="text/markdown,text/plain,.md,.markdown,.txt" />
+        <input id="worklogImportFile" class="file-input" type="file" accept="text/markdown,text/plain,application/json,text/csv,.md,.markdown,.txt,.json,.csv,.log" />
+        <div class="attachment-toolbar">
+          <button id="addAttachment" class="button primary" type="button"><i data-lucide="paperclip"></i><span>添加附件</span></button>
+          <button id="importDescription" class="button secondary" type="button"><i data-lucide="file-input"></i><span>导入长期描述</span></button>
+          <button id="importWorklog" class="button secondary" type="button"><i data-lucide="notebook-tabs"></i><span>导入每日记录</span></button>
+        </div>
+        <div class="storage-meter"><div class="storage-copy"><span>本地附件空间</span><strong id="storageUsage">0 B</strong></div><progress id="storageProgress" max="100" value="0"></progress></div>
+        <div id="attachmentList" class="attachment-list"></div>
+        <div id="attachmentPreview" class="attachment-preview" hidden></div>
+      </section>
+    </div>
+  </aside>
+</template>
