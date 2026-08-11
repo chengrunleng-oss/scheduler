@@ -1,0 +1,212 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - complementary "任务导航" [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - generic [ref=f2e5]: 任
+        - generic [ref=f2e6]:
+          - heading "任务工作台" [level=1] [ref=f2e7]
+          - paragraph [ref=f2e8]: 清楚安排，专注完成
+      - button "新建任务" [ref=f2e10] [cursor=pointer]
+      - generic [ref=f2e13]:
+        - generic [ref=f2e14]:
+          - heading "文件夹" [level=2] [ref=f2e15]
+          - button "新建根文件夹" [ref=f2e16] [cursor=pointer]
+        - navigation "文件夹树" [ref=f2e19]:
+          - button "全部任务 2" [ref=f2e264] [cursor=pointer]:
+            - text: 全部任务
+            - generic [ref=f2e267]: "2"
+          - button "未分类 0" [ref=f2e270] [cursor=pointer]:
+            - text: 未分类
+            - generic [ref=f2e272]: "0"
+          - generic [ref=f2e273]:
+            - button "折叠导航文件夹" [disabled] [ref=f2e274]
+            - button "工作 1" [ref=f2e277] [cursor=pointer]:
+              - text: 工作
+              - generic [ref=f2e280]: "1"
+          - generic [ref=f2e281]:
+            - button "折叠导航文件夹" [disabled] [ref=f2e282]
+            - button "个人 1" [ref=f2e285] [cursor=pointer]:
+              - text: 个人
+              - generic [ref=f2e288]: "1"
+      - group [ref=f2e47]:
+        - generic "新任务默认值" [ref=f2e48] [cursor=pointer]
+        - option "今天" [selected]
+        - option "明天"
+        - option "下个工作日"
+        - option "不设置"
+        - option "高"
+        - option "低" [selected]
+      - generic [ref=f2e53]:
+        - generic [ref=f2e54]:
+          - heading "任务概览" [level=2] [ref=f2e55]
+          - button "重置为示例数据" [ref=f2e56] [cursor=pointer]
+        - generic [ref=f2e60]:
+          - generic [ref=f2e61]:
+            - generic [ref=f2e62]: "2"
+            - generic [ref=f2e63]: 待办
+          - generic [ref=f2e64]:
+            - generic [ref=f2e65]: "0"
+            - generic [ref=f2e66]: 完成
+          - generic [ref=f2e67]:
+            - generic [ref=f2e68]: "0"
+            - generic [ref=f2e69]: 不再需要
+          - generic [ref=f2e70]:
+            - generic [ref=f2e71]: "1"
+            - generic [ref=f2e72]: 今日/逾期
+    - main [ref=f2e73]:
+      - generic [ref=f2e74]:
+        - heading "全部任务" [level=2] [ref=f2e76]
+        - generic [ref=f2e77]:
+          - button "撤销" [disabled] [ref=f2e78]
+          - button "重做" [disabled] [ref=f2e82]
+          - generic "主题" [ref=f2e86]:
+            - combobox "主题" [ref=f2e88]:
+              - option "跟随系统" [selected]
+              - option "浅色"
+              - option "深色"
+          - button "导入备份" [ref=f2e89] [cursor=pointer]
+          - button "导出备份" [ref=f2e93] [cursor=pointer]
+      - region "任务列表" [ref=f2e97]:
+        - generic [ref=f2e98]:
+          - generic [ref=f2e99]:
+            - generic [ref=f2e103]: 搜索任务
+            - searchbox "搜索任务" [ref=f2e104]
+          - group "任务视图" [ref=f2e105]:
+            - button "任务树" [pressed] [ref=f2e106] [cursor=pointer]
+            - button "全局优先级" [ref=f2e107] [cursor=pointer]
+            - button "全局日期" [ref=f2e108] [cursor=pointer]
+            - button "优先级＋日期" [ref=f2e109] [cursor=pointer]
+        - generic [ref=f2e110]:
+          - group "任务状态筛选" [ref=f2e111]:
+            - button "全部" [pressed] [ref=f2e112] [cursor=pointer]
+            - button "待办" [ref=f2e113] [cursor=pointer]
+            - button "已完成" [ref=f2e114] [cursor=pointer]
+            - button "不再需要" [ref=f2e115] [cursor=pointer]
+          - paragraph [ref=f2e116]: 可拖动待办任务和高 / 低分界线
+        - generic [ref=f2e117]:
+          - generic [ref=f2e118]: 任务
+          - generic [ref=f2e119]: 优先级
+          - generic [ref=f2e120]: 截止日期
+          - generic [ref=f2e121]: 操作
+        - listbox "任务" [ref=f2e122]:
+          - generic [ref=f2e289]:
+            - generic [ref=f2e290]:
+              - strong [ref=f2e294]: 未分类
+              - generic [ref=f2e295]: "0"
+            - generic [ref=f2e296]:
+              - generic [ref=f2e297]:
+                - generic [ref=f2e298]:
+                  - button "折叠文件夹" [ref=f2e299] [cursor=pointer]
+                  - strong [ref=f2e304]: 工作
+                  - generic [ref=f2e305]: "1"
+                  - generic [ref=f2e306]:
+                    - button "在此处新建任务" [ref=f2e307] [cursor=pointer]
+                    - button "新建子文件夹" [ref=f2e309] [cursor=pointer]
+                - generic [ref=f2e312]:
+                  - generic [ref=f2e313]:
+                    - text: 高优先级
+                    - generic [ref=f2e314]: "1"
+                  - option "确定今天最重要的一件事，待办，高优先级" [selected] [ref=f2e315]:
+                    - generic [ref=f2e316]:
+                      - generic [ref=f2e317]:
+                        - button "拖动任务" [ref=f2e318]
+                        - strong [ref=f2e326]: 确定今天最重要的一件事
+                      - generic [ref=f2e327]: "#重点"
+                    - generic [ref=f2e328]: 高
+                    - time [ref=f2e329]: 今天截止
+                    - generic [ref=f2e330]:
+                      - button "标记为已完成" [ref=f2e331] [cursor=pointer]
+                      - button "标记为不再需要" [ref=f2e334] [cursor=pointer]
+                      - button "更多任务操作" [ref=f2e338] [cursor=pointer]
+                  - separator "高优先级和低优先级分界线" [ref=f2e343]:
+                    - generic [ref=f2e351]: 高 / 低分界
+              - generic [ref=f2e352]:
+                - generic [ref=f2e353]:
+                  - button "折叠文件夹" [ref=f2e354] [cursor=pointer]
+                  - strong [ref=f2e359]: 个人
+                  - generic [ref=f2e360]: "1"
+                  - generic [ref=f2e361]:
+                    - button "在此处新建任务" [ref=f2e362] [cursor=pointer]
+                    - button "新建子文件夹" [ref=f2e364] [cursor=pointer]
+                - generic [ref=f2e367]:
+                  - separator "高优先级和低优先级分界线" [ref=f2e368]:
+                    - generic [ref=f2e376]: 高 / 低分界
+                  - generic [ref=f2e377]:
+                    - text: 低优先级
+                    - generic [ref=f2e378]: "1"
+                  - option "安排一段不被打扰的专注时间，待办，低优先级" [ref=f2e379]:
+                    - generic [ref=f2e380]:
+                      - generic [ref=f2e381]:
+                        - button "拖动任务" [ref=f2e382]
+                        - strong [ref=f2e390]: 安排一段不被打扰的专注时间
+                      - generic [ref=f2e391]: "#日常"
+                    - generic [ref=f2e392]: 低
+                    - time [ref=f2e393]: 无截止日期
+                    - generic [ref=f2e394]:
+                      - button "标记为已完成" [ref=f2e395] [cursor=pointer]
+                      - button "标记为不再需要" [ref=f2e398] [cursor=pointer]
+                      - button "更多任务操作" [ref=f2e402] [cursor=pointer]
+          - generic [ref=f2e407]:
+            - button "新建未分类任务" [ref=f2e408] [cursor=pointer]:
+              - generic [ref=f2e410]: 新建任务
+            - button "新建根文件夹" [ref=f2e411] [cursor=pointer]:
+              - generic [ref=f2e414]: 新建文件夹
+    - complementary "任务工作区" [ref=f2e249]:
+      - separator "调整任务工作区宽度" [ref=f2e250]
+      - generic [ref=f2e251]:
+        - generic [ref=f2e252]:
+          - paragraph [ref=f2e253]: 当前选择
+          - heading "任务工作区" [level=2] [ref=f2e254]
+        - button "关闭任务工作区" [ref=f2e255] [cursor=pointer]
+      - tablist "任务工作区页面" [ref=f2e415]:
+        - tab "概览" [selected] [ref=f2e416] [cursor=pointer]
+        - tab "工作记录" [ref=f2e417] [cursor=pointer]
+        - tab "附件" [ref=f2e418] [cursor=pointer]
+      - tabpanel "概览" [ref=f2e420]:
+        - generic [ref=f2e421]:
+          - generic [ref=f2e422]:
+            - generic [ref=f2e423]:
+              - generic [ref=f2e424]: 待办
+              - generic [ref=f2e425]: 已保存
+            - generic [ref=f2e426]:
+              - generic [ref=f2e427]: 任务名称
+              - textbox "任务名称" [ref=f2e428]: 确定今天最重要的一件事
+            - generic [ref=f2e429]:
+              - generic [ref=f2e430]: 说明
+              - textbox "说明" [ref=f2e431]:
+                - /placeholder: 补充背景、步骤或结果
+                - text: 写下明确结果，并安排第一个可执行步骤。
+            - generic [ref=f2e432]:
+              - generic [ref=f2e433]:
+                - generic [ref=f2e434]: 优先级
+                - combobox "优先级" [ref=f2e435]:
+                  - option "高" [selected]
+                  - option "低"
+              - generic [ref=f2e436]:
+                - generic [ref=f2e437]: 文件夹
+                - combobox "文件夹" [ref=f2e438]:
+                  - option "未分类"
+                  - option "工作" [selected]
+                  - option "个人"
+            - generic [ref=f2e439]:
+              - generic [ref=f2e440]:
+                - generic [ref=f2e441]: 截止日期
+                - textbox "截止日期" [ref=f2e442]: 2026-08-11
+              - generic [ref=f2e443]:
+                - generic [ref=f2e444]: 标签
+                - textbox "标签" [ref=f2e445]: 重点
+            - generic [ref=f2e446]:
+              - generic [ref=f2e447]: 改期原因
+              - textbox "改期原因" [ref=f2e448]:
+                - /placeholder: 延期时可选填
+            - generic [ref=f2e449]:
+              - generic [ref=f2e450]:
+                - term [ref=f2e451]: 创建时间
+                - definition [ref=f2e452]: 2026/08/11 17:53
+              - generic [ref=f2e453]:
+                - term [ref=f2e454]: 更新时间
+                - definition [ref=f2e455]: 2026/08/11 17:53
+          - generic [ref=f2e456]:
+            - button "取消" [ref=f2e457] [cursor=pointer]
+            - button "保存更改" [ref=f2e458] [cursor=pointer]
+  - status [ref=f2e261]

@@ -1,0 +1,190 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - complementary "任务导航" [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: 任
+        - generic [ref=e6]:
+          - heading "任务工作台" [level=1] [ref=e7]
+          - paragraph [ref=e8]: 清楚安排，专注完成
+      - button "新建任务" [ref=e10] [cursor=pointer]
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "文件夹" [level=2] [ref=e15]
+          - button "新建根文件夹" [ref=e16] [cursor=pointer]
+        - navigation "文件夹树" [ref=e19]:
+          - button "全部任务 2" [ref=e461] [cursor=pointer]:
+            - text: 全部任务
+            - generic [ref=e464]: "2"
+          - button "未分类 0" [ref=e467] [cursor=pointer]:
+            - text: 未分类
+            - generic [ref=e469]: "0"
+          - generic [ref=e470]:
+            - button "折叠导航文件夹" [disabled] [ref=e471]
+            - button "工作 1" [ref=e474] [cursor=pointer]:
+              - text: 工作
+              - generic [ref=e477]: "1"
+          - generic [ref=e478]:
+            - button "折叠导航文件夹" [disabled] [ref=e479]
+            - button "个人 1" [ref=e482] [cursor=pointer]:
+              - text: 个人
+              - generic [ref=e485]: "1"
+      - group [ref=e47]:
+        - generic "新任务默认值" [ref=e48] [cursor=pointer]
+        - option "今天" [selected]
+        - option "明天"
+        - option "下个工作日"
+        - option "不设置"
+        - option "高"
+        - option "低" [selected]
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - heading "任务概览" [level=2] [ref=e55]
+          - button "重置为示例数据" [ref=e56] [cursor=pointer]
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - generic [ref=e62]: "2"
+            - generic [ref=e63]: 待办
+          - generic [ref=e64]:
+            - generic [ref=e65]: "0"
+            - generic [ref=e66]: 完成
+          - generic [ref=e67]:
+            - generic [ref=e68]: "0"
+            - generic [ref=e69]: 不再需要
+          - generic [ref=e70]:
+            - generic [ref=e71]: "1"
+            - generic [ref=e72]: 今日/逾期
+    - main [ref=e73]:
+      - generic [ref=e74]:
+        - heading "全部任务" [level=2] [ref=e76]
+        - generic [ref=e77]:
+          - button "撤销" [disabled] [ref=e78]
+          - button "重做" [disabled] [ref=e82]
+          - generic "主题" [ref=e86]:
+            - combobox "主题" [ref=e88]:
+              - option "跟随系统" [selected]
+              - option "浅色"
+              - option "深色"
+          - button "导入备份" [ref=e89] [cursor=pointer]
+          - button "导出备份" [ref=e93] [cursor=pointer]
+      - region "任务列表" [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e103]: 搜索任务
+            - searchbox "搜索任务" [ref=e104]
+          - group "任务视图" [ref=e105]:
+            - button "任务树" [pressed] [ref=e106] [cursor=pointer]
+            - button "全局优先级" [ref=e107] [cursor=pointer]
+            - button "全局日期" [ref=e108] [cursor=pointer]
+            - button "优先级＋日期" [ref=e109] [cursor=pointer]
+        - generic [ref=e110]:
+          - group "任务状态筛选" [ref=e111]:
+            - button "全部" [pressed] [ref=e112] [cursor=pointer]
+            - button "待办" [ref=e113] [cursor=pointer]
+            - button "已完成" [ref=e114] [cursor=pointer]
+            - button "不再需要" [ref=e115] [cursor=pointer]
+          - paragraph [ref=e116]: 可拖动待办任务和高 / 低分界线
+        - generic [ref=e117]:
+          - generic [ref=e118]: 任务
+          - generic [ref=e119]: 优先级
+          - generic [ref=e120]: 截止日期
+          - generic [ref=e121]: 操作
+        - listbox "任务" [ref=e122]:
+          - generic [ref=e486]:
+            - generic [ref=e487]:
+              - strong [ref=e491]: 未分类
+              - generic [ref=e492]: "0"
+            - generic [ref=e493]:
+              - generic [ref=e494]:
+                - generic [ref=e495]:
+                  - button "折叠文件夹" [ref=e496] [cursor=pointer]
+                  - strong [ref=e501]: 工作
+                  - generic [ref=e502]: "1"
+                  - generic [ref=e503]:
+                    - button "在此处新建任务" [ref=e504] [cursor=pointer]
+                    - button "新建子文件夹" [ref=e506] [cursor=pointer]
+                - generic [ref=e509]:
+                  - generic [ref=e510]:
+                    - text: 高优先级
+                    - generic [ref=e511]: "1"
+                  - option "确定今天最重要的一件事，待办，高优先级" [selected] [ref=e512]:
+                    - generic [ref=e513]:
+                      - generic [ref=e514]:
+                        - button "拖动任务" [ref=e515]
+                        - strong [ref=e523]: 确定今天最重要的一件事
+                      - generic [ref=e524]: "#重点"
+                    - generic [ref=e525]: 高
+                    - time [ref=e526]: 今天截止
+                    - generic [ref=e527]:
+                      - button "标记为已完成" [ref=e528] [cursor=pointer]
+                      - button "标记为不再需要" [ref=e531] [cursor=pointer]
+                      - button "更多任务操作" [ref=e535] [cursor=pointer]
+                  - separator "高优先级和低优先级分界线" [ref=e540]:
+                    - generic [ref=e548]: 高 / 低分界
+              - generic [ref=e549]:
+                - generic [ref=e550]:
+                  - button "折叠文件夹" [ref=e551] [cursor=pointer]
+                  - strong [ref=e556]: 个人
+                  - generic [ref=e557]: "1"
+                  - generic [ref=e558]:
+                    - button "在此处新建任务" [ref=e559] [cursor=pointer]
+                    - button "新建子文件夹" [ref=e561] [cursor=pointer]
+                - generic [ref=e564]:
+                  - separator "高优先级和低优先级分界线" [ref=e565]:
+                    - generic [ref=e573]: 高 / 低分界
+                  - generic [ref=e574]:
+                    - text: 低优先级
+                    - generic [ref=e575]: "1"
+                  - option "安排一段不被打扰的专注时间，待办，低优先级" [ref=e576]:
+                    - generic [ref=e577]:
+                      - generic [ref=e578]:
+                        - button "拖动任务" [ref=e579]
+                        - strong [ref=e587]: 安排一段不被打扰的专注时间
+                      - generic [ref=e588]: "#日常"
+                    - generic [ref=e589]: 低
+                    - time [ref=e590]: 无截止日期
+                    - generic [ref=e591]:
+                      - button "标记为已完成" [ref=e592] [cursor=pointer]
+                      - button "标记为不再需要" [ref=e595] [cursor=pointer]
+                      - button "更多任务操作" [ref=e599] [cursor=pointer]
+          - generic [ref=e604]:
+            - button "新建未分类任务" [ref=e605] [cursor=pointer]:
+              - generic [ref=e607]: 新建任务
+            - button "新建根文件夹" [ref=e608] [cursor=pointer]:
+              - generic [ref=e611]: 新建文件夹
+    - complementary "任务工作区" [ref=e249]:
+      - separator "调整任务工作区宽度" [ref=e250]
+      - generic [ref=e251]:
+        - generic [ref=e252]:
+          - paragraph [ref=e253]: 当前选择
+          - heading "任务工作区" [level=2] [ref=e254]
+        - button "关闭任务工作区" [ref=e255] [cursor=pointer]
+      - tablist "任务工作区页面" [ref=e415]:
+        - tab "概览" [ref=e416] [cursor=pointer]
+        - tab "工作记录" [active] [selected] [ref=e417] [cursor=pointer]
+        - tab "附件" [ref=e418] [cursor=pointer]
+      - tabpanel "工作记录" [ref=e612]:
+        - generic [ref=e613]:
+          - generic [ref=e614]:
+            - heading "长期描述" [level=3] [ref=e615]
+            - generic [ref=e616]: 已保存
+          - generic "长期描述编辑器" [ref=e617]:
+            - textbox [ref=e619]:
+              - paragraph [ref=e620]: 记录长期目标、背景与协作信息
+        - generic [ref=e621]:
+          - generic [ref=e622]:
+            - heading "每日记录" [level=3] [ref=e623]
+            - generic [ref=e624]:
+              - generic [ref=e625]: 工作日期
+              - textbox "工作日期" [ref=e626]: 2026-08-11
+            - generic [ref=e627]:
+              - generic [ref=e628]: 进度
+              - spinbutton "进度 %" [ref=e629]
+              - generic [ref=e630]: "%"
+          - generic [ref=e631]: 已保存
+          - generic "每日工作记录编辑器" [ref=e633]:
+            - textbox [ref=e635]:
+              - paragraph [ref=e636]: 记录今天的进展、结论与下一步
+        - region [ref=e637]:
+          - heading "历史记录" [level=3] [ref=e638]
+          - paragraph [ref=e640]: 暂无工作记录
+  - status [ref=e261]
