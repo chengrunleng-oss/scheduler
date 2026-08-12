@@ -1,0 +1,19 @@
+.task-item.priority-band-high:not(.selected, .overdue, .pending) { border-color: color-mix(in srgb, var(--priority-high-line) 52%, var(--line)); border-left-color: var(--priority-high-line); background: var(--priority-high-row); }
+.task-item.priority-band-low:not(.selected, .overdue, .pending) { border-color: color-mix(in srgb, var(--priority-low-line) 52%, var(--line)); border-left-color: var(--priority-low-line); background: var(--priority-low-row); }
+.task-item.priority-band-high:not(.selected, .overdue, .pending):hover { background: var(--priority-high-hover); }
+.task-item.priority-band-low:not(.selected, .overdue, .pending):hover { background: var(--priority-low-hover); }
+.task-item:hover { border-color: var(--line-strong); }
+.task-item.selected { border-color: var(--focus); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--focus) 45%, transparent); }
+.task-item[data-priority="high"].selected:not(.overdue, .pending) { border-color: var(--priority-high-line); border-left-color: var(--priority-high-line); background: var(--priority-high-selected); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--priority-high-line) 46%, transparent); }
+.task-item[data-priority="low"].selected:not(.overdue, .pending) { border-color: var(--priority-low-line); border-left-color: var(--priority-low-line); background: var(--priority-low-selected); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--priority-low-line) 46%, transparent); }
+.task-item.search-match:not(.selected) { box-shadow: inset 3px 0 var(--teal); }
+.task-item.overdue { border-left-color: var(--overdue); background: var(--overdue-soft); }
+.task-item.completed { border-left-color: var(--completed); }
+.task-item.discarded { border-left-color: var(--discarded); }
+.task-item.pending { opacity: 0.55; background: var(--pending-soft); }
+.task-item.pending::after { position: absolute; right: 0; bottom: 0; left: 0; width: var(--pending-progress); height: 3px; background: var(--pending); content: ""; transition: width 1s linear; }
+.task-item.is-dragging, .priority-divider.is-dragging { opacity: 0.35; }
+.task-item.drag-source-collapsed { height: 0; min-height: 0; margin-block: 0; overflow: hidden; border-block-width: 0; padding-block: 0; opacity: 0; pointer-events: none; transition: none; }
+.task-drop-placeholder { position: relative; min-width: 0; margin: 3px 0; border: 2px dashed color-mix(in srgb, var(--focus) 68%, var(--line)); border-radius: 7px; background: color-mix(in srgb, var(--focus) 10%, var(--surface)); box-shadow: inset 4px 0 color-mix(in srgb, var(--focus) 72%, transparent); pointer-events: auto; }
+.task-drop-placeholder::after { position: absolute; top: 50%; left: 12px; width: 18px; height: 3px; border-radius: 2px; background: var(--focus); content: ""; transform: translateY(-50%); }
+.task-item.drop-target, .tree-group-heading.drop-target { outline: 3px solid var(--focus); outline-offset: -2px; background: var(--teal-soft); }

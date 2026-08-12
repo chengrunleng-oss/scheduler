@@ -58,3 +58,15 @@
     </div>
   </aside>
 </template>
+
+<style scoped>
+.detail-panel,
+.workspace-content,
+.workspace-panel {
+  min-width: 0;
+}
+
+.workspace-tabs {
+  isolation: isolate;
+}
+</style>

@@ -1,5 +1,6 @@
 import { createApp, nextTick } from "vue";
 import App from "./App.vue";
+import "./styles/index.css";
 import { hydrateState } from "./domain.js";
 import { loadStateFromStorage, saveStateToStorage } from "./storage.js";
 import { createStore } from "./store.js";

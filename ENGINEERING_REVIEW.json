@@ -1,466 +1,312 @@
 {
   "document_type": "scheduler_upgrade_feedback",
-  "format_version": 3,
-  "review_date": "2026-08-11",
-  "target_branch": "develop",
-  "source_revision": "8f7b6fd",
-  "target_release": "v0.5",
-  "scope": "任务树层级可读性、任务文字区拖拽、任务工作记录与附件、深色主题视觉升级",
-  "document_policy": "本文件整体替换上一版改进反馈，只描述下一版尚未实施的升级内容，不保留已经完成的旧版整改项。",
+  "format_version": 4,
+  "review_date": "2026-08-12",
+  "source_branch": "develop",
+  "source_revision": "5c3ee7b",
+  "document_policy": "本文件整体替换上一版改进反馈，只描述当前确认的视觉重构与后续本地工作区存储重构，不保留已经实施或已被新决策替代的旧方案。",
   "executive_summary": {
-    "product_direction": "把现有任务详情升级为面向长期课题工作的任务工作面板，同时强化任务树层级、拖拽效率和深色主题可读性。工作记录使用 Markdown 作为稳定内容格式，附件使用浏览器本地数据库持久化，并提供完整备份能力。",
-    "recommended_schema_version": 5,
-    "editor_choice": "Milkdown Crepe",
-    "storage_strategy": "任务核心状态继续保持现有快速状态模型；工作记录和附件使用 IndexedDB，导入导出统一汇总。",
-    "implementation_principle": "先验证编辑器和存储方案，再升级数据模型与备份，随后实现工作面板，最后调整任务树拖拽和主题，并完成浏览器视觉验收。"
-  },
-  "confirmed_product_decisions": [
-    {
-      "topic": "树结构表达",
-      "decision": "通过更明显的整块缩进、层级引导线和一致的文件夹/任务基线表达归属关系。",
-      "rationale": "当前仅对标题增加较小缩进，文件夹和任务的父子关系不够直观。"
-    },
-    {
-      "topic": "任务拖拽范围",
-      "decision": "任务名称和标签所在的文字区域均可发起拖拽，单击仍然选中任务；保留六点图标作为拖拽提示和辅助入口。",
-      "rationale": "扩大命中区域能提高鼠标操作效率，同时保留清晰的可发现性。"
-    },
-    {
-      "topic": "工作记录编辑方式",
-      "decision": "采用 Typora 风格的所见即所得 Markdown 编辑器，内容始终以 Markdown 字符串保存。",
-      "rationale": "兼顾直接排版体验、纯文本可移植性和未来更换编辑器的可行性。"
-    },
-    {
-      "topic": "每日工作记录",
-      "decision": "每个任务具有独立课题描述和按日期组织的工作记录；默认每天一条记录，同一天再次进入时继续编辑当天内容。",
-      "rationale": "避免同一天产生大量碎片记录，同时能够形成清晰的工作时间线。"
-    },
-    {
-      "topic": "本地文件能力",
-      "decision": "文本和 Markdown 文件可导入为可编辑内容；图片和 PDF 在应用内预览；Office 文件首版只管理和外部打开，不在浏览器内编辑。",
-      "rationale": "上传文件和编辑工作记录是两种不同能力，分层处理可以避免引入不可靠的浏览器内 Office 编辑。"
-    },
-    {
-      "topic": "附件持久化",
-      "decision": "附件复制到应用本地存储并由 IndexedDB 管理，不把直接写回电脑原文件作为核心能力。",
-      "rationale": "避免依赖浏览器文件权限、原路径失效和跨浏览器兼容性。"
-    },
-    {
-      "topic": "深色主题方向",
-      "decision": "使用中性炭黑作为基础表面，增加页面、导航、列表和工作面板之间的明度差；状态色只用于明确语义。",
-      "rationale": "减少当前青灰色大面积堆叠造成的视觉疲劳，并强化界面层次。"
-    }
-  ],
-  "target_information_architecture": {
-    "task_tree": {
-      "desktop_indent_px": 22,
-      "mobile_indent_px": 16,
-      "max_folder_depth": 4,
-      "signals": [
-        "整块内容缩进",
-        "淡色纵向层级引导线",
-        "文件夹标题与直属任务对齐",
-        "选中任务整行背景和左边框高亮"
-      ],
-      "global_view_behavior": "全局视图不使用树状缩进，但必须显示完整且可定位的文件夹路径。"
-    },
-    "task_workspace": {
-      "name": "任务工作面板",
-      "tabs": [
-        {
-          "id": "overview",
-          "label": "概览",
-          "content": "任务名称、状态、优先级、截止日期、文件夹、标签和改期记录"
-        },
-        {
-          "id": "worklog",
-          "label": "工作记录",
-          "content": "课题详细描述、当天进展编辑器和历史日期记录"
-        },
-        {
-          "id": "attachments",
-          "label": "附件",
-          "content": "文件导入、预览、重命名、导出和删除"
-        }
-      ],
-      "wide_desktop": "使用 560-680px 可调整右侧工作面板，与任务树并排显示。",
-      "standard_desktop": "使用覆盖式右侧抽屉，打开时不把任务列压缩到不可读宽度。",
-      "mobile": "使用全屏工作面板，顶部保留返回任务树入口。"
-    }
-  },
-  "requirements": [
-    {
-      "id": "UPG-101",
-      "priority": "P1",
-      "title": "任务树层级缩进和引导线",
-      "behavior": [
-        "文件夹标题、任务主体、优先级分界线、逾期区和已处理区使用同一套 depth 计算。",
-        "桌面端每级缩进约 22px，移动端约 16px；不能只缩进标题文字而保留任务卡片其它信息在根级。",
-        "每层分支绘制低对比纵向引导线，当前悬停或选中分支可以适度增强。",
-        "折叠文件夹后隐藏该分支引导线和全部后代内容。",
-        "四层目录、长中文标题和 125%-150% 页面缩放下不得遮挡优先级、日期和操作区域。"
-      ],
-      "acceptance": [
-        "用户只看缩进和引导线即可判断任务直属文件夹与祖先层级。",
-        "文件夹和直属任务的左侧基线一致，兄弟任务保持相同缩进。",
-        "浅色、深色和灰度环境下层级关系均可辨认。"
-      ]
-    },
-    {
-      "id": "UPG-102",
-      "priority": "P1",
-      "title": "任务文字区域拖拽",
-      "behavior": [
-        "任务名称和标签组成的 task-main 区域作为主要拖拽区域。",
-        "普通单击仍然选中任务并打开任务工作面板；只有产生明确指针位移才进入拖拽。",
-        "完成拖拽后不得再触发 click 选中或意外打开工作面板。",
-        "六点拖拽图标继续显示，并提供 tooltip、aria-label 和键盘等价移动操作。",
-        "优先级、截止日期、完成、不再需要、更多操作等控件不能成为拖拽起点。",
-        "已完成、不再需要、等待移入已处理和逾期任务继续遵守现有不可拖拽规则。",
-        "搜索结果和全局查看模式继续禁用手动拖拽。"
-      ],
-      "interaction_conflicts": [
-        "任务列表中的标题文字不再保证可以直接框选复制；完整文本可在工作面板中选择和复制。",
-        "触屏设备应避免拖拽手势阻断页面滚动，优先保留移动菜单和键盘等价操作。"
-      ],
-      "acceptance": [
-        "单击、双击和轻微手抖不会误触拖拽。",
-        "从任务名称或标签区域均可稳定拖到同级位置及其它文件夹。",
-        "拖拽结束不改变当前选中任务，除非产品明确要求移动后选中被移动任务。",
-        "任务行操作按钮在拖拽改造后仍可独立点击。"
-      ]
-    },
-    {
-      "id": "UPG-103",
-      "priority": "P0",
-      "title": "任务工作面板和课题详细描述",
-      "behavior": [
-        "选中任何任务后打开任务工作面板，并高亮对应任务行。",
-        "现有详情字段移动到概览标签页，不删除已有改期时间线和状态操作。",
-        "工作记录标签页顶部显示可长期编辑的课题详细描述。",
-        "工作面板宽度支持桌面调整，并记忆用户设置；窄屏自动切换抽屉或全屏。",
-        "切换任务前必须先完成自动保存；保存失败时阻止静默丢弃内容并明确提示。",
-        "标题、概览字段、课题描述和每日记录分别显示保存状态，避免一个区域未保存阻塞整个面板。"
-      ],
-      "acceptance": [
-        "长篇描述编辑时工具栏、正文和保存状态保持可见。",
-        "在 1366x768、1920x1080、1024x768 和 390x844 视口中无内容遮挡。",
-        "切换任务、关闭面板、刷新页面和浏览器异常恢复后不丢失已保存内容。"
-      ]
-    },
-    {
-      "id": "UPG-104",
-      "priority": "P0",
-      "title": "Typora 风格 Markdown 编辑器",
-      "decision": "优先采用 Milkdown Crepe，并先完成独立技术验证；Markdown 字符串是唯一持久化正文格式。",
-      "behavior": [
-        "所见即所得编辑标题、粗体、斜体、列表、任务列表、引用、链接、代码块和表格。",
-        "支持常用 Markdown 输入规则、撤销、重做、粘贴纯文本和粘贴格式化文本。",
-        "中文输入法组合输入期间不得触发自动保存截断或重复文本。",
-        "正文变更后约 700ms 防抖自动保存，并支持 Ctrl+S 或 Command+S 立即保存。",
-        "保存过程中显示正在保存，成功后显示已保存时间，失败后保留本地编辑内容并允许重试。",
-        "编辑器主题跟随应用浅色和深色主题，不出现独立的高亮风格或嵌套卡片外观。",
-        "编辑器实例只服务当前任务和当前记录；切换内容时正确销毁监听器，避免重复保存。"
-      ],
-      "fallback": "如果 Milkdown 在中文输入、包体积或移动端稳定性验证中不合格，则改用 Markdown 源码编辑加实时预览，不采用仍处于 Beta 的双向 Markdown 富文本方案。",
-      "acceptance": [
-        "Markdown 导入、编辑、保存、重新打开和导出往返后内容语义一致。",
-        "连续中文输入、撤销重做、快速切换任务和长文档滚动没有重复文本或数据丢失。",
-        "编辑器不可用时仍能用纯文本模式打开和导出原始 Markdown。"
-      ]
-    },
-    {
-      "id": "UPG-105",
-      "priority": "P0",
-      "title": "按日期组织的工作进展记录",
-      "data_model": {
-        "task_description": "descriptionMarkdown: string",
-        "work_log": "{ id, taskId, workDate, contentMarkdown, progressPercent, createdAt, updatedAt }",
-        "daily_rule": "同一任务同一日期默认只有一条主记录。",
-        "progress_percent": "可选的 0-100 整数；不填写时只保存文字进展。"
-      },
-      "behavior": [
-        "进入工作记录页时默认打开本地今天的记录，不存在则在首次输入时创建。",
-        "允许切换日期并补写历史记录，但未来日期默认不可创建工作进展。",
-        "历史记录按日期倒序显示，当前日期展开，旧日期默认折叠。",
-        "每日记录显示日期、可选完成度、最后更新时间和 Markdown 内容摘要。",
-        "任务完成或不再需要后记录转为只读浏览；恢复待办后重新允许编辑。",
-        "删除任务时工作记录与附件进入同一次确认范围，撤销策略必须明确。"
-      ],
-      "acceptance": [
-        "跨午夜后自动创建或切换到新一天，不覆盖前一天记录。",
-        "同一天多次编辑更新同一记录，不产生重复日期条目。",
-        "日期排序、中文日期显示和本地时区处理正确。"
-      ]
-    },
-    {
-      "id": "UPG-106",
-      "priority": "P0",
-      "title": "本地文件导入、附件预览和存储",
-      "file_policy": [
-        {
-          "formats": [".md", ".markdown", ".txt"],
-          "behavior": "可导入为新的课题描述或指定日期工作记录，导入后作为应用内 Markdown/文本编辑，不自动写回原文件。"
-        },
-        {
-          "formats": [".png", ".jpg", ".jpeg", ".webp", ".gif"],
-          "behavior": "保存为附件并在工作面板内预览，可插入 Markdown 正文引用。"
-        },
-        {
-          "formats": [".pdf"],
-          "behavior": "保存为附件并提供浏览器内只读预览。"
-        },
-        {
-          "formats": [".json", ".csv", ".log"],
-          "behavior": "首版作为文本附件查看，可选择导入为工作记录。"
-        },
-        {
-          "formats": [".docx", ".xlsx", ".pptx", "其它二进制文件"],
-          "behavior": "显示文件名、类型、大小和更新时间，支持导出或外部打开，不在应用内编辑。"
-        }
-      ],
-      "storage": [
-        "工作记录和附件元数据使用 IndexedDB 对象存储。",
-        "附件二进制使用 Blob 保存，不编码进 localStorage。",
-        "所有记录以 taskId 建立索引，删除和备份时可以完整枚举。",
-        "显示浏览器已用空间和估算剩余配额；大文件导入前给出明确提示。",
-        "首版建议设置单文件大小上限和任务附件总量软限制，具体数值在技术验证后确定。"
-      ],
-      "optional_future_capability": "可在支持 File System Access API 的浏览器中增加实验性的关联本地文件并写回，但必须单独授权、明确展示关联状态，并保留普通导入副本方案。",
-      "acceptance": [
-        "支持格式可以正确导入、刷新后恢复、预览、导出和删除。",
-        "不支持格式不会造成页面崩溃，并提供可理解的外部打开提示。",
-        "附件删除、任务删除、备份恢复和存储失败均有一致的错误处理。"
-      ]
-    },
-    {
-      "id": "UPG-107",
-      "priority": "P0",
-      "title": "深色主题重新配色",
-      "design_direction": "中性炭黑表面配合有限的蓝青、红、橙、绿和灰紫语义色，不再让青灰色主导全部界面。",
-      "color_roles": {
-        "page_background": "最深中性炭黑",
-        "navigation_surface": "略亮于页面背景",
-        "task_surface": "与导航明显分层的中性深灰",
-        "raised_surface": "用于输入区、菜单和编辑器工具栏的较亮表面",
-        "primary_text": "接近白色但避免纯白刺眼",
-        "secondary_text": "明显亮于现有暗灰蓝，满足长时间阅读",
-        "selection": "蓝青色边框、浅色背景和选中标识共同表达",
-        "high_priority": "红色",
-        "overdue": "橙红色",
-        "completed": "绿色",
-        "discarded": "灰紫色",
-        "pending": "琥珀色"
-      },
-      "rules": [
-        "普通文字和相邻背景的目标对比度不低于 4.5:1。",
-        "大字号文字、焦点和关键控件边界目标对比度不低于 3:1。",
-        "颜色不能单独承担状态表达，必须同时使用图标、文字、边框或位置。",
-        "减少大面积高饱和背景，只在选中、过期和拖放目标等短时重点状态使用强调色。",
-        "Markdown 编辑器、任务树、弹窗和菜单必须复用同一组主题 token。",
-        "跟随系统模式与手动深色模式必须使用相同的新深色 token，避免两套配置漂移。"
-      ],
-      "acceptance": [
-        "主背景、导航、任务列表、任务工作面板和编辑区可明显区分。",
-        "连续使用深色主题时次要文字、边框和输入控件不会融入背景。",
-        "自动对比度检查和桌面、移动端人工视觉验收均通过。"
-      ]
-    },
-    {
-      "id": "UPG-108",
-      "priority": "P0",
-      "title": "数据迁移和完整备份",
-      "migration": [
-        "现有 schema v4 任务无 descriptionMarkdown 时，以空字符串初始化。",
-        "现有 notes 保持原字段和概览语义，不自动混入课题详细描述。",
-        "首次启用 IndexedDB 时创建 workLogs、attachments 和 attachmentBlobs 对象存储及 taskId/date 索引。",
-        "迁移失败时保留原 schema v4 数据，工作记录功能进入只读错误状态并提示导出旧备份。"
-      ],
-      "backup_format": {
-        "container": "ZIP",
-        "contents": [
-          "manifest.json：版本、任务、文件夹、偏好和附件索引",
-          "worklogs/：按任务组织的 Markdown 工作记录",
-          "attachments/：附件原始文件"
-        ],
-        "compatibility": "继续允许导入旧版 JSON 备份；包含工作记录或附件时统一导出 ZIP。"
-      },
-      "acceptance": [
-        "从 schema v4 升级到 v5 不改变现有任务、文件夹、排序、状态和改期历史。",
-        "导出后清空应用并重新导入，任务、工作记录和附件能够完整恢复。",
-        "备份版本不受编辑器内部数据结构影响，Markdown 始终可独立读取。"
-      ]
-    }
-  ],
-  "implementation_dependencies": {
-    "markdown_editor": {
-      "recommended": "Milkdown Crepe",
-      "selection_reason": "提供接近 Typora 的 WYSIWYG Markdown 体验，并可用于 Vanilla TypeScript 项目。",
-      "technical_spike_required": true,
-      "verification_focus": [
-        "中文输入法",
-        "Markdown 往返一致性",
-        "移动端行为",
-        "长文档性能",
-        "主题定制",
-        "构建体积"
-      ],
-      "official_reference": "https://github.com/Milkdown/milkdown"
-    },
-    "browser_storage": {
-      "recommended": "IndexedDB",
-      "official_reference": "https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API"
-    },
-    "optional_file_linking": {
-      "technology": "File System Access API",
-      "status": "future_experimental",
-      "official_reference": "https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
-    },
-    "accessibility_standard": {
-      "target": "WCAG 2.2 AA",
-      "official_reference": "https://www.w3.org/TR/WCAG22/"
-    }
-  },
-  "implementation_plan": [
-    {
-      "phase": 1,
-      "title": "编辑器与存储技术验证",
-      "work": [
-        "建立独立 Milkdown 原型，验证中文输入、自动保存、Markdown 往返和深色主题。",
-        "建立 IndexedDB 原型，验证工作记录、Blob 附件、配额检测和异常恢复。",
-        "确定文件大小限制、编辑器依赖体积和不合格时的回退方案。"
-      ],
-      "exit_criteria": "编辑器和 IndexedDB 两项验证通过后才能进入正式数据迁移。"
-    },
-    {
-      "phase": 2,
-      "title": "schema v5、IndexedDB 和备份",
-      "work": [
-        "实现工作记录、附件元数据和 Blob 存储。",
-        "实现 schema v4 到 v5 的非破坏迁移。",
-        "实现旧 JSON 导入与新 ZIP 完整备份。"
-      ]
-    },
-    {
-      "phase": 3,
-      "title": "任务工作面板和每日记录",
-      "work": [
-        "把现有详情重组为概览、工作记录、附件三个标签页。",
-        "接入课题描述和按日期工作记录编辑器。",
-        "实现自动保存、保存失败保护、历史折叠和完成度输入。"
-      ]
-    },
-    {
-      "phase": 4,
-      "title": "附件管理",
-      "work": [
-        "实现文本导入、图片/PDF 预览和其它文件的外部打开提示。",
-        "实现附件导出、删除、任务级索引和存储空间提示。",
-        "验证备份恢复与孤立附件清理。"
-      ]
-    },
-    {
-      "phase": 5,
-      "title": "任务树交互升级",
-      "work": [
-        "统一文件夹、任务和系统区域的层级缩进与引导线。",
-        "把 task-main 文字区域设为拖拽入口并保留六点提示。",
-        "处理 click 与 drag 竞争、拖拽后选中状态和触屏回退。"
-      ]
-    },
-    {
-      "phase": 6,
-      "title": "深色主题和全面验收",
-      "work": [
-        "替换深色 token，并统一任务树、编辑器、面板、弹窗和状态色。",
-        "执行对比度检测、浏览器交互测试和多视口截图审查。",
-        "验证数据迁移、备份恢复、长文档、附件和拖拽回归。"
-      ]
-    }
-  ],
-  "test_plan": {
-    "domain_and_storage": [
-      "schema v4 到 v5 迁移保持全部现有任务数据不变。",
-      "同一任务同一日期只生成一条主工作记录。",
-      "跨午夜和本地时区下工作日期正确。",
-      "IndexedDB 写入失败、配额不足和数据库升级阻塞时不静默丢失内容。",
-      "任务删除、恢复、备份和导入正确处理工作记录及附件。",
-      "ZIP 完整备份可以往返恢复 Markdown 和二进制附件。"
-    ],
-    "editor": [
-      "中文、英文、列表、表格、代码块、链接和任务列表保存后重新打开一致。",
-      "输入法组合输入期间不触发重复保存或文本截断。",
-      "自动保存、手动保存、失败重试和快速切换任务均不丢数据。",
-      "至少包含一篇长文档的滚动、编辑和内存测试。"
-    ],
-    "browser_e2e": [
-      "单击任务文字选中，拖动任务文字移动，两个手势互不误触。",
-      "任务名称、标签和六点图标都能按定义发起拖拽。",
-      "操作按钮不会触发拖拽，拖拽结束不会误开其它任务。",
-      "四层文件夹折叠、展开、长标题和选中状态的缩进正确。",
-      "工作面板三个标签页、自动保存、日期切换和附件预览可用。",
-      "刷新页面后工作记录、面板偏好和附件仍然存在。"
-    ],
-    "visual_and_accessibility": [
-      "在 1920x1080、1366x768、1024x768、768x1024 和 390x844 视口检查布局。",
-      "在 100%、125% 和 150% 页面缩放下检查任务树和编辑器。",
-      "浅色、深色和跟随系统主题均检查文字、边界、焦点和状态对比度。",
-      "层级和状态不能只依赖颜色，键盘用户可以选择任务、切换标签和使用移动菜单。",
-      "编辑器工具栏和任务工作面板不存在文字截断、重叠或嵌套卡片。"
+    "decision": "采用严格串行的两阶段升级：先在当前 develop 分支完成并上线真正的 Vue 3 视觉重构；视觉版本验收完成后，再从 develop 的最新视觉版本提交创建独立分支 codex/local-workspace-storage，实施本地工作区目录与可替换存储后端。",
+    "reason": "视觉重构会调整 Vue 组件边界、任务行 DOM 和 CSS 架构，存储重构会调整数据生命周期、编辑器保存和附件接口。如果同时在两个长期分支修改相同组件，合并冲突和回归风险都会明显增加。",
+    "release_sequence": [
+      "v0.6：develop 上完成视觉重构",
+      "v0.6 视觉与交互验收通过",
+      "从验收后的 develop 最新提交创建 codex/local-workspace-storage",
+      "v0.7：独立分支完成存储层重构",
+      "v0.7 验收后在 codex/local-workspace-storage 独立发布并长期保留，不合并回 develop"
     ]
   },
-  "known_risks_and_mitigations": [
+  "confirmed_branch_strategy": {
+    "visual_refresh": {
+      "branch": "develop",
+      "release": "v0.6",
+      "status": "next",
+      "rule": "视觉重构直接在当前 develop 分支实施，不另开视觉分支。",
+      "scope_boundary": "只修改视觉系统、Vue 组件划分、响应式布局、任务行交互反馈和相关测试；不在本阶段引入真实本地目录、文件系统权限或新的远端同步后端。"
+    },
+    "local_storage_refactor": {
+      "branch": "codex/local-workspace-storage",
+      "release": "v0.7",
+      "status": "create_after_visual_acceptance_and_keep_independent",
+      "base_commit": "必须是 v0.6 视觉重构验收通过后的 develop 最新提交，不得从当前 5c3ee7b 或视觉开发中间状态提前创建。",
+      "rule": "本地目录存储、数据迁移和后端抽象全部只在该独立分支实施；验收后仍作为独立产品线保留，禁止合并回 develop。",
+      "lifecycle": "codex/local-workspace-storage 是长期维护分支，不是等待合并的临时功能分支；其版本、测试结果和发布标记均独立管理。"
+    },
+    "integration_rule": "如果视觉版本上线后仍需通用界面修复，先在 develop 完成并验收，再按需单向同步到存储分支；存储分支的存储实现、迁移代码和专属功能不得反向合并到 develop。"
+  },
+  "phase_1_visual_refresh": {
+    "goal": "将 Vue 3 迁移从结构拆分升级为真正的新视觉系统，形成紧凑、安静、适合长时间使用的桌面任务工作台。",
+    "architecture": {
+      "current_problem": "Vue 组件已经拆分，但约 489 行视觉规则仍集中在根目录 styles.css，组件继续高度依赖旧全局类名，视觉迁移尚未真正发生。",
+      "target_style_structure": [
+        "src/styles/tokens.css：浅色、深色、状态色、尺寸、间距和层级令牌",
+        "src/styles/base.css：重置、字体、焦点和通用表单规则",
+        "src/styles/layout.css：应用外壳、三栏结构和滚动边界",
+        "src/styles/states.css：选中、过期、待处理、完成和拖放状态",
+        "src/styles/motion.css：拖拽 FLIP、面板切换和 reduced-motion",
+        "src/styles/responsive.css：桌面、平板和手机断点",
+        "Vue 组件 scoped style：组件自身结构与局部视觉"
+      ],
+      "entry_rule": "样式入口由 src/main.ts 导入并交给 Vite 管理，移除 index.html 中直接链接根目录 styles.css 的方式。"
+    },
+    "design_direction": {
+      "product_character": "工作密度优先的任务管理工具，不使用营销式大标题、装饰性大卡片或大面积单一色背景。",
+      "palette": {
+        "base": "中性灰和炭灰承担页面、导航、任务区和工作区层级。",
+        "primary": "青绿色只用于主要命令、焦点和导航选中。",
+        "high_priority": "暖琥珀色整行填充。",
+        "low_priority": "冷青蓝色整行填充。",
+        "overdue": "鲜明红色并配合状态文字或图标。",
+        "completed": "绿色。",
+        "discarded": "灰紫色。",
+        "folder_layers": "低饱和、多色递进的便利签式层级。"
+      },
+      "density": "减少贯穿横线、重复边框和无用途留白，保持 40px 桌面命中区与 44px 触屏命中区。"
+    },
+    "layout": {
+      "wide_desktop": "文件夹导航约 232px；任务区自适应；工作区 480-680px 可调。",
+      "standard_desktop": "导航压缩为图标栏或可收起窄栏，任务区与工作区并排且不重叠。",
+      "tablet": "任务列表和工作区切换显示，不使用覆盖后仍可误操作的双层布局。",
+      "mobile": "导航抽屉、任务页和工作区采用全屏分层导航。",
+      "workspace_resizer": "保留鼠标和键盘调宽及持久化，增加常驻但克制的可见轨道或握柄。"
+    },
+    "task_row": {
+      "normal_layout": "任务标题与标签、优先级、截止日期、操作保持稳定列对齐。",
+      "workspace_open_layout": "改为紧凑两行：首行放拖拽柄、标题和主操作；次行集中标签、文件夹路径、优先级和截止日期。",
+      "height_target": "普通任务行 64-72px；工作区打开时 84-96px，任何常规任务不超过 112px。",
+      "selection": "高优先级选中态继续使用暖色系，低优先级选中态继续使用冷色系；通过同色系提亮、2px 内描边和左侧强调共同表达选中。",
+      "click_target": "除真实按钮、表单、链接和拖拽控件外，任务卡片所有区域都可选中任务。"
+    },
+    "folder_tree": {
+      "appearance": "父文件夹保留可见底板和四周留白，子文件夹逐层内缩并略微缩小可用宽度。",
+      "header": "移除文件夹标题下方贯穿横线，以标题底色、间距、文件夹图标和容器边界表达层级。",
+      "depth": "最多四层使用可区分但克制的辅助色，深浅主题均不能造成横向溢出。"
+    },
+    "priority_divider": {
+      "appearance": "使用约 28x32px 的双色阈值标记，上半部为高优先级暖色，下半部为低优先级冷色，中间使用 GripHorizontal 图标。",
+      "interaction": "实际命中区不小于 40x40px，保留鼠标、触屏和键盘调整；通过 tooltip 和 aria-label 说明用途，不再依赖 9px 的高/低文字。"
+    },
+    "drag_feedback": {
+      "preview": "拖动期间显示与源任务等高的占位符，并在鼠标经过有效位置时实时预排列。",
+      "motion": "相邻任务使用 160-220ms FLIP 位移动画连续让位。",
+      "folder_behavior": "跨文件夹时沿用自动展开，并在展开后把占位符移入目标内容区。",
+      "data_rule": "拖动期间只更新临时预览，松手后一次性写入 store 和撤销历史。",
+      "accessibility": "prefers-reduced-motion 环境关闭位移动画但保留清晰落点。"
+    },
+    "acceptance": [
+      "高低优先级普通、悬停和选中状态始终属于各自色系。",
+      "工作区打开后常规任务行不超过 112px，任务标题、元数据和操作不重叠。",
+      "任务行非控件区域全部可选中，按钮和拖拽操作不会误触选中。",
+      "文件夹标题无贯穿横线，四层便利签包含关系清晰。",
+      "拖动松手前可看到真实预排列，相邻任务移动连续。",
+      "1440x900、1366x768、1024x768、768x1024 和 390x844 无重叠或横向溢出。",
+      "浅色、深色、跟随系统和 reduced-motion 完成浏览器视觉验收。",
+      "npm run verify 全部通过，并为新版视觉关键状态保留截图或视觉回归基线。"
+    ],
+    "release_gate": "以上验收全部通过并在 develop 形成稳定版本后，才能创建存储重构分支。"
+  },
+  "phase_2_local_workspace_storage": {
+    "goal": "让每个待办事项映射到用户选定根目录下的独立本地文件夹，任务元数据、长期描述、每日进度和附件均以用户可管理的本地文件保存，同时保持未来接入 GitHub、Supabase 或自建 API 的能力。",
+    "branch": "codex/local-workspace-storage",
+    "core_decision": "用户只选择一次工作区根目录，系统为每个任务自动创建稳定 ID 命名的子目录；不要求用户逐条任务选择文件夹。",
+    "filesystem_layout": {
+      "root_example": "scheduler-workspace/",
+      "entries": [
+        "workspace.json：schema、文件夹树、任务索引、工作区 revision 和更新时间",
+        "tasks/<task-id>/task.json：标题、状态、优先级、截止日期、排序、标签和改期历史",
+        "tasks/<task-id>/description.md：长期任务描述",
+        "tasks/<task-id>/worklogs/YYYY-MM-DD.md：当天工作记录，Front Matter 保存日期、进度和更新时间",
+        "tasks/<task-id>/attachments/<attachment-id>--<safe-name>：附件原始副本",
+        "trash/<task-id>/：待彻底清理或恢复的任务目录"
+      ],
+      "naming_rule": "物理目录只使用稳定 taskId，不直接使用任务标题；显示名称保存在 task.json，避免重命名、同名和非法字符问题。"
+    },
+    "browser_capability": {
+      "primary_api": "File System Access API 的 showDirectoryPicker 与 FileSystemDirectoryHandle。",
+      "permission_rule": "首次必须由用户主动选择并授权目录；启动时使用 queryPermission 检查，必要时只能在用户操作后 requestPermission。",
+      "development_origin": "目录句柄和权限与浏览器来源相关，Vite 开发端口必须固定并启用 strictPort，不能静默切换 5174、5175。",
+      "compatibility": "真实目录模式优先支持 Chrome 和 Edge；不支持 showDirectoryPicker 的浏览器继续使用 IndexedDB 兼容后端。",
+      "desktop_future": "如果未来要求跨浏览器稳定访问任意真实目录，可将同一 Vue 应用包装为 Tauri，而不改变上层存储接口。"
+    },
+    "storage_abstraction": {
+      "rule": "Vue 组件、store、编辑器和备份逻辑不得直接依赖 FileSystemDirectoryHandle 或 IndexedDB。",
+      "interface_name": "WorkspaceBackend",
+      "required_operations": [
+        "loadWorkspace",
+        "saveWorkspaceIndex",
+        "saveTask",
+        "deleteTask",
+        "restoreTask",
+        "saveDescription",
+        "listWorkLogs",
+        "saveWorkLog",
+        "deleteWorkLog",
+        "listAttachments",
+        "putAttachment",
+        "readAttachment",
+        "renameAttachment",
+        "deleteAttachment",
+        "exportSnapshot",
+        "importSnapshot"
+      ],
+      "implementations": [
+        "IndexedDbBackend：兼容模式和迁移前来源",
+        "LocalDirectoryBackend：v0.7 主实现",
+        "未来 GitHubBackend",
+        "未来 SupabaseBackend 或 CustomApiBackend"
+      ],
+      "composition": "任务核心状态与工作记录、附件使用同一个后端实例，避免当前 localStorage 与 IndexedDB 分步成功造成不一致。"
+    },
+    "file_policy": {
+      "upload": "上传或拖入文件时复制到任务 attachments 目录，不只保存外部原文件引用。",
+      "editable_in_browser": [
+        "Markdown",
+        "TXT",
+        "JSON",
+        "CSV",
+        "LOG"
+      ],
+      "preview_only": [
+        "PNG/JPG/JPEG/WEBP/GIF",
+        "PDF"
+      ],
+      "external_only": [
+        "DOCX",
+        "XLSX",
+        "PPTX",
+        "压缩包",
+        "其它二进制文件"
+      ],
+      "security": "HTML、SVG 和其它主动内容默认按纯文本或净化后预览，绝不直接执行附件脚本。",
+      "write_strategy": "正文和 JSON 使用临时文件写入、关闭成功后再替换正式文件；保存失败时保留编辑器内存副本并允许重试。"
+    },
+    "consistency_and_conflicts": {
+      "write_queue": "同一任务的概览、Markdown 自动保存、工作记录、附件和拖拽排序进入串行写入队列。",
+      "revision": "workspace.json 与 task.json 保存 revision、updatedAt 和内容哈希，写入前检测外部修改。",
+      "multi_tab": "使用 Web Locks 保护写事务，并通过 BroadcastChannel 通知同源其它标签页刷新。",
+      "external_change": "检测到磁盘文件被其它程序修改时，不静默覆盖；提供重新加载、保留当前编辑为冲突副本或取消保存。",
+      "delete": "删除任务先移动或复制到 trash，再更新索引；彻底清理作为独立操作。"
+    },
+    "migration": {
+      "source": "现有 localStorage task-workbench-state-v5 与 IndexedDB task-workbench-content-v5。",
+      "process": [
+        "用户选择或新建工作区根目录。",
+        "扫描并显示待迁移任务、工作记录和附件数量。",
+        "写入新目录的临时迁移区并校验 JSON、Markdown 数量、附件大小和哈希。",
+        "校验通过后生成 workspace.json 并切换当前后端。",
+        "原浏览器数据保持不变，直到用户明确执行清理。"
+      ],
+      "rollback": "迁移失败或权限中断时删除或标记未完成的临时迁移区，继续使用原 IndexedDB 后端，不产生半迁移工作区。",
+      "backup": "继续保留现有完整 ZIP 导入导出，作为跨浏览器迁移与灾难恢复方案。"
+    },
+    "user_experience": {
+      "setup": "首次进入本地目录模式时显示选择工作区按钮和简短权限说明，选择后展示目录名称而不是完整敏感路径。",
+      "status": "顶部提供本地工作区、只读、需要重新授权、保存中、已保存、外部冲突和存储失败等明确状态。",
+      "fallback": "权限被拒绝或目录不可用时允许继续以 IndexedDB 模式运行，不阻止查看已有任务。",
+      "switching": "切换工作区前保存当前编辑并确认目标；禁止在未完成写入时无提示切换。"
+    },
+    "acceptance": [
+      "每个任务拥有唯一物理目录，重命名任务不会改变目录标识或丢失数据。",
+      "任务元数据、长期描述、每日进度和附件均可在关闭浏览器后从目录重新恢复。",
+      "文本类附件可在浏览器内查看、编辑和保存，图片与 PDF 可预览。",
+      "权限撤销、目录移动、外部修改、磁盘写入失败和配额问题均不会静默丢失数据。",
+      "迁移失败可以回退到现有浏览器数据，原数据不会被自动删除。",
+      "IndexedDbBackend 与 LocalDirectoryBackend 通过同一套契约测试。",
+      "更换后端不需要修改任务树、工作区或编辑器组件。",
+      "npm run verify 通过，并新增真实 Chromium 文件系统权限、迁移和故障恢复测试。"
+    ]
+  },
+  "implementation_order": [
     {
-      "risk": "Milkdown 依赖和样式会显著增加前端复杂度及构建体积。",
-      "mitigation": "先进行独立技术验证，以 Markdown 为唯一存储格式，并保留源码编辑加预览的回退实现。"
+      "step": 1,
+      "branch": "develop",
+      "work": "完成视觉令牌、样式拆分、三栏布局、任务卡片、文件夹、优先级标签和拖拽预览重构。"
     },
     {
-      "risk": "任务文字区域拖拽会与文字选择、单击和触屏滚动竞争。",
-      "mitigation": "只把 task-main 设为拖拽区域，使用明确位移阈值，按钮区排除拖拽，触屏保留菜单式移动。"
+      "step": 2,
+      "branch": "develop",
+      "work": "完成多视口、深浅主题、交互命中、动效和可访问性验收，发布 v0.6 视觉版本。"
     },
     {
-      "risk": "localStorage 无法可靠承载大量工作记录和附件。",
-      "mitigation": "工作记录和 Blob 使用 IndexedDB，并增加配额检测、完整备份和错误恢复。"
+      "step": 3,
+      "branch": "new branch from accepted develop",
+      "work": "创建 codex/local-workspace-storage；不得提前从旧基线创建。"
     },
     {
-      "risk": "跨 localStorage 状态和 IndexedDB 数据操作可能出现部分成功。",
-      "mitigation": "定义明确写入顺序、失败补偿和孤立记录清理；备份按统一快照读取两类数据。"
+      "step": 4,
+      "branch": "codex/local-workspace-storage",
+      "work": "定义 WorkspaceBackend，先用现有 IndexedDB 行为实现契约测试，再解除 UI 对具体仓库类的直接依赖。"
     },
     {
-      "risk": "直接关联电脑原文件会遇到权限失效和浏览器差异。",
-      "mitigation": "核心流程始终复制文件到应用存储，直接写回仅作为后续实验功能。"
+      "step": 5,
+      "branch": "codex/local-workspace-storage",
+      "work": "实现 LocalDirectoryBackend、工作区权限、磁盘目录、原子写入、并发保护和附件读写。"
     },
     {
-      "risk": "增加缩进后窄屏任务内容空间不足。",
-      "mitigation": "移动端减小层级步长，日期和操作换行，并针对最大四层和长标题进行视觉回归。"
+      "step": 6,
+      "branch": "codex/local-workspace-storage",
+      "work": "实现现有数据迁移、回滚、备份兼容、浏览器内文本编辑和故障恢复。"
     },
     {
-      "risk": "仅提高文字亮度不能解决深色主题疲劳。",
-      "mitigation": "同时提高表面层级差、控件边界和选中反馈，并限制大面积高饱和色。"
+      "step": 7,
+      "branch": "codex/local-workspace-storage",
+      "work": "完成 v0.7 独立验收和发布标记；继续保留并维护 codex/local-workspace-storage，不创建合并回 develop 的操作。"
     }
   ],
-  "out_of_scope_for_v0_5": [
-    "云端同步、用户账号和多人协作",
-    "在浏览器内编辑 Word、Excel 或 PowerPoint 文件",
-    "默认直接写回电脑上的原始文件",
-    "工作记录多人评论和修订跟踪",
-    "富媒体音视频编辑",
-    "OCR、PDF 内容抽取和 AI 自动总结",
-    "文件夹自身的拖拽重组"
+  "risks_and_mitigations": [
+    {
+      "risk": "视觉与存储两个大型改动同时修改 Vue 组件会造成高冲突。",
+      "mitigation": "严格串行；存储分支只从视觉验收后的 develop 创建。"
+    },
+    {
+      "risk": "浏览器不能静默获得任意目录权限，权限也不保证跨会话持续。",
+      "mitigation": "用户主动选择根目录，保存句柄，启动时检查权限，并保留 IndexedDB 兼容模式。"
+    },
+    {
+      "risk": "任务元数据和附件分步写入会形成半完成状态。",
+      "mitigation": "使用任务级写入队列、临时文件、revision 和恢复日志；关键索引最后提交。"
+    },
+    {
+      "risk": "直接用任务标题作为目录会因重命名、同名和非法字符失效。",
+      "mitigation": "目录使用稳定 taskId，标题只作为元数据显示。"
+    },
+    {
+      "risk": "外部程序与多个浏览器标签页可能同时修改文件。",
+      "mitigation": "结合内容哈希、Web Locks、BroadcastChannel 和显式冲突处理。"
+    },
+    {
+      "risk": "未来云端后端与真实本地目录的数据模型不同。",
+      "mitigation": "上层只依赖 WorkspaceBackend 和领域对象；路径、句柄、令牌等后端细节不进入 Vue 组件或 store。"
+    }
   ],
+  "out_of_scope": {
+    "v0_6_visual": [
+      "真实本地目录权限与文件写入",
+      "存储数据迁移",
+      "GitHub、Supabase 或自建服务同步"
+    ],
+    "v0_7_local_storage": [
+      "多人实时协作",
+      "浏览器内编辑 Word、Excel、PowerPoint",
+      "自动把本地目录同步到 GitHub 或云端",
+      "在 Firefox 和 Safari 中强制提供真实目录写入能力"
+    ]
+  },
   "definition_of_done": [
-    "所有 P0 和 P1 需求按本文档实现，旧任务数据完成无损迁移。",
-    "工作记录 Markdown、每日记录、附件和完整备份均可持久化及恢复。",
-    "任务树层级清晰，文字区拖拽与单击选择没有交互冲突。",
-    "新深色主题通过 WCAG 2.2 AA 目标检查和人工视觉验收。",
-    "npm run verify 通过，新增领域、存储、编辑器和浏览器测试全部通过。",
-    "测试反馈文档只保留本版实施后仍然存在的问题。"
+    "v0.6 视觉重构先在 develop 独立完成、测试并验收。",
+    "存储分支从 v0.6 验收后的 develop 最新提交创建。",
+    "codex/local-workspace-storage 在 v0.7 验收后继续作为独立长期分支存在，不合并回 develop。",
+    "develop 不包含真实本地目录存储、迁移代码或该分支专属的数据模型。",
+    "v0.7 的业务代码通过 WorkspaceBackend 使用存储，不直接绑定 File System Access API。",
+    "本地目录模式能够完整保存并恢复任务、工作记录和附件。",
+    "现有浏览器数据可以无损迁移且失败可回滚。",
+    "两阶段各自拥有独立测试结果和可回退提交，不使用一个混合提交上线。"
   ],
   "repository_state": {
-    "branch": "develop",
-    "source_head": "8f7b6fd",
-    "working_tree_before_write": "dirty_with_existing_user_changes",
-    "staged_by_this_revision": false,
-    "committed_by_this_revision": false
+    "branch_at_review": "develop",
+    "head_at_review": "5c3ee7b",
+    "working_tree_before_write": "clean",
+    "storage_branch_created": false,
+    "reason_not_created": "按确认顺序，必须等视觉重构在 develop 验收完成后再创建。"
   }
 }

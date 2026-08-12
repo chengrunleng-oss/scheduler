@@ -7,7 +7,7 @@
     </header>
 
     <section class="sidebar-section sidebar-create">
-      <button class="button primary wide" id="globalNewTask" type="button"><i data-lucide="list-plus"></i><span>新建任务</span></button>
+      <button class="button primary wide" id="globalNewTask" type="button" title="新建任务" aria-label="新建任务"><i data-lucide="list-plus"></i><span>新建任务</span></button>
     </section>
 
     <section class="sidebar-section folder-section">
@@ -37,3 +37,17 @@
     </section>
   </aside>
 </template>
+
+<style scoped>
+.brand-copy,
+.section-heading,
+.defaults-grid,
+.metric-grid {
+  min-width: 0;
+}
+
+.brand-copy h1,
+.section-heading h2 {
+  letter-spacing: 0;
+}
+</style>

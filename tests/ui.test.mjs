@@ -2,14 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, app, sidebar, board, taskWorkspace, dialogs, css, renderer, events, dragDrop, types, workspace, workspaceDb, backup, markdownEditor] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceDb, backup, markdownEditor] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
+  readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
   readFile(new URL("../src/components/AppSidebar.vue", import.meta.url), "utf8"),
   readFile(new URL("../src/components/TaskBoard.vue", import.meta.url), "utf8"),
   readFile(new URL("../src/components/TaskWorkspace.vue", import.meta.url), "utf8"),
   readFile(new URL("../src/components/AppDialogs.vue", import.meta.url), "utf8"),
-  readFile(new URL("../styles.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/index.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/tokens.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/base.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/layout.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/states.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/motion.css", import.meta.url), "utf8"),
+  readFile(new URL("../src/styles/responsive.css", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/renderer.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/events.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/drag-drop.ts", import.meta.url), "utf8"),
@@ -20,6 +27,16 @@ const [html, app, sidebar, board, taskWorkspace, dialogs, css, renderer, events,
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
+const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
+
+test("v0.6 styles are Vite-managed modules with component-local scoped rules", () => {
+  for (const file of ["tokens", "base", "layout", "states", "motion", "responsive"]) {
+    assert.match(styleIndex, new RegExp(`@import "\\./${file}\\.css"`));
+  }
+  assert.match(main, /import "\.\/styles\/index\.css"/);
+  assert.doesNotMatch(html, /href="\/styles\.css"/);
+  for (const component of [app, sidebar, board, taskWorkspace, dialogs]) assert.match(component, /<style scoped>/);
+});
 
 test("hidden elements cannot be revealed by component display rules", () => {
   assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important;/);
@@ -131,8 +148,9 @@ test("Lucide icons, tooltips, aria labels, live announcements, and touch targets
   assert.match(uiMarkup, /data-lucide="folder-plus"/);
   assert.match(renderer, /setAttribute\("aria-label", label\)/);
   assert.match(uiMarkup, /id="liveRegion"[^>]*aria-live="assertive"/);
-  assert.match(css, /\.icon-button, \.folder-action, \.group-action, \.drag-handle, \.folder-toggle[^}]*min-height:\s*40px/s);
-  assert.match(css, /@media \(max-width:\s*560px\)[^]*\.icon-button, \.folder-action, \.group-action, \.drag-handle, \.folder-toggle[^}]*min-height:\s*44px/s);
+  assert.match(tokensCss, /--hit-target:\s*40px/);
+  assert.match(baseCss, /\.icon-button, \.folder-action, \.group-action, \.drag-handle, \.folder-toggle[^}]*min-height:\s*var\(--hit-target\)/s);
+  assert.match(responsiveCss, /@media \(max-width:\s*560px\)[^]*--hit-target:\s*44px/s);
 });
 
 test("task workspace has tabs, resizable desktop width, and full-screen mobile layout", () => {
@@ -141,6 +159,8 @@ test("task workspace has tabs, resizable desktop width, and full-screen mobile l
   assert.match(css, /--workspace-width/);
   assert.match(css, /width:\s*100vw/);
   assert.match(events, /set-workspace-width/);
+  assert.match(renderer, /232px minmax\(500px, 1fr\)/);
+  assert.match(renderer, /Math\.min\(680, Math\.max\(480, preferredWorkspaceWidth\)/);
   assert.match(css, /@media \(min-width:\s*1340px\)[^]*\.app-shell\.workspace-open/s);
   assert.match(css, /@media \(min-width:\s*881px\) and \(max-width:\s*1339px\)[^]*\.workspace\s*\{\s*display:\s*none/s);
 });
@@ -180,7 +200,8 @@ test("workspace layout retains internal scrolling and a persistent overview acti
 
 test("Vite uses the TypeScript source entry without manual asset versions", () => {
   assert.match(html, /src="\/src\/main\.ts"/);
-  assert.match(html, /href="\/styles\.css"/);
+  assert.doesNotMatch(html, /href="\/styles\.css"/);
+  assert.match(main, /styles\/index\.css/);
   assert.doesNotMatch(html, /(?:styles\.css|main\.ts)\?v=/);
   assert.doesNotMatch(html, /src="dist\//);
 });

@@ -728,6 +728,7 @@ test("workspace and task list never overlap across target desktop and mobile vie
     { width: 1366, height: 768, split: true },
     { width: 1180, height: 800, split: false },
     { width: 1024, height: 768, split: false },
+    { width: 768, height: 1024, split: false },
     { width: 390, height: 844, split: false },
   ]) {
     await page.setViewportSize(viewport);
@@ -758,6 +759,54 @@ test("workspace and task list never overlap across target desktop and mobile vie
     expect(geometry.panelLeft).toBeGreaterThanOrEqual(0);
     expect(geometry.panelRight).toBeLessThanOrEqual(viewport.width + 1);
   }
+});
+
+test("standard desktop uses a compact navigation rail without losing accessible controls", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const geometry = await page.evaluate(() => {
+    const sidebar = document.querySelector("#sidebar");
+    const copy = sidebar.querySelector(".brand-copy");
+    const newTask = sidebar.querySelector("#globalNewTask");
+    return {
+      sidebarWidth: sidebar.getBoundingClientRect().width,
+      copyDisplay: getComputedStyle(copy).display,
+      newTaskWidth: newTask.getBoundingClientRect().width,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(geometry.sidebarWidth).toBe(72);
+  expect(geometry.copyDisplay).toBe("none");
+  expect(geometry.newTaskWidth).toBeGreaterThanOrEqual(40);
+  expect(geometry.overflow).toBeLessThanOrEqual(1);
+  await expect(page.locator("#globalNewTask")).toHaveAccessibleName("新建任务");
+});
+
+test("system theme and reduced motion keep the visual hierarchy without animated movement", async ({ browser }) => {
+  const context = await browser.newContext({
+    colorScheme: "dark",
+    reducedMotion: "reduce",
+    viewport: { width: 1440, height: 900 },
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.locator("#themeSelect").selectOption("system");
+  const values = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const row = document.querySelector(".task-item");
+    return {
+      colorScheme: root.colorScheme,
+      background: root.getPropertyValue("--bg").trim(),
+      transitionDuration: getComputedStyle(row).transitionDuration,
+      animationDuration: getComputedStyle(row).animationDuration,
+    };
+  });
+  expect(values.colorScheme).toContain("dark");
+  expect(values.background).toBe("#101315");
+  expect(values.transitionDuration).toBe("0s");
+  expect(values.animationDuration).toBe("0s");
+  await context.close();
 });
 
 test("four-level sticky-note folders retain parent edges, distinct layers, and no overflow", async ({ page }) => {
@@ -834,9 +883,18 @@ test("manual dark theme uses distinct charcoal surfaces with readable contrast",
     const bg = root.getPropertyValue("--bg");
     const surface = root.getPropertyValue("--surface");
     const raised = root.getPropertyValue("--surface-raised");
-    return { bg, surface, raised, textContrast: contrast(root.getPropertyValue("--text"), surface), mutedContrast: contrast(root.getPropertyValue("--muted"), surface) };
+    return {
+      bg,
+      surface,
+      raised,
+      sidebar: getComputedStyle(document.querySelector("#sidebar")).backgroundColor,
+      resolvedSurface: getComputedStyle(document.querySelector(".brand")).backgroundColor,
+      textContrast: contrast(root.getPropertyValue("--text"), surface),
+      mutedContrast: contrast(root.getPropertyValue("--muted"), surface),
+    };
   });
   expect(new Set([colors.bg.trim(), colors.surface.trim(), colors.raised.trim()]).size).toBe(3);
+  expect(colors.sidebar).toBe(colors.resolvedSurface);
   expect(colors.textContrast).toBeGreaterThanOrEqual(7);
   expect(colors.mutedContrast).toBeGreaterThanOrEqual(4.5);
 });

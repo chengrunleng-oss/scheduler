@@ -1,6 +1,6 @@
 {
   "name": "task-workbench",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
+    "visual:baseline": "npm run build && node scripts/capture-visuals.mjs",
     "typecheck": "vue-tsc --noEmit",
     "check:dist": "node scripts/check-dist-clean.mjs",
     "verify": "npm run typecheck && npm test && npm run check:dist && npm run test:e2e"

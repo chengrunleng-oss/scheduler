@@ -40,3 +40,16 @@
     </section>
   </main>
 </template>
+
+<style scoped>
+.workspace,
+.board,
+.board-toolbar,
+.filterbar {
+  min-width: 0;
+}
+
+.topbar-actions {
+  flex-wrap: nowrap;
+}
+</style>

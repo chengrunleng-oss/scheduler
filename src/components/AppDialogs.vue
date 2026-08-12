@@ -10,3 +10,9 @@
 
   <dialog id="attachmentRenameDialog" class="modal"><form id="attachmentRenameForm" class="modal-card stack"><div class="modal-head"><h2>重命名附件</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><i data-lucide="x"></i></button></div><label class="field"><span>文件名</span><input id="attachmentRenameName" type="text" maxlength="160" required /></label><div class="modal-actions"><button class="button ghost" type="button" data-close-dialog>取消</button><button class="button primary" type="submit">保存</button></div></form></dialog>
 </template>
+
+<style scoped>
+.modal-card {
+  contain: layout paint;
+}
+</style>

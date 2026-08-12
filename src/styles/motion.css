@@ -1,0 +1,11 @@
+.task-item { transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease; }
+.detail-panel, .sidebar { transition-property: transform; transition-duration: 180ms; transition-timing-function: ease; }
+.task-item.locating { animation: locate-flash 650ms ease 2; }
+
+@keyframes locate-flash {
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 42%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}

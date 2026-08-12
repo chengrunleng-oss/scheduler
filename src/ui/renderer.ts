@@ -66,13 +66,13 @@ export function createRenderer(els: Elements): Renderer {
     els.defaultPriority.value = state.preferences.defaultTaskPriority;
     const preferredWorkspaceWidth = Number.isFinite(state.preferences.workspaceWidth) ? state.preferences.workspaceWidth : 620;
     const workspaceWidth = window.innerWidth >= 1340
-      ? Math.min(preferredWorkspaceWidth, Math.max(560, window.innerWidth - 720))
+      ? Math.min(680, Math.max(480, preferredWorkspaceWidth), Math.max(480, window.innerWidth - 732))
       : preferredWorkspaceWidth;
     document.documentElement.style.setProperty("--workspace-width", `${workspaceWidth}px`);
     const workspaceOpen = view.detailPanelOpen && Boolean(view.selectedTaskId);
     els.appShell.classList.toggle("workspace-open", workspaceOpen);
     els.appShell.style.gridTemplateColumns = workspaceOpen && window.innerWidth >= 1340
-      ? `220px minmax(500px, 1fr) ${workspaceWidth}px`
+      ? `232px minmax(500px, 1fr) ${workspaceWidth}px`
       : "";
     els.undoAction.disabled = !canUndo;
     els.redoAction.disabled = !canRedo;
