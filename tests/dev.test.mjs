@@ -37,12 +37,12 @@ test("Vue owns the interface shell and is compiled by the official Vite plugin",
   assert.equal(packageJson.scripts.typecheck, "vue-tsc --noEmit");
 });
 
-test("Vite defaults to localhost ports with automatic fallback", () => {
+test("Vite uses fixed localhost origins for persistent workspace permissions", () => {
   assert.equal(config.server.host, "127.0.0.1");
   assert.equal(config.server.port, 5173);
-  assert.equal(config.server.strictPort, false);
+  assert.equal(config.server.strictPort, true);
   assert.equal(config.preview.host, "127.0.0.1");
   assert.equal(config.preview.port, 4173);
-  assert.equal(config.preview.strictPort, false);
+  assert.equal(config.preview.strictPort, true);
   assert.equal(config.build.target, "es2022");
 });

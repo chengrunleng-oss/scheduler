@@ -34,6 +34,11 @@ async function capture(name, viewport, { openWorkspace = false, theme = "light" 
     maxTaskHeight: Math.max(0, ...Array.from(document.querySelectorAll(".task-item"), (row) => row.getBoundingClientRect().height)),
     sidebarWidth: document.querySelector("#sidebar").getBoundingClientRect().width,
     workspaceOpen: document.querySelector("#appShell").classList.contains("workspace-open"),
+    storageButtonSizes: Array.from(document.querySelectorAll(".workspace-storage-actions .button:not([hidden])"), (button) => ({
+      width: button.getBoundingClientRect().width,
+      height: button.getBoundingClientRect().height,
+    })),
+    storageTextVisible: Array.from(document.querySelectorAll(".workspace-storage-status, .workspace-storage-actions .button span"), (node) => getComputedStyle(node).display !== "none"),
   }));
   if (geometry.documentOverflow > 1 || geometry.bodyOverflow > 1 || geometry.rowOverflow > 1) {
     throw new Error(`${name} has horizontal overflow: ${JSON.stringify(geometry)}`);
@@ -43,6 +48,12 @@ async function capture(name, viewport, { openWorkspace = false, theme = "light" 
   }
   if (openWorkspace && viewport.width >= 1340 && geometry.maxTaskHeight > 112) {
     throw new Error(`${name} workspace task row exceeds 112px: ${geometry.maxTaskHeight}px`);
+  }
+  if (viewport.width >= 881 && viewport.width <= 1180) {
+    if (geometry.storageTextVisible.some(Boolean)) throw new Error(`${name} shows workspace storage text in the icon sidebar.`);
+    if (geometry.storageButtonSizes.some(({ width, height }) => Math.abs(width - 40) > 1 || Math.abs(height - 40) > 1)) {
+      throw new Error(`${name} workspace storage buttons are not 40x40: ${JSON.stringify(geometry.storageButtonSizes)}`);
+    }
   }
   await page.screenshot({ path: `${output}${name}.png`, fullPage: true });
   await page.close();

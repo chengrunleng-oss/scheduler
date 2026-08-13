@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceDb, backup, markdownEditor] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
@@ -22,7 +22,9 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
   readFile(new URL("../src/ui/drag-drop.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/types.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/workspace.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/workspace-backend.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/workspace-db.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/local-directory-backend.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/backup.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
 ]);
@@ -180,6 +182,39 @@ test("work logs and attachments use IndexedDB, autosave, Crepe, fallback preview
   assert.match(uiMarkup, /id="undoWorklogDelete"/);
   assert.match(backup, /manifest\.json/);
   assert.match(backup, /JSZip/);
+});
+
+test("v0.7 storage callers depend on WorkspaceBackend instead of IndexedDB details", () => {
+  for (const operation of ["loadWorkspace", "saveWorkspaceIndex", "saveTask", "deleteTask", "restoreTask", "saveDescription", "listWorkLogs", "saveWorkLog", "deleteWorkLog", "listAttachments", "putAttachment", "readAttachment", "saveAttachment", "renameAttachment", "deleteAttachment", "exportSnapshot", "importSnapshot"]) {
+    assert.match(workspaceBackend, new RegExp(`${operation}\\(`));
+  }
+  assert.match(workspaceDb, /class IndexedDbBackend implements WorkspaceBackend/);
+  assert.match(main, /IndexedDbBackend\.open\(\)/);
+  assert.match(workspace, /type WorkspaceBackend/);
+  assert.match(events, /type \{ WorkspaceBackend \}/);
+  assert.match(backup, /type \{ WorkspaceBackend, WorkspaceSnapshot \}/);
+  assert.doesNotMatch([workspace, events, backup].join("\n"), /indexedDB|FileSystemDirectoryHandle|WorkspaceRepository/);
+});
+
+test("LocalDirectoryBackend follows the stable task directory layout", () => {
+  assert.match(localDirectoryBackend, /class LocalDirectoryBackend implements WorkspaceBackend/);
+  for (const entry of ["workspace.json", "tasks", "trash", "task.json", "description.md", "worklogs", "attachments"]) {
+    assert.match(localDirectoryBackend, new RegExp(`"${entry.replace(".", "\\.")}"`));
+  }
+  assert.match(localDirectoryBackend, /showDirectoryPicker/);
+  assert.match(localDirectoryBackend, /queryPermission/);
+  assert.match(localDirectoryBackend, /requestPermission/);
+  assert.match(localDirectoryBackend, /tmp-\$\{crypto\.randomUUID\(\)\}/);
+});
+
+test("v0.7 recovery separates permission renewal from directory replacement and protects missing indexes", () => {
+  assert.match(uiMarkup, /id="reauthorizeWorkspaceDirectory"/);
+  assert.match(uiMarkup, /重新授权原目录/);
+  assert.match(main, /改选本地目录/);
+  assert.match(main, /clearWorkspaceDirectoryHandle\(\)/);
+  assert.match(localDirectoryBackend, /directoryHasEntries\(this\.root\)/);
+  assert.match(localDirectoryBackend, /缺少 workspace\.json，已阻止写入/);
+  assert.match(localDirectoryBackend, /assertSafeFileName\(name\)/);
 });
 
 test("sticky-note folder layers and discoverable folder management are wired", () => {

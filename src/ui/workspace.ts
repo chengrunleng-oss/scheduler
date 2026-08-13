@@ -1,7 +1,7 @@
 import { toISODate } from "../domain.js";
 import type { AppStore } from "../store.js";
 import type { AttachmentMeta, Task, WorkspaceTab, WorkLog } from "../types.js";
-import { MAX_ATTACHMENT_BYTES, TASK_ATTACHMENT_WARNING_BYTES, type WorkspaceRepository } from "../workspace-db.js";
+import { MAX_ATTACHMENT_BYTES, TASK_ATTACHMENT_WARNING_BYTES, type WorkspaceBackend, WorkspaceConflictError } from "../workspace-backend.js";
 import type { Dialogs } from "./dialogs.js";
 import { createElement } from "./dom.js";
 import { icon } from "./icons.js";
@@ -21,9 +21,9 @@ export interface WorkspaceController {
 export function createWorkspaceController(
   els: Elements,
   store: AppStore,
-  repository: WorkspaceRepository,
+  backend: WorkspaceBackend,
   dialogs: Dialogs,
-  persistState: () => boolean,
+  persistState: () => Promise<boolean>,
 ): WorkspaceController {
   let activeTaskId: string | null = null;
   let activeTab: WorkspaceTab = "overview";
@@ -32,6 +32,8 @@ export function createWorkspaceController(
   let worklogEditor: MarkdownEditorHandle | null = null;
   let descriptionDirty = false;
   let worklogDirty = false;
+  let savedDescriptionMarkdown = "";
+  let savedWorklogMarkdown = "";
   let descriptionTimer = 0;
   let worklogTimer = 0;
   let attachmentPreviewUrl = "";
@@ -69,17 +71,48 @@ export function createWorkspaceController(
     }
   }
 
+  async function reloadExternalVersion(message: string): Promise<void> {
+    const refreshed = await backend.loadWorkspace();
+    descriptionDirty = false;
+    worklogDirty = false;
+    store.dispatch({ type: "replace-state", state: refreshed.state });
+    await destroyEditors();
+    if (activeTab === "worklog") await mountEditors();
+    if (activeTab === "attachments") await renderAttachments();
+    dialogs.toast(message);
+  }
+
+  async function resolveConflict(error: WorkspaceConflictError, content: Blob): Promise<boolean> {
+    const resolution = await dialogs.resolveConflict(error.message);
+    if (resolution === "cancel") return false;
+    if (resolution === "copy") {
+      const path = await backend.saveConflictCopy(error.target, content);
+      await reloadExternalVersion(`当前内容已保存为 ${path}，并已载入外部版本。`);
+      return true;
+    }
+    await reloadExternalVersion("已载入外部版本，未覆盖本地文件。");
+    return true;
+  }
+
   async function saveDescription(): Promise<boolean> {
     window.clearTimeout(descriptionTimer);
-    if (!descriptionDirty || !activeTaskId || !descriptionEditor) return true;
+    if (!activeTaskId || !descriptionEditor) return true;
+    const markdown = descriptionEditor.getMarkdown();
+    if (!descriptionDirty && normalizeMarkdown(markdown) === normalizeMarkdown(savedDescriptionMarkdown)) return true;
     setSaveStatus("description", "saving");
     try {
-      store.dispatch({ type: "set-task-description", id: activeTaskId, descriptionMarkdown: descriptionEditor.getMarkdown() });
-      if (!persistState()) throw new Error("本地任务存储不可用。");
+      await backend.saveDescription(activeTaskId, markdown);
+      store.dispatch({ type: "set-task-description", id: activeTaskId, descriptionMarkdown: markdown });
+      if (!(await persistState())) throw new Error("本地任务存储不可用。");
       descriptionDirty = false;
+      savedDescriptionMarkdown = markdown;
       setSaveStatus("description", "saved");
       return true;
     } catch (error) {
+      if (error instanceof WorkspaceConflictError) {
+        const resolved = await resolveConflict(error, new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+        if (resolved) return true;
+      }
       setSaveStatus("description", "error", error instanceof Error ? error.message : undefined);
       return false;
     }
@@ -87,25 +120,32 @@ export function createWorkspaceController(
 
   async function saveWorklog(): Promise<boolean> {
     window.clearTimeout(worklogTimer);
-    if (!worklogDirty || !activeTaskId || !worklogEditor) return true;
-    if (!repository.available) {
-      setSaveStatus("worklog", "error", repository.errorMessage);
+    if (!activeTaskId || !worklogEditor) return true;
+    const markdown = worklogEditor.getMarkdown();
+    if (!worklogDirty && normalizeMarkdown(markdown) === normalizeMarkdown(savedWorklogMarkdown)) return true;
+    if (!backend.available) {
+      setSaveStatus("worklog", "error", backend.errorMessage);
       return false;
     }
     setSaveStatus("worklog", "saving");
     try {
       const progress = els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value);
-      await repository.saveWorkLog({
+      await backend.saveWorkLog({
         taskId: activeTaskId,
         workDate: activeWorkDate,
-        contentMarkdown: worklogEditor.getMarkdown(),
+        contentMarkdown: markdown,
         progressPercent: progress,
       });
       worklogDirty = false;
+      savedWorklogMarkdown = markdown;
       setSaveStatus("worklog", "saved");
       await renderWorklogHistory();
       return true;
     } catch (error) {
+      if (error instanceof WorkspaceConflictError) {
+        const resolved = await resolveConflict(error, new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+        if (resolved) return true;
+      }
       setSaveStatus("worklog", "error", error instanceof Error ? error.message : undefined);
       return false;
     }
@@ -122,12 +162,14 @@ export function createWorkspaceController(
     const task = currentTask();
     if (!task || activeTab !== "worklog" || descriptionEditor || worklogEditor) return;
     const generation = ++editorGeneration;
-    const readOnly = task.status !== "active" || !repository.available;
-    const log = repository.available ? await repository.getWorkLog(task.id, activeWorkDate) : null;
+    const readOnly = task.status !== "active" || !backend.available;
+    const log = backend.available ? await backend.getWorkLog(task.id, activeWorkDate) : null;
     if (generation !== editorGeneration) return;
     els.worklogProgress.value = log?.progressPercent === null || log?.progressPercent === undefined ? "" : String(log.progressPercent);
     descriptionDirty = false;
     worklogDirty = false;
+    savedDescriptionMarkdown = task.descriptionMarkdown;
+    savedWorklogMarkdown = log?.contentMarkdown ?? "";
     descriptionEditor = await createMarkdownEditor({
       host: els.descriptionEditor,
       value: task.descriptionMarkdown,
@@ -145,8 +187,8 @@ export function createWorkspaceController(
       onChange: () => scheduleSave("worklog"),
       onSave: () => { void saveWorklog(); },
     });
-    setSaveStatus("description", repository.available ? "saved" : "error", repository.available ? undefined : repository.errorMessage);
-    setSaveStatus("worklog", repository.available ? "saved" : "error", repository.available ? undefined : repository.errorMessage);
+    setSaveStatus("description", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
+    setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     if (descriptionEditor.fallback || worklogEditor.fallback) dialogs.toast("所见即所得编辑器未能启动，已切换为 Markdown 源码与预览模式。");
     await renderWorklogHistory();
   }
@@ -169,28 +211,29 @@ export function createWorkspaceController(
     worklogEditor = null;
     const task = currentTask();
     if (!task || activeTab !== "worklog") return;
-    const log = repository.available ? await repository.getWorkLog(task.id, date) : null;
+    const log = backend.available ? await backend.getWorkLog(task.id, date) : null;
     els.worklogProgress.value = log?.progressPercent === null || log?.progressPercent === undefined ? "" : String(log.progressPercent);
     worklogDirty = false;
+    savedWorklogMarkdown = log?.contentMarkdown ?? "";
     worklogEditor = await createMarkdownEditor({
       host: els.worklogEditor,
       value: log?.contentMarkdown ?? "",
       placeholder: "记录当天的进展、结论与下一步",
-      readonly: task.status !== "active" || !repository.available,
+      readonly: task.status !== "active" || !backend.available,
       onChange: () => scheduleSave("worklog"),
       onSave: () => { void saveWorklog(); },
     });
-    setSaveStatus("worklog", repository.available ? "saved" : "error", repository.available ? undefined : repository.errorMessage);
+    setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     await renderWorklogHistory();
   }
 
   async function renderWorklogHistory(): Promise<void> {
     els.worklogHistory.replaceChildren();
-    if (!activeTaskId || !repository.available) {
-      els.worklogHistory.append(createElement("p", { className: "workspace-empty", text: repository.errorMessage || "暂无工作记录" }));
+    if (!activeTaskId || !backend.available) {
+      els.worklogHistory.append(createElement("p", { className: "workspace-empty", text: backend.errorMessage || "暂无工作记录" }));
       return;
     }
-    const records = await repository.listWorkLogs(activeTaskId);
+    const records = await backend.listWorkLogs(activeTaskId);
     if (!records.length) {
       els.worklogHistory.append(createElement("p", { className: "workspace-empty", text: "暂无工作记录" }));
       return;
@@ -249,7 +292,7 @@ export function createWorkspaceController(
     if (!(await dialogs.confirm("删除工作记录", `确认删除 ${formatDate(record.workDate)} 的工作记录吗？删除后 8 秒内可以撤销。`))) return;
     window.clearTimeout(worklogTimer);
     worklogDirty = false;
-    await repository.deleteWorkLog(record.id);
+    await backend.deleteWorkLog(record.id);
     offerWorklogUndo(record);
     if (record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true);
     else await renderWorklogHistory();
@@ -257,10 +300,10 @@ export function createWorkspaceController(
 
   async function openOrCreateTodayWorklog(): Promise<void> {
     const task = currentTask();
-    if (!task || task.status !== "active" || !repository.available || !(await saveWorklog())) return;
+    if (!task || task.status !== "active" || !backend.available || !(await saveWorklog())) return;
     const today = toISODate();
-    const existing = await repository.getWorkLog(task.id, today);
-    if (!existing) await repository.saveWorkLog({ taskId: task.id, workDate: today, contentMarkdown: "", progressPercent: null });
+    const existing = await backend.getWorkLog(task.id, today);
+    if (!existing) await backend.saveWorkLog({ taskId: task.id, workDate: today, contentMarkdown: "", progressPercent: null });
     if (today === activeWorkDate) {
       await renderWorklogHistory();
       worklogEditor?.focus();
@@ -277,19 +320,19 @@ export function createWorkspaceController(
     store.dispatch({ type: "set-task-description", id: task.id, descriptionMarkdown: appendMarkdown(current, text) });
     if (descriptionEditor) { await descriptionEditor.destroy(); descriptionEditor = null; await mountEditors(); }
     descriptionDirty = false;
-    if (!persistState()) setSaveStatus("description", "error");
+    if (!(await persistState())) setSaveStatus("description", "error");
     else setSaveStatus("description", "saved");
   }
 
   async function importIntoWorklog(file: File): Promise<void> {
     const task = currentTask();
-    if (!task || task.status !== "active" || !repository.available) return;
+    if (!task || task.status !== "active" || !backend.available) return;
     if (activeTab === "worklog") await mountEditors();
-    const existing = await repository.getWorkLog(task.id, activeWorkDate);
+    const existing = await backend.getWorkLog(task.id, activeWorkDate);
     const current = worklogEditor?.getMarkdown() ?? existing?.contentMarkdown ?? "";
     const text = await file.text();
     if (worklogEditor) { await worklogEditor.destroy(); worklogEditor = null; }
-    await repository.saveWorkLog({ taskId: task.id, workDate: activeWorkDate, contentMarkdown: appendMarkdown(current, text), progressPercent: els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value) });
+    await backend.saveWorkLog({ taskId: task.id, workDate: activeWorkDate, contentMarkdown: appendMarkdown(current, text), progressPercent: els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value) });
     worklogDirty = false;
     if (activeTab === "worklog") await changeWorkDate(activeWorkDate);
   }
@@ -298,15 +341,15 @@ export function createWorkspaceController(
     els.attachmentList.replaceChildren();
     clearAttachmentPreview();
     const task = currentTask();
-    const disabled = !task || task.status !== "active" || !repository.available;
+    const disabled = !task || task.status !== "active" || !backend.available;
     els.addAttachment.disabled = disabled;
     els.importDescription.disabled = disabled;
     els.importWorklog.disabled = disabled;
-    if (!task || !repository.available) {
-      els.attachmentList.append(createElement("p", { className: "workspace-empty", text: repository.errorMessage || "暂无附件" }));
+    if (!task || !backend.available) {
+      els.attachmentList.append(createElement("p", { className: "workspace-empty", text: backend.errorMessage || "暂无附件" }));
       return;
     }
-    const [items, estimate] = await Promise.all([repository.listAttachments(task.id), repository.estimateStorage()]);
+    const [items, estimate] = await Promise.all([backend.listAttachments(task.id), backend.estimateStorage()]);
     const taskUsage = items.reduce((total, item) => total + item.size, 0);
     els.storageUsage.textContent = estimate.quota ? `${formatBytes(estimate.usage)} / ${formatBytes(estimate.quota)}` : formatBytes(taskUsage);
     els.storageProgress.value = estimate.quota ? Math.min(100, (estimate.usage / estimate.quota) * 100) : Math.min(100, (taskUsage / TASK_ATTACHMENT_WARNING_BYTES) * 100);
@@ -326,7 +369,10 @@ export function createWorkspaceController(
     info.append(icon(typeIcon), createElement("div", { className: "attachment-copy" }));
     info.lastElementChild?.append(createElement("strong", { text: meta.name }), createElement("span", { text: `${formatBytes(meta.size)} · ${formatDateTime(meta.createdAt)}` }));
     const actions = createElement("div", { className: "attachment-actions" });
-    actions.append(attachmentButton("preview", "Eye", "预览附件"), attachmentButton("open", "ExternalLink", "使用浏览器打开"), attachmentButton("download", "Download", "导出附件"));
+    actions.append(attachmentButton("preview", "Eye", "预览附件"));
+    if (meta.kind !== "text") actions.append(attachmentButton("open", "ExternalLink", "使用浏览器打开"));
+    actions.append(attachmentButton("download", "Download", "导出附件"));
+    if (meta.kind === "text" && editable) actions.append(attachmentButton("edit", "FilePenLine", "编辑文本附件"));
     if (meta.kind === "image" && editable) actions.append(attachmentButton("insert-image", "ImagePlus", "插入长期描述"));
     if (editable) actions.append(attachmentButton("rename", "Pencil", "重命名附件"), attachmentButton("delete", "Trash2", "删除附件", true));
     row.append(info, actions);
@@ -345,8 +391,8 @@ export function createWorkspaceController(
   async function previewAttachment(id: string): Promise<void> {
     const task = currentTask();
     if (!task) return;
-    const meta = (await repository.listAttachments(task.id)).find((item) => item.id === id);
-    const blob = await repository.getAttachmentBlob(id);
+    const meta = (await backend.listAttachments(task.id)).find((item) => item.id === id);
+    const blob = await backend.readAttachment(id);
     if (!meta || !blob) return;
     clearAttachmentPreview();
     els.attachmentPreview.hidden = false;
@@ -373,6 +419,49 @@ export function createWorkspaceController(
     }
   }
 
+  async function editTextAttachment(id: string): Promise<void> {
+    const task = currentTask();
+    if (!task || task.status !== "active") return;
+    const meta = (await backend.listAttachments(task.id)).find((item) => item.id === id);
+    const blob = await backend.readAttachment(id);
+    if (!meta || !blob || meta.kind !== "text") return;
+    clearAttachmentPreview();
+    els.attachmentPreview.hidden = false;
+    const header = createElement("div", { className: "preview-header" });
+    header.append(createElement("strong", { text: meta.name }));
+    const save = createElement("button", { className: "button primary compact-button", text: "保存" });
+    save.type = "button";
+    const close = createElement("button", { className: "icon-button", title: "关闭编辑" });
+    close.type = "button";
+    close.dataset.attachmentAction = "close-preview";
+    close.setAttribute("aria-label", "关闭编辑");
+    close.append(icon("X"));
+    const actions = createElement("span", { className: "preview-actions" });
+    actions.append(save, close);
+    header.append(actions);
+    const editor = createElement("textarea", { className: "attachment-text-editor" });
+    editor.value = await blob.text();
+    editor.setAttribute("aria-label", `编辑 ${meta.name}`);
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try {
+        const content = new Blob([editor.value.replace(/\r\n?/g, "\n")], { type: meta.type || "text/plain;charset=utf-8" });
+        await backend.saveAttachment(id, content);
+        dialogs.toast("文本附件已保存。");
+        await renderAttachments();
+      } catch (error) {
+        if (error instanceof WorkspaceConflictError) {
+          const content = new Blob([editor.value.replace(/\r\n?/g, "\n")], { type: meta.type || "text/plain;charset=utf-8" });
+          if (await resolveConflict(error, content)) return;
+        }
+        dialogs.toast(error instanceof Error ? error.message : "文本附件保存失败。");
+        save.disabled = false;
+      }
+    });
+    els.attachmentPreview.append(header, editor);
+    editor.focus();
+  }
+
   function clearAttachmentPreview(): void {
     if (attachmentPreviewUrl) URL.revokeObjectURL(attachmentPreviewUrl);
     attachmentPreviewUrl = "";
@@ -383,8 +472,8 @@ export function createWorkspaceController(
   async function downloadAttachment(id: string): Promise<void> {
     const task = currentTask();
     if (!task) return;
-    const meta = (await repository.listAttachments(task.id)).find((item) => item.id === id);
-    const blob = await repository.getAttachmentBlob(id);
+    const meta = (await backend.listAttachments(task.id)).find((item) => item.id === id);
+    const blob = await backend.readAttachment(id);
     if (!meta || !blob) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a"); link.href = url; link.download = meta.name; link.click();
@@ -392,7 +481,7 @@ export function createWorkspaceController(
   }
 
   async function openAttachment(id: string): Promise<void> {
-    const blob = await repository.getAttachmentBlob(id);
+    const blob = await backend.readAttachment(id);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener,noreferrer");
@@ -402,10 +491,10 @@ export function createWorkspaceController(
   async function insertImage(id: string): Promise<void> {
     const task = currentTask();
     if (!task || task.status !== "active") return;
-    const meta = (await repository.listAttachments(task.id)).find((item) => item.id === id);
+    const meta = (await backend.listAttachments(task.id)).find((item) => item.id === id);
     if (!meta) return;
     store.dispatch({ type: "set-task-description", id: task.id, descriptionMarkdown: appendMarkdown(task.descriptionMarkdown, `![${meta.name}](attachment:${meta.id})`) });
-    persistState();
+    await persistState();
     dialogs.toast("图片引用已插入长期描述。");
     if (descriptionEditor) { await descriptionEditor.destroy(); descriptionEditor = null; await mountEditors(); }
   }
@@ -420,7 +509,7 @@ export function createWorkspaceController(
     if (!record) return;
     window.clearTimeout(worklogTimer);
     worklogDirty = false;
-    await repository.restoreWorkLog(record);
+    await backend.restoreWorkLog(record);
     hideWorklogUndo();
     if (record.taskId === activeTaskId && record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true);
     else await renderWorklogHistory();
@@ -432,7 +521,7 @@ export function createWorkspaceController(
     if (!button || !item || !activeTaskId) return;
     if (button.dataset.worklogAction === "open" && button.dataset.workDate) await changeWorkDate(button.dataset.workDate);
     if (button.dataset.worklogAction === "delete") {
-      const record = (await repository.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
+      const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
       if (record) await deleteWorklog(record);
     }
   });
@@ -445,7 +534,7 @@ export function createWorkspaceController(
     try {
       for (const file of files) {
         if (file.size > MAX_ATTACHMENT_BYTES) throw new Error(`“${file.name}”超过 20 MB。`);
-        await repository.addAttachment(activeTaskId, file);
+        await backend.putAttachment(activeTaskId, file);
       }
       await renderAttachments();
     } catch (error) { dialogs.toast(error instanceof Error ? error.message : "附件保存失败。"); }
@@ -463,21 +552,22 @@ export function createWorkspaceController(
     if (!button || !id) return;
     const action = button.dataset.attachmentAction;
     if (action === "preview") await previewAttachment(id);
+    if (action === "edit") await editTextAttachment(id);
     if (action === "open") await openAttachment(id);
     if (action === "download") await downloadAttachment(id);
     if (action === "insert-image") await insertImage(id);
     if (action === "rename") {
-      const task = currentTask(); const meta = task ? (await repository.listAttachments(task.id)).find((item) => item.id === id) : null;
+      const task = currentTask(); const meta = task ? (await backend.listAttachments(task.id)).find((item) => item.id === id) : null;
       if (meta) { renameAttachmentId = id; els.attachmentRenameName.value = meta.name; els.attachmentRenameDialog.showModal(); els.attachmentRenameName.focus(); }
     }
-    if (action === "delete" && await dialogs.confirm("删除附件", "删除后无法通过任务撤销恢复，继续吗？")) { await repository.deleteAttachment(id); await renderAttachments(); }
+    if (action === "delete" && await dialogs.confirm("删除附件", "删除后无法通过任务撤销恢复，继续吗？")) { await backend.deleteAttachment(id); await renderAttachments(); }
   });
   els.attachmentPreview.addEventListener("click", (event) => {
     if ((event.target as HTMLElement).closest("[data-attachment-action='close-preview']")) clearAttachmentPreview();
   });
   els.attachmentRenameForm.addEventListener("submit", async (event) => {
     event.preventDefault(); if (!renameAttachmentId) return;
-    try { await repository.renameAttachment(renameAttachmentId, els.attachmentRenameName.value); els.attachmentRenameDialog.close(); renameAttachmentId = null; await renderAttachments(); }
+    try { await backend.renameAttachment(renameAttachmentId, els.attachmentRenameName.value); els.attachmentRenameDialog.close(); renameAttachmentId = null; await renderAttachments(); }
     catch (error) { dialogs.toast(error instanceof Error ? error.message : "附件重命名失败。"); }
   });
   els.attachmentRenameDialog.addEventListener("close", () => { renameAttachmentId = null; });
@@ -506,7 +596,7 @@ export function createWorkspaceController(
       return descriptionSaved && worklogSaved;
     },
     syncTaskState() {
-      const readOnly = currentTask()?.status !== "active" || !repository.available;
+      const readOnly = currentTask()?.status !== "active" || !backend.available;
       descriptionEditor?.setReadonly(readOnly);
       worklogEditor?.setReadonly(readOnly);
       els.newWorklog.disabled = readOnly;
@@ -518,6 +608,10 @@ export function createWorkspaceController(
 
 function appendMarkdown(current: string, addition: string): string {
   return [current.trimEnd(), addition.trim()].filter(Boolean).join("\n\n");
+}
+
+function normalizeMarkdown(value: string): string {
+  return value.replace(/\r\n?/g, "\n").trimEnd();
 }
 
 function formatBytes(bytes: number): string {

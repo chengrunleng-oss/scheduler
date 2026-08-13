@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { hydrateState, validateBackupPayload } from "./domain.js";
 import { parseBackupFile, type StorageResult } from "./storage.js";
 import type { AppState, AttachmentMeta, WorkLog } from "./types.js";
-import type { WorkspaceRepository, WorkspaceSnapshot } from "./workspace-db.js";
+import type { WorkspaceBackend, WorkspaceSnapshot } from "./workspace-backend.js";
 
 const MANIFEST_FILE = "manifest.json";
 
@@ -27,10 +27,10 @@ export interface BackupImportResult extends StorageResult {
   workspace: WorkspaceSnapshot;
 }
 
-export async function createBackupArchive(state: AppState, repository: WorkspaceRepository): Promise<Blob> {
-  const snapshot = repository.available
-    ? await repository.exportSnapshot()
-    : { workLogs: [], attachments: [], attachmentBlobs: new Map<string, Blob>() };
+export async function createBackupArchive(state: AppState, backend: WorkspaceBackend): Promise<Blob> {
+  const snapshot = backend.available
+    ? await backend.exportSnapshot()
+    : { state, workLogs: [], attachments: [], attachmentBlobs: new Map<string, Blob>() };
   const zip = new JSZip();
   const taskIds = new Set(state.tasks.map((task) => task.id));
   const workLogs: WorkLogIndexEntry[] = [];
@@ -66,7 +66,7 @@ export async function createBackupArchive(state: AppState, repository: Workspace
 export async function parseBackupPackage(file: File): Promise<BackupImportResult> {
   if (file.name.toLowerCase().endsWith(".json") || file.type.includes("json")) {
     const legacy = parseBackupFile(await file.text());
-    return { ...legacy, workspace: emptyWorkspace() };
+    return { ...legacy, workspace: emptyWorkspace(legacy.state) };
   }
 
   try {
@@ -97,7 +97,7 @@ export async function parseBackupPackage(file: File): Promise<BackupImportResult
 
     return {
       state: hydrateState(parsed.appState),
-      workspace: { workLogs, attachments, attachmentBlobs },
+      workspace: { state: hydrateState(parsed.appState), workLogs, attachments, attachmentBlobs },
       recovered: true,
       message: "完整备份已导入。",
     };
@@ -115,11 +115,12 @@ function isBackupManifest(value: unknown): value is BackupManifest {
 }
 
 function invalidResult(message: string): BackupImportResult {
-  return { state: hydrateState(null), workspace: emptyWorkspace(), recovered: false, message };
+  const state = hydrateState(null);
+  return { state, workspace: emptyWorkspace(state), recovered: false, message };
 }
 
-function emptyWorkspace(): WorkspaceSnapshot {
-  return { workLogs: [], attachments: [], attachmentBlobs: new Map() };
+function emptyWorkspace(state: AppState): WorkspaceSnapshot {
+  return { state, workLogs: [], attachments: [], attachmentBlobs: new Map() };
 }
 
 function safePath(value: string): string {

@@ -7,6 +7,7 @@ export interface Dialogs {
   moveFolder(folder: Folder, folders: Folder[]): Promise<{ parentId: string | null; targetIndex: number } | null>;
   chooseFolderDeletion(folder: Folder, childFolderCount: number, taskCount: number): Promise<FolderDeleteStrategy | null>;
   confirm(title: string, message: string): Promise<boolean>;
+  resolveConflict(message: string): Promise<"reload" | "copy" | "cancel">;
   toast(message: string): void;
 }
 
@@ -151,6 +152,33 @@ export function createDialogs(els: Elements): Dialogs {
         els.confirmClose.addEventListener("click", onCancel);
         els.confirmDialog.addEventListener("close", onCancel, { once: true });
         els.confirmDialog.showModal();
+      });
+    },
+
+    resolveConflict(message) {
+      els.conflictText.textContent = `${message} 请选择如何处理当前未保存内容。`;
+      return new Promise((resolve) => {
+        const finish = (value: "reload" | "copy" | "cancel") => {
+          cleanup();
+          closeDialog(els.conflictDialog);
+          resolve(value);
+        };
+        const onReload = () => finish("reload");
+        const onCopy = () => finish("copy");
+        const onCancel = () => finish("cancel");
+        const cleanup = () => {
+          els.conflictReload.removeEventListener("click", onReload);
+          els.conflictCopy.removeEventListener("click", onCopy);
+          els.conflictCancel.removeEventListener("click", onCancel);
+          els.conflictClose.removeEventListener("click", onCancel);
+          els.conflictDialog.removeEventListener("close", onCancel);
+        };
+        els.conflictReload.addEventListener("click", onReload);
+        els.conflictCopy.addEventListener("click", onCopy);
+        els.conflictCancel.addEventListener("click", onCancel);
+        els.conflictClose.addEventListener("click", onCancel);
+        els.conflictDialog.addEventListener("close", onCancel, { once: true });
+        els.conflictDialog.showModal();
       });
     },
 

@@ -12,7 +12,7 @@ import {
 import { createBackupArchive, parseBackupPackage } from "../backup.js";
 import type { AppStore } from "../store.js";
 import type { DefaultTaskDueDate, FolderScope, Priority, Task, TaskDraft, TaskFilter, ThemeMode, ViewMode, WorkspaceTab } from "../types.js";
-import type { WorkspaceRepository } from "../workspace-db.js";
+import type { WorkspaceBackend } from "../workspace-backend.js";
 import type { Dialogs } from "./dialogs.js";
 import { consumeSuppressedTaskClick } from "./drag-drop.js";
 import { fillFolderSelect, type InlineCreateState, type ViewState } from "./renderer.js";
@@ -21,6 +21,7 @@ import type { WorkspaceController } from "./workspace.js";
 
 export interface EventBindings {
   getViewState(): ViewState;
+  flushWorkspace(): Promise<boolean>;
   reconcileSelection(): void;
   reconcileResolutionTimers(): void;
 }
@@ -30,8 +31,8 @@ export function bindEvents(
   store: AppStore,
   dialogs: Dialogs,
   workspace: WorkspaceController,
-  repository: WorkspaceRepository,
-  persistState: () => boolean,
+  backend: WorkspaceBackend,
+  persistState: () => Promise<boolean>,
   requestRender: () => void,
 ): EventBindings {
   let selectedTaskId: string | null = null;
@@ -68,7 +69,7 @@ export function bindEvents(
     els.overviewSaveStatus.className = "save-status saving";
     els.overviewSaveStatus.textContent = "保存中…";
     store.dispatch({ type: "update-task", id: task.id, draft, rescheduleReason: els.detailRescheduleReason.value });
-    if (!persistState()) {
+    if (!(await persistState())) {
       els.overviewSaveStatus.className = "save-status error";
       els.overviewSaveStatus.textContent = "保存失败";
       return false;
@@ -114,9 +115,14 @@ export function bindEvents(
 
   async function deleteTask(task: Task): Promise<void> {
     if (!(await dialogs.confirm("删除任务", `确认删除“${task.title}”吗？任务的工作记录和附件会保留以支持撤销。`))) return;
-    if (selectedTaskId === task.id) { selectedTaskId = null; detailPanelOpen = false; }
-    store.dispatch({ type: "delete-task", id: task.id });
-    await workspace.activateTask(null, workspaceTab);
+    try {
+      await backend.deleteTask(task.id);
+      if (selectedTaskId === task.id) { selectedTaskId = null; detailPanelOpen = false; }
+      store.dispatch({ type: "delete-task", id: task.id });
+      await workspace.activateTask(null, workspaceTab);
+    } catch (error) {
+      dialogs.toast(error instanceof Error ? error.message : "任务删除失败，原任务已保留。");
+    }
   }
 
   async function manageFolder(action: string, folderId: string): Promise<void> {
@@ -349,7 +355,13 @@ export function bindEvents(
   els.workspaceTabs.addEventListener("click", async (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-workspace-tab]");
     if (!button) return;
-    workspaceTab = (button.dataset.workspaceTab ?? "overview") as WorkspaceTab;
+    const nextTab = (button.dataset.workspaceTab ?? "overview") as WorkspaceTab;
+    if (nextTab === workspaceTab) return;
+    if (!(await workspace.beforeTaskChange())) {
+      dialogs.toast("当前工作区仍有内容未保存，标签切换已取消。");
+      return;
+    }
+    workspaceTab = nextTab;
     requestRender();
     await workspace.setTab(workspaceTab);
   });
@@ -428,8 +440,16 @@ export function bindEvents(
   els.navToggle.addEventListener("click", () => els.sidebar.classList.add("is-open"));
   els.sidebarClose.addEventListener("click", () => els.sidebar.classList.remove("is-open"));
   window.addEventListener("resize", requestRender);
-  els.undoAction.addEventListener("click", () => store.undo());
-  els.redoAction.addEventListener("click", () => store.redo());
+  els.undoAction.addEventListener("click", async () => {
+    if (!(await flushWorkspace())) return;
+    store.undo();
+    if (await persistState()) dialogs.toast("撤销已保存。");
+  });
+  els.redoAction.addEventListener("click", async () => {
+    if (!(await flushWorkspace())) return;
+    store.redo();
+    if (await persistState()) dialogs.toast("重做已保存。");
+  });
   els.detailResizer.addEventListener("pointerdown", (event) => {
     if (window.innerWidth < 1340) return;
     event.preventDefault();
@@ -459,8 +479,8 @@ export function bindEvents(
   });
   els.exportData.addEventListener("click", async () => {
     if (!(await flushWorkspace())) { dialogs.toast("仍有内容未保存，备份已取消。"); return; }
-    if (!repository.available) { dialogs.toast("工作记录存储不可用，无法生成完整备份。"); return; }
-    const archive = await createBackupArchive(store.getState(), repository);
+    if (!backend.available) { dialogs.toast("工作记录存储不可用，无法生成完整备份。"); return; }
+    const archive = await createBackupArchive(store.getState(), backend);
     const url = URL.createObjectURL(archive);
     const link = document.createElement("a");
     link.href = url; link.download = `task-workbench-${toISODate()}.zip`; link.click(); URL.revokeObjectURL(url);
@@ -471,25 +491,17 @@ export function bindEvents(
     const result = await parseBackupPackage(file);
     if (!result.recovered) { dialogs.toast(result.message); return; }
     if (!(await dialogs.confirm("导入备份", "导入会替换当前任务、工作记录和附件，继续吗？"))) return;
-    const previousState = store.getState();
-    let previousWorkspace;
-    try { previousWorkspace = await repository.exportSnapshot(); await repository.replaceAll(result.workspace); }
+    try { await backend.importSnapshot(result.workspace); }
     catch { dialogs.toast("工作记录或附件恢复失败，原有数据未替换。"); return; }
     selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null;
     store.dispatch({ type: "replace-state", state: result.state });
-    if (!persistState()) {
-      await repository.replaceAll(previousWorkspace);
-      store.dispatch({ type: "replace-state", state: previousState });
-      persistState();
-      dialogs.toast("本地任务存储不可用，原有数据已恢复。");
-      return;
-    }
+    if (!(await persistState())) { dialogs.toast("本地任务存储不可用，请重新导入备份。"); return; }
     await workspace.activateTask(null, workspaceTab);
     dialogs.toast(result.message);
   });
   els.resetDemo.addEventListener("click", async () => {
     if (!(await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前浏览器中的全部数据，继续吗？"))) return;
-    try { await repository.clear(); }
+    try { await backend.clear(); }
     catch { dialogs.toast("工作记录存储无法清理，重置已取消。"); return; }
     selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null; els.searchInput.value = "";
     store.dispatch({ type: "reset" }); await workspace.activateTask(null, workspaceTab); dialogs.toast("已重置为示例数据。");
@@ -499,6 +511,7 @@ export function bindEvents(
 
   return {
     getViewState: () => ({ query: els.searchInput.value, selectedTaskId, detailPanelOpen, detailDirty, workspaceTab, inlineCreate, flashTaskId }),
+    flushWorkspace,
     reconcileSelection() {
       if (!selectedTaskId) return;
       const visibleIds = new Set(selectVisibleTasks(store.getState(), els.searchInput.value).map((task) => task.id));

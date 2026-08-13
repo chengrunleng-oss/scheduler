@@ -26,6 +26,16 @@
       </div>
     </details>
 
+    <section class="sidebar-section workspace-storage-section">
+      <div class="section-heading"><h2>工作区</h2><span id="workspaceStorageIndicator" class="workspace-storage-indicator" aria-hidden="true"></span></div>
+      <p id="workspaceStorageStatus" class="workspace-storage-status">浏览器存储</p>
+      <div class="workspace-storage-actions">
+        <button id="chooseWorkspaceDirectory" class="button secondary wide" type="button" title="选择本地目录" aria-label="选择本地目录"><i data-lucide="folder-open"></i><span>选择本地目录</span></button>
+        <button id="reauthorizeWorkspaceDirectory" class="button ghost wide" type="button" title="重新授权原目录" aria-label="重新授权原目录" hidden><i data-lucide="folder-pen"></i><span>重新授权原目录</span></button>
+        <button id="useBrowserStorage" class="button ghost wide" type="button" title="切回浏览器存储" aria-label="切回浏览器存储" hidden><i data-lucide="database"></i><span>切回浏览器存储</span></button>
+      </div>
+    </section>
+
     <section class="sidebar-section overview-section">
       <div class="section-heading"><h2>任务概览</h2><button class="icon-button subtle" id="resetDemo" type="button" title="重置为示例数据" aria-label="重置为示例数据"><i data-lucide="rotate-ccw"></i></button></div>
       <div class="metric-grid">
@@ -49,5 +59,67 @@
 .brand-copy h1,
 .section-heading h2 {
   letter-spacing: 0;
+}
+
+.workspace-storage-status {
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-storage-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.workspace-storage-actions .button {
+  justify-content: flex-start;
+}
+
+.workspace-storage-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.workspace-storage-indicator.local { background: var(--completed); }
+.workspace-storage-indicator.attention { background: var(--pending); }
+
+@media (min-width: 881px) and (max-width: 1180px) {
+  .workspace-storage-section {
+    display: grid;
+    justify-items: center;
+    padding-inline: 16px;
+  }
+
+  .workspace-storage-section .section-heading {
+    min-height: 8px;
+    justify-content: center;
+  }
+
+  .workspace-storage-section .section-heading h2,
+  .workspace-storage-status,
+  .workspace-storage-actions .button span {
+    display: none;
+  }
+
+  .workspace-storage-actions {
+    justify-items: center;
+    margin-top: 7px;
+  }
+
+  .workspace-storage-actions .button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    justify-content: center;
+    padding: 0;
+  }
 }
 </style>

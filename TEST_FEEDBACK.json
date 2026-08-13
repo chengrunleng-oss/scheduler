@@ -1,257 +1,172 @@
 {
   "document_type": "scheduler_test_feedback",
-  "format_version": 7,
-  "test_date": "2026-08-12",
-  "target_branch": "develop",
-  "source_revision": "5c3ee7b",
-  "target_release": "v0.6-working-tree",
-  "working_tree_note": "本轮测试对象是 develop 分支上尚未提交的视觉重构工作区，source_revision 仅表示当前 HEAD 基线，不代表这些工作区改动已经提交。",
-  "document_policy": "本文件整体替换上一版测试反馈，仅保留本轮重新验证后仍有意义的结果和观察；上一轮已经整改的问题不再作为待办保留。",
+  "format_version": 12,
+  "test_date": "2026-08-13",
+  "target_branch": "codex/local-workspace-storage",
+  "source_revision": "2d8ff3d",
+  "target_release": "v0.7-working-tree",
+  "working_tree_note": "本轮测试对象是 codex/local-workspace-storage 分支上的未提交存储层重构工作区。该分支与 develop 均以 2d8ff3d 为共同基线；本轮没有提交，也没有合并回 develop。",
+  "document_policy": "本文件整体替换上一版测试反馈，只保留本轮重新测试后的有效结论。真实目录临时文件名错误已修复并通过回归关闭；每个待办事项独立子文件夹作为明确验收项保留。",
   "overall_result": {
-    "status": "passed",
-    "release_gate": "passed",
-    "latest_feedback": "7_passed_0_failed",
+    "status": "passed_with_manual_verification_pending",
+    "automation_status": "passed",
+    "release_gate": "pending_real_directory_acceptance",
+    "target_scope": "v0.6 视觉回归与 v0.7 本地工作区存储重构",
     "blocking_findings": 0,
-    "non_blocking_observations": 1,
-    "summary": "v0.6 视觉重构通过本轮验收。最终完整验证中 45 项逻辑测试和 34 项 Chromium 端到端测试全部通过；四个视觉基线视口均无横向溢出。上一轮关于优先级选中色、优先级标签、拖拽预排列、工作区紧凑布局、文件夹标题横线、工作区调宽和任务行点击死区的 7 项反馈均已整改并复测通过。"
+    "verification_gaps": 1,
+    "summary": "P0 真实目录初始化错误已修复：临时文件名已改为 Windows 安全格式，新增回归确认迁移后无临时文件。48 项逻辑测试、51 项 Chromium 端到端测试和 4 个视口视觉基线全部通过。每个待办事项的独立 tasks/<稳定taskId>/ 子文件夹及其 task.json、description.md、worklogs、attachments 结构通过契约测试。当前没有已确认的功能阻塞；仍需用户在真实 Chrome/Edge Windows 测试目录上复核一次完整选择和迁移流程。"
   },
   "test_execution": {
-    "final_command": "npm run verify",
-    "final_result": "passed",
-    "final_duration_seconds": 44.1,
-    "checks": {
-      "typescript": {
-        "status": "passed"
-      },
-      "production_build": {
-        "status": "passed",
-        "vite_version": "8.2.1",
-        "transformed_modules": 2818,
-        "largest_javascript_chunk_kb": 322.38,
-        "chunk_warning": false
-      },
-      "node_tests": {
-        "status": "passed",
-        "passed": 45,
-        "failed": 0
-      },
-      "dist_reproducibility": {
-        "status": "passed"
-      },
-      "playwright_e2e": {
-        "status": "passed",
-        "browser": "Chromium",
-        "passed": 34,
-        "failed": 0,
-        "duration_seconds": 36.8
+    "complete_verification": {
+      "command": "npm run verify",
+      "result": "passed",
+      "duration_seconds": 56.7,
+      "checks": {
+        "typescript": {
+          "status": "passed"
+        },
+        "production_build": {
+          "status": "passed",
+          "vite_version": "8.2.1",
+          "transformed_modules": 2821,
+          "largest_javascript_chunk_kb": 335.03,
+          "chunk_warning": false
+        },
+        "node_tests": {
+          "status": "passed",
+          "passed": 48,
+          "failed": 0
+        },
+        "dist_reproducibility": {
+          "status": "passed"
+        },
+        "playwright_e2e": {
+          "status": "passed",
+          "browser": "Chromium",
+          "passed": 51,
+          "failed": 0,
+          "duration_seconds": 49.6
+        }
       }
     },
-    "stability_reruns": {
-      "initial_full_run": "浏览器用例首次运行到第 10 项时，beforeEach 中的 IndexedDB 清理操作出现一次 30 秒超时；超时发生在测试准备阶段，尚未进入被测功能断言。",
-      "isolated_repeat": "同一用例连续复跑 3 次，3/3 通过。",
-      "full_e2e_rerun": "完整 34 项端到端套件复跑，34/34 通过。",
-      "final_verify_rerun": "再次执行完整 npm run verify，45/45 逻辑测试和 34/34 端到端测试全部通过。",
-      "classification": "非阻断的测试环境稳定性观察，不判定为产品功能缺陷。"
+    "p0_regression": {
+      "test": "migration uses Windows-safe temporary names and leaves no temporary files",
+      "result": "passed",
+      "evidence": [
+        "writeVerifiedBlob 使用 tmp-${uuid}-${safeName}，不再使用 .${name}.tmp-${uuid}",
+        "注入真实目录命名限制时迁移成功",
+        "迁移后目录枚举中没有 tmp- 或 .tmp- 残留文件"
+      ]
+    },
+    "local_directory_structure": {
+      "result": "passed",
+      "layout": {
+        "workspace_root": [
+          "workspace.json",
+          "tasks/",
+          "trash/"
+        ],
+        "per_task": [
+          "tasks/<encodeURIComponent(taskId)>/task.json",
+          "tasks/<encodeURIComponent(taskId)>/description.md",
+          "tasks/<encodeURIComponent(taskId)>/worklogs/YYYY-MM-DD.md",
+          "tasks/<encodeURIComponent(taskId)>/attachments/<attachment-id>--<safe-name>"
+        ]
+      },
+      "test_evidence": "LocalDirectoryBackend 契约测试和目录选择迁移测试均验证每个任务有独立稳定 taskId 子目录；任务标题重命名不会改变物理目录。"
+    },
+    "visual_baseline": {
+      "command": "npm run visual:baseline",
+      "result": "passed",
+      "viewports": [
+        "1440x900 dark",
+        "1024x768 light",
+        "768x1024 light",
+        "390x844 light/mobile workspace"
+      ],
+      "geometry_result": "所有视口 document/body/task-row 横向溢出均为 0；1024px 侧栏工作区文字已隐藏并使用 40x40 图标按钮。",
+      "manual_visual_review": "最新四张截图未发现文字竖排、组件重叠或任务区与工作区覆盖。"
     }
   },
-  "visual_baseline": {
-    "command": "npm run visual:baseline",
-    "result": "passed",
-    "screenshots": [
-      "output/playwright/workspace-overview.png",
-      "output/playwright/workspace-standard.png",
-      "output/playwright/workspace-tablet.png",
-      "output/playwright/workspace-mobile.png"
-    ],
-    "viewports": [
-      {
-        "name": "workspace-overview",
-        "viewport": "1440x900",
-        "theme": "dark",
-        "workspace_open": true,
-        "document_overflow_px": 0,
-        "body_overflow_px": 0,
-        "task_row_overflow_px": 0,
-        "max_visible_task_height_px": 87,
-        "acceptance_limit_px": 112,
-        "status": "passed"
-      },
-      {
-        "name": "workspace-standard",
-        "viewport": "1024x768",
-        "theme": "light",
-        "workspace_open": false,
-        "document_overflow_px": 0,
-        "body_overflow_px": 0,
-        "task_row_overflow_px": 0,
-        "max_visible_task_height_px": 68,
-        "status": "passed"
-      },
-      {
-        "name": "workspace-tablet",
-        "viewport": "768x1024",
-        "theme": "light",
-        "workspace_open": false,
-        "document_overflow_px": 0,
-        "body_overflow_px": 0,
-        "task_row_overflow_px": 0,
-        "max_visible_task_height_px": 68,
-        "status": "passed"
-      },
-      {
-        "name": "workspace-mobile",
-        "viewport": "390x844",
-        "theme": "light",
-        "workspace_open": true,
-        "document_overflow_px": 0,
-        "body_overflow_px": 0,
-        "task_row_overflow_px": 0,
-        "layout": "任务工作区使用全屏编辑模式，主任务列表隐藏，底部操作固定可见。",
-        "status": "passed"
-      }
-    ],
-    "manual_review": {
-      "status": "passed",
-      "observations": [
-        "深色主题使用分离的炭灰层级，任务区、文件夹层和工作区边界清楚，文字没有竖排、挤压或遮挡。",
-        "浅色主题下高优先级为暖色整行填充，低优先级为冷色整行填充；卡片保持紧密排列。",
-        "1024px 桌面宽度自动使用 72px 导航栏，主要任务区域仍保持可读宽度。",
-        "768px 平板宽度下工具栏、列表头、文件夹层级和任务操作均保持对齐。",
-        "390px 手机宽度下工作区切换为全屏编辑，字段和底部操作不与任务列表重叠。",
-        "文件夹标题下方不再出现贯穿内容区域的横线。"
-      ]
-    }
-  },
-  "latest_feedback_acceptance": [
+  "latest_requirements_acceptance": [
     {
-      "id": "V06-ACCEPT-001",
-      "topic": "选中颜色保持优先级归属",
+      "id": "V07-ACCEPT-001",
+      "requirement": "每个待办事项都建立一个独立本地子文件夹",
       "status": "passed",
-      "evidence": [
-        "浅色主题高优先级选中背景为 #ffe0b3，低优先级选中背景为 #cce7ed。",
-        "深色主题高优先级选中背景为 #503e2b，低优先级选中背景为 #304a54。",
-        "端到端测试分别在浅色和深色主题中验证两种选中背景不相同，并验证 aria-selected 状态。"
-      ]
+      "evidence": "LocalDirectoryBackend 使用 tasks/<encodeURIComponent(taskId)>；taskId 不随标题重命名变化。每个任务目录包含 task.json、description.md、worklogs/ 和 attachments/，trash/<taskId>/ 用于待恢复任务。统一契约、目录布局和迁移测试通过。"
     },
     {
-      "id": "V06-ACCEPT-002",
-      "topic": "优化高低优先级分界标签",
-      "status": "passed",
-      "evidence": [
-        "分界标记改为 28x32px 的暖色/冷色双段图形，不再显示细小的“高/低”文字。",
-        "实际可操作区域不小于 40x40px，支持鼠标拖动、键盘方向键、title 和 aria-label。",
-        "标签位于左侧，不横跨列表，也不会把同一文件夹内任务视觉上分成两个文件夹。"
-      ]
+      "id": "V07-ACCEPT-002",
+      "requirement": "任务资料在关闭浏览器后可从本地目录恢复",
+      "status": "passed_in_automation",
+      "evidence": "任务元数据、长期描述、按日期工作记录和附件 Blob 的保存、导出、导入和刷新恢复测试通过。"
     },
     {
-      "id": "V06-ACCEPT-003",
-      "topic": "拖拽实时预排列与连续动画",
-      "status": "passed",
-      "evidence": [
-        "拖拽过程中会创建等高 .task-drop-placeholder，源任务折叠，相邻任务在松手前实时让位。",
-        "测试确认目标任务存在活动位移动画，临时预览不会提前写入 localStorage。",
-        "松手后只产生一次可撤销的数据变更；无效落点完整恢复；reduced-motion 下关闭位移动画。"
-      ]
+      "id": "V07-ACCEPT-003",
+      "requirement": "外部修改、迁移失败、权限和写入失败不得静默丢失数据",
+      "status": "passed_in_automation",
+      "evidence": "SHA-256 内容哈希、冲突三选一、迁移标记与回滚、QuotaExceeded、createWritable/write/close 故障注入全部通过。"
     },
     {
-      "id": "V06-ACCEPT-004",
-      "topic": "工作区打开后的任务行重排",
-      "status": "passed",
-      "evidence": [
-        "1440x900 深色工作区截图中任务卡片使用紧凑两行布局，实测最大高度 87px。",
-        "工作区宽度 560px、620px、680px 三档下，任务行均不超过 112px，标题、操作、元数据、优先级和日期互不重叠。",
-        "操作容器按内容收缩，右侧无效空白不超过 80px。"
-      ]
+      "id": "V07-ACCEPT-004",
+      "requirement": "真实目录临时文件名必须兼容 Windows File System Access API",
+      "status": "passed_in_automation",
+      "evidence": "临时名称不再以点号开头；回归测试模拟平台拒绝旧名称并确认迁移成功、清理无残留。"
     },
     {
-      "id": "V06-ACCEPT-005",
-      "topic": "移除文件夹标题下方横线",
+      "id": "V07-ACCEPT-005",
+      "requirement": "固定 Vite 来源且视觉回归不退化",
       "status": "passed",
-      "evidence": [
-        "所有 .tree-group-heading 的 computed border-bottom-style 均为 none。",
-        "标题与内容改由内边距、背景和父子层级留白组织，文件夹范围仍清楚可辨。"
-      ]
+      "evidence": "127.0.0.1:5173 strictPort、51 项 Chromium 回归和 4 个视觉基线通过。"
     },
     {
-      "id": "V06-ACCEPT-006",
-      "topic": "工作区宽度可调且控件可发现",
-      "status": "passed",
-      "evidence": [
-        "桌面工作区宽度支持 560px 至 680px 调节并持久化。",
-        "分隔条具有常驻的 2px 轨道、col-resize 光标、悬停与键盘焦点反馈。",
-        "移动端自动切换为全屏工作区，不显示不适用的调宽控件。"
-      ]
-    },
-    {
-      "id": "V06-ACCEPT-007",
-      "topic": "任务操作区域点击死区",
-      "status": "passed",
-      "evidence": [
-        "任务元数据、优先级、日期、卡片留白和操作区非控件位置均可选中任务。",
-        "真实按钮仍执行各自动作，拖拽结束后的点击抑制继续生效。",
-        "工作区打开和关闭布局均通过点击命中端到端测试。"
-      ]
-    }
-  ],
-  "additional_visual_acceptance": [
-    {
-      "topic": "四层便利签式文件夹",
-      "status": "passed",
-      "evidence": "四层文件夹使用四种不同背景，子层左右内缩且宽度逐层减小；390px 宽度和深色主题 150% 缩放下仍无横向溢出。"
-    },
-    {
-      "topic": "深色主题可读性",
-      "status": "passed",
-      "evidence": "背景、普通表面和抬升表面为三个不同炭灰层级；正文对比度不低于 7:1，次要文字对比度不低于 4.5:1。"
-    },
-    {
-      "topic": "系统主题与减少动态效果",
-      "status": "passed",
-      "evidence": "系统深色偏好正确应用；prefers-reduced-motion: reduce 下任务过渡和动画时长均为 0 秒。"
-    },
-    {
-      "topic": "常见视口与长标题",
-      "status": "passed",
-      "evidence": "1440x900、1366x768、1180x800、1024x768、768x1024 和 390x844 布局均无任务区与工作区重叠；1366px 下超长中文任务标题保持可读列宽且不超过三行。"
-    },
-    {
-      "topic": "Vite 样式更新链路",
-      "status": "passed",
-      "evidence": "样式已拆分到 src/styles 并由 src/main.ts 进入 Vite 构建，生产 CSS 使用内容哈希文件名，不再依赖手工修改 CSS 版本号。"
+      "id": "V07-ACCEPT-006",
+      "requirement": "真实 Chromium 操作系统目录权限、迁移和故障恢复验收",
+      "status": "not_executed",
+      "evidence": "LOCAL_WORKSPACE_ACCEPTANCE.md 已建立清单，但本轮自动化仍使用 OPFS 和可注入代理句柄，不等同于用户机器上真实 Windows 目录的最终手工记录。"
     }
   ],
   "findings": [],
-  "non_blocking_observations": [
+  "closed_since_previous_feedback": [
     {
-      "id": "TEST-V06-OBS-001",
-      "priority": "P3",
-      "category": "test_stability",
-      "title": "端到端测试准备阶段曾出现一次 IndexedDB 清理超时",
-      "status": "monitor",
-      "evidence": "首次完整验证在第 10 项 beforeEach 的 IndexedDB 清理事务中超时；目标功能尚未执行。该用例随后单项 3/3 通过，完整端到端套件两次均为 34/34 通过。",
-      "impact": "当前不影响产品验收，但若在持续集成环境中重复出现，会形成偶发红灯。",
-      "recommendation": "后续可为测试数据库清理增加 blocked/error 的明确诊断和独立超时，并确保页面切换前关闭数据库连接；仅在再次复现时列为必须修复项。"
+      "previous_id": "TEST-V07-008",
+      "status": "closed",
+      "title": "真实 Windows 目录临时文件名导致 removeEntry Name is not allowed",
+      "evidence": "临时文件名改为 tmp-${crypto.randomUUID()}-${safeName(name)}；新增 e2e 用例覆盖平台名称限制和无临时文件残留；npm run verify 通过。"
     }
   ],
-  "residual_risk": [
-    "本轮真实浏览器自动化覆盖 Chromium，未覆盖 Firefox 和 Safari/WebKit 的像素级差异。",
-    "触控目标尺寸和移动布局已自动验证，但未在真实手机触摸屏上进行手势验收。",
-    "拖拽动画已验证占位、相邻任务位移和 reduced-motion 行为，主观顺滑度仍建议在日常使用中持续观察。"
+  "passed_capabilities": [
+    "v0.6 任务列表、工作区、拖拽预排列、优先级色系、四层文件夹、深浅主题、系统主题和移动端布局回归通过。",
+    "IndexedDbBackend 与 LocalDirectoryBackend 通过统一任务、描述、工作记录、附件和完整快照契约。",
+    "每个任务使用稳定 taskId 独立目录，任务目录包含 task.json、description.md、worklogs 和 attachments。",
+    "删除任务后的界面撤销会恢复描述、工作记录和附件，并在刷新后保持。",
+    "描述、工作记录和附件使用 SHA-256 进行外部修改检测；冲突支持重新加载、冲突副本和取消保存。",
+    "临时文件和正式文件写入均校验哈希；createWritable、write、close 和配额失败保留最后一次耐久内容。",
+    "首次迁移失败不留下可打开的半成品；替换迁移失败恢复原工作区。",
+    "文本附件可编辑，图片和 PDF 可预览，HTML/SVG 不执行主动内容。",
+    "失效目录句柄可改选新目录，缺失工作区索引会被保护并阻止写入。",
+    "1024px 工作区入口已恢复为紧凑图标模式，四张视觉基线均无溢出或重叠。",
+    "Vite 开发来源固定为 127.0.0.1:5173，端口被占用时明确失败。"
   ],
   "release_gate": {
-    "status": "passed",
-    "criteria": [
-      "45 项 Node 测试全部通过。",
-      "34 项 Playwright Chromium 端到端测试全部通过。",
-      "生产构建和 dist 可复现性检查通过。",
-      "四张关键视口视觉基线生成成功且无横向溢出。",
-      "上一轮 7 项视觉与交互反馈全部通过复测。",
-      "无 P0、P1 或 P2 未解决问题。"
+    "status": "pending_manual_real_directory_acceptance",
+    "decision": "自动化验收通过，当前没有开放功能缺陷；完成真实 Windows 目录手工清单后即可关闭 v0.7 发布门。",
+    "remaining_actions": [
+      "在真实 Chrome 或 Edge 与 Windows 测试目录上执行 LOCAL_WORKSPACE_ACCEPTANCE.md。",
+      "确认首次选择目录后能看到 workspace.json、tasks、trash，以及每个任务的独立子文件夹。",
+      "完成手工清单后再次运行 npm run verify 和 npm run visual:baseline。"
     ]
   },
+  "residual_risk": [
+    "自动化中的目录能力主要由 Chromium OPFS 与代理句柄提供，不能完全代表 Windows NTFS 权限、杀毒软件占用、同步软件竞争和磁盘空间不足。",
+    "Web Locks 与 BroadcastChannel 已实现，但没有独立的双标签页竞争测试；当前主要由 revision 和内容哈希阻止静默覆盖。",
+    "package.json 仍标记 0.6.0；真正发布 v0.7 前需按独立产品线策略更新版本和发布元数据。"
+  ],
   "git_policy": {
     "commit_created": false,
     "merge_performed": false,
-    "reason": "遵循用户要求：不要提交；验收后不要合并回 develop。当前测试直接在 develop 的未提交工作区执行，也没有创建或合并存储层分支。"
+    "current_branch": "codex/local-workspace-storage",
+    "develop_merged_after_acceptance": false,
+    "reason": "遵循用户要求：不要提交；验收后也不要合并回 develop。"
   }
 }

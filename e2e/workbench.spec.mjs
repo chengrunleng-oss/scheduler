@@ -1,25 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { createServer } from "vite";
-import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
 
 const primaryTask = "确定今天最重要的一件事";
-const workspace = fileURLToPath(new URL("..", import.meta.url));
-let server;
-
-test.beforeAll(async () => {
-  server = await createServer({
-    root: workspace,
-    logLevel: "silent",
-    server: { host: "127.0.0.1", port: 4173, strictPort: true },
-  });
-  await server.listen();
-});
-
-test.afterAll(async () => {
-  await server.close();
-});
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -664,6 +647,43 @@ test("attachments persist blobs, preview text, and insert image references into 
   await expect(page.locator(".attachment-row")).toHaveCount(2);
 });
 
+test("text attachments can be edited and saved through the active backend", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await page.locator("#attachmentFile").setInputFiles({ name: "notes.md", mimeType: "text/markdown", buffer: Buffer.from("before") });
+  const row = page.locator(".attachment-row").filter({ hasText: "notes.md" });
+  await expect(row.getByRole("button", { name: "使用浏览器打开" })).toHaveCount(0);
+  await row.getByRole("button", { name: "编辑文本附件" }).click();
+  await page.locator(".attachment-text-editor").fill("after\nupdated");
+  await page.locator("#attachmentPreview").getByRole("button", { name: "保存" }).click();
+  await expect(page.locator("#toast")).toContainText("文本附件已保存");
+  await row.getByRole("button", { name: "预览附件" }).click();
+  await expect(page.locator("#attachmentPreview")).toContainText("after");
+  await expect(page.locator("#attachmentPreview")).toContainText("updated");
+});
+
+test("HTML and SVG stay inert while PDF uses the dedicated preview", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await page.locator("#attachmentFile").setInputFiles([
+    { name: "unsafe.html", mimeType: "text/html", buffer: Buffer.from("<script>window.__unsafeExecuted = true</script><h1>HTML text</h1>") },
+    { name: "unsafe.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg' onload='window.__unsafeExecuted = true'><text>SVG text</text></svg>") },
+    { name: "guide.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF") },
+  ]);
+  await expect(page.locator(".attachment-row")).toHaveCount(3);
+  for (const name of ["unsafe.html", "unsafe.svg"]) {
+    const row = page.locator(".attachment-row").filter({ hasText: name });
+    await expect(row.getByRole("button", { name: "使用浏览器打开" })).toHaveCount(0);
+    await row.getByRole("button", { name: "预览附件" }).click();
+    await expect(page.locator("#attachmentPreview .text-preview")).toContainText(name.endsWith("html") ? "<script>" : "<svg");
+  }
+  expect(await page.evaluate(() => Boolean(window.__unsafeExecuted))).toBe(false);
+  const pdfRow = page.locator(".attachment-row").filter({ hasText: "guide.pdf" });
+  await pdfRow.getByRole("button", { name: "预览附件" }).click();
+  await expect(page.locator("#attachmentPreview iframe")).toHaveAttribute("title", "guide.pdf");
+  await expect(pdfRow.getByRole("button", { name: "编辑文本附件" })).toHaveCount(0);
+});
+
 test("workspace width persists on wide desktop and becomes full-screen on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 900 });
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
@@ -767,18 +787,25 @@ test("standard desktop uses a compact navigation rail without losing accessible 
     const sidebar = document.querySelector("#sidebar");
     const copy = sidebar.querySelector(".brand-copy");
     const newTask = sidebar.querySelector("#globalNewTask");
+    const storageButtons = Array.from(sidebar.querySelectorAll(".workspace-storage-actions .button:not([hidden])"));
+    const storageText = Array.from(sidebar.querySelectorAll(".workspace-storage-status, .workspace-storage-actions .button span"));
     return {
       sidebarWidth: sidebar.getBoundingClientRect().width,
       copyDisplay: getComputedStyle(copy).display,
       newTaskWidth: newTask.getBoundingClientRect().width,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      storageButtonSizes: storageButtons.map((button) => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })),
+      storageTextHidden: storageText.every((node) => getComputedStyle(node).display === "none"),
     };
   });
   expect(geometry.sidebarWidth).toBe(72);
   expect(geometry.copyDisplay).toBe("none");
   expect(geometry.newTaskWidth).toBeGreaterThanOrEqual(40);
   expect(geometry.overflow).toBeLessThanOrEqual(1);
+  expect(geometry.storageTextHidden).toBe(true);
+  expect(geometry.storageButtonSizes).toEqual([{ width: 40, height: 40 }]);
   await expect(page.locator("#globalNewTask")).toHaveAccessibleName("新建任务");
+  await expect(page.locator("#chooseWorkspaceDirectory")).toHaveAccessibleName("选择本地目录");
 });
 
 test("system theme and reduced motion keep the visual hierarchy without animated movement", async ({ browser }) => {

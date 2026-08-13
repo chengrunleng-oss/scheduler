@@ -6,8 +6,14 @@ export default defineConfig({
   workers: 1,
   reporter: [["line"]],
   outputDir: "test-results",
+  webServer: {
+    command: "node ./node_modules/vite/bin/vite.js",
+    url: "http://127.0.0.1:5173",
+    reuseExistingServer: true,
+    timeout: 30_000,
+  },
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: "http://127.0.0.1:5173",
     viewport: { width: 1440, height: 900 },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",

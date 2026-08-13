@@ -1,5 +1,7 @@
 import { createId, normalizeDate } from "./domain.js";
-import type { AttachmentKind, AttachmentMeta, WorkLog } from "./types.js";
+import { loadStateFromStorage, saveStateToStorage } from "./storage.js";
+import type { AppState, AttachmentKind, AttachmentMeta, Task, WorkLog } from "./types.js";
+import { MAX_ATTACHMENT_BYTES, type StorageEstimate, type WorkspaceBackend, type WorkspaceConflictTarget, type WorkspaceLoadResult, type WorkspaceSnapshot, type WorkLogInput } from "./workspace-backend.js";
 
 const DB_NAME = "task-workbench-content-v5";
 const DB_VERSION = 1;
@@ -7,41 +9,67 @@ const WORK_LOGS = "workLogs";
 const ATTACHMENTS = "attachments";
 const ATTACHMENT_BLOBS = "attachmentBlobs";
 
-export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-export const TASK_ATTACHMENT_WARNING_BYTES = 100 * 1024 * 1024;
-
 interface AttachmentBlobRecord {
   id: string;
   taskId: string;
   blob: Blob;
 }
 
-export interface WorkspaceSnapshot {
-  workLogs: WorkLog[];
-  attachments: AttachmentMeta[];
-  attachmentBlobs: Map<string, Blob>;
-}
+export class IndexedDbBackend implements WorkspaceBackend {
+  private constructor(
+    private readonly db: IDBDatabase | null,
+    private readonly storage: Storage,
+    readonly errorMessage = "",
+  ) {}
 
-export interface StorageEstimate {
-  usage: number;
-  quota: number;
-}
-
-export class WorkspaceRepository {
-  private constructor(private readonly db: IDBDatabase | null, readonly errorMessage = "") {}
-
-  static async open(): Promise<WorkspaceRepository> {
-    if (!("indexedDB" in globalThis)) return new WorkspaceRepository(null, "当前浏览器不支持工作记录存储，工作区已切换为只读模式。");
+  static async open(storage: Storage = localStorage): Promise<IndexedDbBackend> {
+    if (!("indexedDB" in globalThis)) return new IndexedDbBackend(null, storage, "当前浏览器不支持工作记录存储，工作区已切换为只读模式。");
     try {
       const db = await openDatabase();
-      return new WorkspaceRepository(db);
+      return new IndexedDbBackend(db, storage);
     } catch {
-      return new WorkspaceRepository(null, "工作记录存储初始化失败，原有任务仍可查看；工作区已切换为只读模式。");
+      return new IndexedDbBackend(null, storage, "工作记录存储初始化失败，原有任务仍可查看；工作区已切换为只读模式。");
     }
   }
 
   get available(): boolean {
     return this.db !== null;
+  }
+
+  async loadWorkspace(): Promise<WorkspaceLoadResult> {
+    return loadStateFromStorage(this.storage);
+  }
+
+  async saveWorkspaceIndex(state: AppState): Promise<void> {
+    const result = saveStateToStorage(state, this.storage);
+    if (!result.saved) throw new Error(result.message);
+  }
+
+  async saveTask(task: Task): Promise<void> {
+    const state = (await this.loadWorkspace()).state;
+    const exists = state.tasks.some((item) => item.id === task.id);
+    const tasks = exists ? state.tasks.map((item) => item.id === task.id ? task : item) : [...state.tasks, task];
+    await this.saveWorkspaceIndex({ ...state, tasks });
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    const state = (await this.loadWorkspace()).state;
+    await this.saveWorkspaceIndex({ ...state, tasks: state.tasks.filter((task) => task.id !== taskId) });
+  }
+
+  async restoreTask(task: Task): Promise<void> {
+    await this.saveTask(task);
+  }
+
+  async saveDescription(taskId: string, descriptionMarkdown: string): Promise<void> {
+    const state = (await this.loadWorkspace()).state;
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (!task) throw new Error("找不到要保存描述的任务。");
+    await this.saveTask({
+      ...task,
+      descriptionMarkdown: descriptionMarkdown.replace(/\r\n?/g, "\n"),
+      updatedAt: Date.now(),
+    });
   }
 
   async getWorkLog(taskId: string, workDate: string): Promise<WorkLog | null> {
@@ -54,7 +82,7 @@ export class WorkspaceRepository {
     return records.sort((a, b) => b.workDate.localeCompare(a.workDate) || b.updatedAt - a.updatedAt);
   }
 
-  async saveWorkLog(input: Omit<WorkLog, "id" | "createdAt" | "updatedAt">, now = Date.now()): Promise<WorkLog> {
+  async saveWorkLog(input: WorkLogInput, now = Date.now()): Promise<WorkLog> {
     this.assertAvailable();
     const workDate = normalizeDate(input.workDate);
     if (!workDate) throw new Error("工作日期无效。");
@@ -89,7 +117,7 @@ export class WorkspaceRepository {
     return records.sort((a, b) => b.createdAt - a.createdAt || a.name.localeCompare(b.name));
   }
 
-  async addAttachment(taskId: string, file: File, now = Date.now()): Promise<AttachmentMeta> {
+  async putAttachment(taskId: string, file: File, now = Date.now()): Promise<AttachmentMeta> {
     this.assertAvailable();
     if (file.size > MAX_ATTACHMENT_BYTES) throw new Error("单个附件不能超过 20 MB。");
     const id = createId("attachment", now);
@@ -125,9 +153,25 @@ export class WorkspaceRepository {
     await transactionDone(transaction);
   }
 
-  async getAttachmentBlob(id: string): Promise<Blob | null> {
+  async readAttachment(id: string): Promise<Blob | null> {
     const record = await this.get<AttachmentBlobRecord>(ATTACHMENT_BLOBS, id);
     return record?.blob ?? null;
+  }
+
+  async saveAttachment(id: string, content: Blob): Promise<void> {
+    this.assertAvailable();
+    const meta = await this.get<AttachmentMeta>(ATTACHMENTS, id);
+    if (!meta) throw new Error("找不到要保存的附件。");
+    if (content.size > MAX_ATTACHMENT_BYTES) throw new Error("单个附件不能超过 20 MB。");
+    const nextMeta = { ...meta, size: content.size, type: content.type || meta.type };
+    const transaction = this.db!.transaction([ATTACHMENTS, ATTACHMENT_BLOBS], "readwrite");
+    transaction.objectStore(ATTACHMENTS).put(nextMeta);
+    transaction.objectStore(ATTACHMENT_BLOBS).put({ id, taskId: meta.taskId, blob: content } satisfies AttachmentBlobRecord);
+    await transactionDone(transaction);
+  }
+
+  async saveConflictCopy(_target: WorkspaceConflictTarget, _content: Blob): Promise<string> {
+    throw new Error("浏览器存储不需要创建本地文件冲突副本。");
   }
 
   async estimateStorage(): Promise<StorageEstimate> {
@@ -140,15 +184,38 @@ export class WorkspaceRepository {
 
   async exportSnapshot(): Promise<WorkspaceSnapshot> {
     this.assertAvailable();
-    const [workLogs, attachments, blobRecords] = await Promise.all([
+    const [loaded, workLogs, attachments, blobRecords] = await Promise.all([
+      this.loadWorkspace(),
       this.getAll<WorkLog>(WORK_LOGS),
       this.getAll<AttachmentMeta>(ATTACHMENTS),
       this.getAll<AttachmentBlobRecord>(ATTACHMENT_BLOBS),
     ]);
-    return { workLogs, attachments, attachmentBlobs: new Map(blobRecords.map((item) => [item.id, item.blob])) };
+    return { state: loaded.state, workLogs, attachments, attachmentBlobs: new Map(blobRecords.map((item) => [item.id, item.blob])) };
   }
 
-  async replaceAll(snapshot: WorkspaceSnapshot): Promise<void> {
+  async importSnapshot(snapshot: WorkspaceSnapshot): Promise<void> {
+    this.assertAvailable();
+    const previous = await this.exportSnapshot();
+    try {
+      await this.replaceContent(snapshot);
+      await this.saveWorkspaceIndex(snapshot.state);
+    } catch (error) {
+      await this.replaceContent(previous);
+      await this.saveWorkspaceIndex(previous.state);
+      throw error;
+    }
+  }
+
+  async clear(): Promise<void> {
+    this.assertAvailable();
+    await this.replaceContent({ workLogs: [], attachments: [], attachmentBlobs: new Map() });
+  }
+
+  close(): void {
+    this.db?.close();
+  }
+
+  private async replaceContent(snapshot: Pick<WorkspaceSnapshot, "workLogs" | "attachments" | "attachmentBlobs">): Promise<void> {
     this.assertAvailable();
     const transaction = this.db!.transaction([WORK_LOGS, ATTACHMENTS, ATTACHMENT_BLOBS], "readwrite");
     const workLogs = transaction.objectStore(WORK_LOGS);
@@ -164,10 +231,6 @@ export class WorkspaceRepository {
       if (taskId) blobs.put({ id, taskId, blob } satisfies AttachmentBlobRecord);
     }
     await transactionDone(transaction);
-  }
-
-  async clear(): Promise<void> {
-    await this.replaceAll({ workLogs: [], attachments: [], attachmentBlobs: new Map() });
   }
 
   private assertAvailable(): void {
@@ -202,6 +265,7 @@ export class WorkspaceRepository {
 
 export function detectAttachmentKind(name: string, type: string): AttachmentKind {
   const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  if (type === "image/svg+xml" || extension === "svg" || type === "text/html" || ["html", "htm"].includes(extension)) return "text";
   if (type.startsWith("image/")) return "image";
   if (type === "application/pdf" || extension === "pdf") return "pdf";
   if (type.startsWith("text/") || ["md", "markdown", "txt", "json", "csv", "log"].includes(extension)) return "text";
