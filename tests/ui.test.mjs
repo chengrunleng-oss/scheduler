@@ -188,8 +188,10 @@ test("v0.7 storage callers depend on WorkspaceBackend instead of IndexedDB detai
   for (const operation of ["loadWorkspace", "saveWorkspaceIndex", "saveTask", "deleteTask", "restoreTask", "saveDescription", "listWorkLogs", "saveWorkLog", "deleteWorkLog", "listAttachments", "putAttachment", "readAttachment", "saveAttachment", "renameAttachment", "deleteAttachment", "exportSnapshot", "importSnapshot"]) {
     assert.match(workspaceBackend, new RegExp(`${operation}\\(`));
   }
-  assert.match(workspaceDb, /class IndexedDbBackend implements WorkspaceBackend/);
-  assert.match(main, /IndexedDbBackend\.open\(\)/);
+  assert.match(workspaceDb, /class LegacyBrowserImportReader implements WorkspaceBackend/);
+  assert.match(main, /new UnavailableWorkspaceBackend\(\)/);
+  assert.match(main, /chooseWorkspaceSetup/);
+  assert.doesNotMatch(main, /browserBackend/);
   assert.match(workspace, /type WorkspaceBackend/);
   assert.match(events, /type \{ WorkspaceBackend \}/);
   assert.match(backup, /type \{ WorkspaceBackend, WorkspaceSnapshot \}/);

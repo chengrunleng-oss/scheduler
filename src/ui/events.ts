@@ -47,6 +47,12 @@ export function bindEvents(
   let overviewTimer = 0;
   const resolutionTimers = new Map<string, number>();
 
+  function requireWritable(): boolean {
+    if (backend.available) return true;
+    dialogs.toast(backend.errorMessage || "请先选择本地工作区目录。");
+    return false;
+  }
+
   function currentFolderForNewTask(): string {
     const scope = store.getState().preferences.folderScope;
     return scope !== "all" && scope !== "root" ? scope : "";
@@ -224,6 +230,7 @@ export function bindEvents(
   }
 
   els.globalNewTask.addEventListener("click", () => {
+    if (!requireWritable()) return;
     const folderId = currentFolderForNewTask();
     els.sidebar.classList.remove("is-open");
     setInline("task", folderId || "root");
@@ -240,6 +247,7 @@ export function bindEvents(
   els.defaultPriority.addEventListener("change", saveDefaults);
 
   els.taskList.addEventListener("submit", (event) => {
+    if (!backend.available) { event.preventDefault(); requireWritable(); return; }
     const form = (event.target as HTMLElement).closest<HTMLFormElement>("form.inline-create");
     if (!form) return;
     event.preventDefault();
@@ -268,6 +276,7 @@ export function bindEvents(
     }
     const divider = target.closest<HTMLElement>(".priority-divider");
     if (divider && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      if (!requireWritable()) return;
       event.preventDefault();
       const folderId = divider.dataset.dividerFolderId === "root" ? null : divider.dataset.dividerFolderId ?? null;
       const candidates = store.getState().tasks.filter((task) => task.status === "active" && task.folderId === folderId && !isOverdue(task)).sort(stableTaskOrder);
@@ -301,11 +310,12 @@ export function bindEvents(
     const button = target.closest<HTMLButtonElement>("button[data-action]");
     const action = button?.dataset.action;
     if (action === "toggle-folder" && button?.dataset.folderId) { store.dispatch({ type: "toggle-folder", id: button.dataset.folderId }); return; }
-    if (action === "start-inline-task" || action === "start-inline-folder") { setInline(action === "start-inline-task" ? "task" : "folder", button?.dataset.folderId); return; }
+    if (action === "start-inline-task" || action === "start-inline-folder") { if (requireWritable()) setInline(action === "start-inline-task" ? "task" : "folder", button?.dataset.folderId); return; }
     if (action === "cancel-inline") { inlineCreate = null; requestRender(); return; }
     if (action === "save-inline") return;
     if (action === "toggle-handled" && button?.dataset.containerId) { store.dispatch({ type: "toggle-handled-section", containerId: button.dataset.containerId }); return; }
     if (action === "suggest-order") {
+      if (!requireWritable()) return;
       const folderId = button?.dataset.folderId === "root" ? null : button?.dataset.folderId ?? null;
       if (await dialogs.confirm("按截止日期整理", "将保持高、低优先级分区，并在各分区内按截止日期重新排列。继续吗？")) store.dispatch({ type: "apply-suggested-order", folderId });
       return;
@@ -375,6 +385,7 @@ export function bindEvents(
   });
 
   els.newFolder.addEventListener("click", async () => {
+    if (!requireWritable()) return;
     const draft = await dialogs.editFolder(null, store.getState().folders, null);
     if (draft) store.dispatch({ type: "add-folder", draft });
   });
@@ -390,6 +401,7 @@ export function bindEvents(
       return;
     }
     if (action === "start-inline-task" || action === "start-inline-folder") {
+      if (!requireWritable()) return;
       if (folderId && folderId !== "root") store.dispatch({ type: "set-folder-scope", folderScope: folderId });
       else store.dispatch({ type: "set-folder-scope", folderScope: "root" });
       els.sidebar.classList.remove("is-open");
@@ -402,6 +414,7 @@ export function bindEvents(
   });
 
   els.moveDialogForm.addEventListener("submit", (event) => {
+    if (!backend.available) { event.preventDefault(); requireWritable(); return; }
     event.preventDefault();
     const task = store.getState().tasks.find((item) => item.id === moveTaskId);
     if (!task || isOverdue(task)) return;
@@ -428,6 +441,7 @@ export function bindEvents(
     els.rescheduleDate.value = addDays(toISODate(), Number(button.dataset.rescheduleDays));
   });
   els.rescheduleForm.addEventListener("submit", (event) => {
+    if (!backend.available) { event.preventDefault(); requireWritable(); return; }
     event.preventDefault();
     const task = store.getState().tasks.find((item) => item.id === rescheduleTaskId);
     if (!task) return;
@@ -441,11 +455,13 @@ export function bindEvents(
   els.sidebarClose.addEventListener("click", () => els.sidebar.classList.remove("is-open"));
   window.addEventListener("resize", requestRender);
   els.undoAction.addEventListener("click", async () => {
+    if (!requireWritable()) return;
     if (!(await flushWorkspace())) return;
     store.undo();
     if (await persistState()) dialogs.toast("撤销已保存。");
   });
   els.redoAction.addEventListener("click", async () => {
+    if (!requireWritable()) return;
     if (!(await flushWorkspace())) return;
     store.redo();
     if (await persistState()) dialogs.toast("重做已保存。");
@@ -487,6 +503,7 @@ export function bindEvents(
   });
   els.importData.addEventListener("click", () => els.importFile.click());
   els.importFile.addEventListener("change", async () => {
+    if (!requireWritable()) return;
     const file = els.importFile.files?.[0]; els.importFile.value = ""; if (!file) return;
     const result = await parseBackupPackage(file);
     if (!result.recovered) { dialogs.toast(result.message); return; }
@@ -500,11 +517,15 @@ export function bindEvents(
     dialogs.toast(result.message);
   });
   els.resetDemo.addEventListener("click", async () => {
+    if (!requireWritable()) return;
     if (!(await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前浏览器中的全部数据，继续吗？"))) return;
     try { await backend.clear(); }
     catch { dialogs.toast("工作记录存储无法清理，重置已取消。"); return; }
     selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null; els.searchInput.value = "";
-    store.dispatch({ type: "reset" }); await workspace.activateTask(null, workspaceTab); dialogs.toast("已重置为示例数据。");
+    store.dispatch({ type: "reset" });
+    if (!(await persistState())) { dialogs.toast("示例数据保存失败，请重试。"); return; }
+    await workspace.activateTask(null, workspaceTab);
+    dialogs.toast("已重置为示例数据。");
   });
 
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") store.dispatch({ type: "finalize-expired-resolutions" }); });

@@ -1,172 +1,57 @@
 {
   "document_type": "scheduler_test_feedback",
-  "format_version": 12,
-  "test_date": "2026-08-13",
+  "format_version": 14,
+  "test_date": "2026-08-14",
   "target_branch": "codex/local-workspace-storage",
-  "source_revision": "2d8ff3d",
+  "source_revision": "1425676",
   "target_release": "v0.7-working-tree",
-  "working_tree_note": "本轮测试对象是 codex/local-workspace-storage 分支上的未提交存储层重构工作区。该分支与 develop 均以 2d8ff3d 为共同基线；本轮没有提交，也没有合并回 develop。",
-  "document_policy": "本文件整体替换上一版测试反馈，只保留本轮重新测试后的有效结论。真实目录临时文件名错误已修复并通过回归关闭；每个待办事项独立子文件夹作为明确验收项保留。",
+  "document_policy": "本文件整体替换上一版测试反馈，只保留当前仍需整改或人工验收的内容。已经通过的测试、已关闭问题和能力清单不再保留。",
   "overall_result": {
-    "status": "passed_with_manual_verification_pending",
-    "automation_status": "passed",
-    "release_gate": "pending_real_directory_acceptance",
-    "target_scope": "v0.6 视觉回归与 v0.7 本地工作区存储重构",
-    "blocking_findings": 0,
-    "verification_gaps": 1,
-    "summary": "P0 真实目录初始化错误已修复：临时文件名已改为 Windows 安全格式，新增回归确认迁移后无临时文件。48 项逻辑测试、51 项 Chromium 端到端测试和 4 个视口视觉基线全部通过。每个待办事项的独立 tasks/<稳定taskId>/ 子文件夹及其 task.json、description.md、worklogs、attachments 结构通过契约测试。当前没有已确认的功能阻塞；仍需用户在真实 Chrome/Edge Windows 测试目录上复核一次完整选择和迁移流程。"
+    "status": "changes_required",
+    "release_gate": "blocked",
+    "summary": "当前仍有两项界面可用性问题：状态提示条会遮挡工作区底部操作区，未选择本地目录时任务树底部的创建按钮仍呈现为可用状态。此外，真实 Windows 本地目录验收尚未完成。"
   },
-  "test_execution": {
-    "complete_verification": {
-      "command": "npm run verify",
-      "result": "passed",
-      "duration_seconds": 56.7,
-      "checks": {
-        "typescript": {
-          "status": "passed"
-        },
-        "production_build": {
-          "status": "passed",
-          "vite_version": "8.2.1",
-          "transformed_modules": 2821,
-          "largest_javascript_chunk_kb": 335.03,
-          "chunk_warning": false
-        },
-        "node_tests": {
-          "status": "passed",
-          "passed": 48,
-          "failed": 0
-        },
-        "dist_reproducibility": {
-          "status": "passed"
-        },
-        "playwright_e2e": {
-          "status": "passed",
-          "browser": "Chromium",
-          "passed": 51,
-          "failed": 0,
-          "duration_seconds": 49.6
-        }
-      }
-    },
-    "p0_regression": {
-      "test": "migration uses Windows-safe temporary names and leaves no temporary files",
-      "result": "passed",
+  "open_findings": [
+    {
+      "id": "TEST-V07-015",
+      "severity": "P2",
+      "title": "状态提示条会遮挡任务工作区底部操作区",
       "evidence": [
-        "writeVerifiedBlob 使用 tmp-${uuid}-${safeName}，不再使用 .${name}.tmp-${uuid}",
-        "注入真实目录命名限制时迁移成功",
-        "迁移后目录枚举中没有 tmp- 或 .tmp- 残留文件"
-      ]
-    },
-    "local_directory_structure": {
-      "result": "passed",
-      "layout": {
-        "workspace_root": [
-          "workspace.json",
-          "tasks/",
-          "trash/"
-        ],
-        "per_task": [
-          "tasks/<encodeURIComponent(taskId)>/task.json",
-          "tasks/<encodeURIComponent(taskId)>/description.md",
-          "tasks/<encodeURIComponent(taskId)>/worklogs/YYYY-MM-DD.md",
-          "tasks/<encodeURIComponent(taskId)>/attachments/<attachment-id>--<safe-name>"
-        ]
-      },
-      "test_evidence": "LocalDirectoryBackend 契约测试和目录选择迁移测试均验证每个任务有独立稳定 taskId 子目录；任务标题重命名不会改变物理目录。"
-    },
-    "visual_baseline": {
-      "command": "npm run visual:baseline",
-      "result": "passed",
-      "viewports": [
-        "1440x900 dark",
-        "1024x768 light",
-        "768x1024 light",
-        "390x844 light/mobile workspace"
+        "最新 390x844 移动端基线中，固定在页面底部的“已打开本地工作区”提示覆盖了任务工作区底部按钮区域。",
+        "1440x900 深色工作区基线中，提示条也覆盖在右侧工作区底部操作区上方。",
+        "当前 .toast 使用 position: fixed、bottom: 20px 和 z-index: 60，没有根据已打开工作区的底部操作区或移动端安全区调整位置。"
       ],
-      "geometry_result": "所有视口 document/body/task-row 横向溢出均为 0；1024px 侧栏工作区文字已隐藏并使用 40x40 图标按钮。",
-      "manual_visual_review": "最新四张截图未发现文字竖排、组件重叠或任务区与工作区覆盖。"
+      "risk": "提示显示期间会遮挡按钮文字并可能截获点击，移动端任务概览的取消操作尤其容易受影响。",
+      "required_action": "工作区打开时将提示条放到固定操作区上方，或为底部操作区预留提示占位；在 390x844 和宽屏工作区新增提示条与可点击按钮不相交的几何断言。"
+    },
+    {
+      "id": "TEST-V07-016",
+      "severity": "P2",
+      "title": "未选择本地目录时任务树底部创建按钮仍显示为可用",
+      "evidence": "在无本地工作区状态下，“新建任务”和“新建文件夹”两个树底部按钮的 disabled 为 false，且没有 aria-disabled。实际点击不会生成表单，只会提示先选择本地目录。",
+      "risk": "数据写入已被阻断，但按钮外观和辅助技术语义仍暗示操作可用，用户需要点击后才知道前置条件。",
+      "required_action": "无可用 LocalDirectoryBackend 时同步禁用全局、侧栏和任务树内全部创建入口，并提供统一的不可用说明；新增无目录状态测试，枚举并断言全部持久化创建控件均为 disabled 或正确的 aria-disabled。"
+    },
+    {
+      "id": "TEST-V07-014",
+      "severity": "P1",
+      "title": "真实 Windows 本地目录验收尚未执行",
+      "evidence": "现有自动化目录能力使用 Chromium OPFS 和代理句柄，不能完整代表 Windows NTFS、目录权限撤销、杀毒软件占用、同步软件竞争和真实磁盘错误。",
+      "required_action": "在 Chrome 或 Edge 中选择真实 Windows 测试目录，完成首次初始化、刷新恢复、每任务独立目录、任务改名、附件编辑、权限撤销与重新授权、目录改选、外部修改冲突和失败恢复验收。"
     }
-  },
-  "latest_requirements_acceptance": [
-    {
-      "id": "V07-ACCEPT-001",
-      "requirement": "每个待办事项都建立一个独立本地子文件夹",
-      "status": "passed",
-      "evidence": "LocalDirectoryBackend 使用 tasks/<encodeURIComponent(taskId)>；taskId 不随标题重命名变化。每个任务目录包含 task.json、description.md、worklogs/ 和 attachments/，trash/<taskId>/ 用于待恢复任务。统一契约、目录布局和迁移测试通过。"
-    },
-    {
-      "id": "V07-ACCEPT-002",
-      "requirement": "任务资料在关闭浏览器后可从本地目录恢复",
-      "status": "passed_in_automation",
-      "evidence": "任务元数据、长期描述、按日期工作记录和附件 Blob 的保存、导出、导入和刷新恢复测试通过。"
-    },
-    {
-      "id": "V07-ACCEPT-003",
-      "requirement": "外部修改、迁移失败、权限和写入失败不得静默丢失数据",
-      "status": "passed_in_automation",
-      "evidence": "SHA-256 内容哈希、冲突三选一、迁移标记与回滚、QuotaExceeded、createWritable/write/close 故障注入全部通过。"
-    },
-    {
-      "id": "V07-ACCEPT-004",
-      "requirement": "真实目录临时文件名必须兼容 Windows File System Access API",
-      "status": "passed_in_automation",
-      "evidence": "临时名称不再以点号开头；回归测试模拟平台拒绝旧名称并确认迁移成功、清理无残留。"
-    },
-    {
-      "id": "V07-ACCEPT-005",
-      "requirement": "固定 Vite 来源且视觉回归不退化",
-      "status": "passed",
-      "evidence": "127.0.0.1:5173 strictPort、51 项 Chromium 回归和 4 个视觉基线通过。"
-    },
-    {
-      "id": "V07-ACCEPT-006",
-      "requirement": "真实 Chromium 操作系统目录权限、迁移和故障恢复验收",
-      "status": "not_executed",
-      "evidence": "LOCAL_WORKSPACE_ACCEPTANCE.md 已建立清单，但本轮自动化仍使用 OPFS 和可注入代理句柄，不等同于用户机器上真实 Windows 目录的最终手工记录。"
-    }
-  ],
-  "findings": [],
-  "closed_since_previous_feedback": [
-    {
-      "previous_id": "TEST-V07-008",
-      "status": "closed",
-      "title": "真实 Windows 目录临时文件名导致 removeEntry Name is not allowed",
-      "evidence": "临时文件名改为 tmp-${crypto.randomUUID()}-${safeName(name)}；新增 e2e 用例覆盖平台名称限制和无临时文件残留；npm run verify 通过。"
-    }
-  ],
-  "passed_capabilities": [
-    "v0.6 任务列表、工作区、拖拽预排列、优先级色系、四层文件夹、深浅主题、系统主题和移动端布局回归通过。",
-    "IndexedDbBackend 与 LocalDirectoryBackend 通过统一任务、描述、工作记录、附件和完整快照契约。",
-    "每个任务使用稳定 taskId 独立目录，任务目录包含 task.json、description.md、worklogs 和 attachments。",
-    "删除任务后的界面撤销会恢复描述、工作记录和附件，并在刷新后保持。",
-    "描述、工作记录和附件使用 SHA-256 进行外部修改检测；冲突支持重新加载、冲突副本和取消保存。",
-    "临时文件和正式文件写入均校验哈希；createWritable、write、close 和配额失败保留最后一次耐久内容。",
-    "首次迁移失败不留下可打开的半成品；替换迁移失败恢复原工作区。",
-    "文本附件可编辑，图片和 PDF 可预览，HTML/SVG 不执行主动内容。",
-    "失效目录句柄可改选新目录，缺失工作区索引会被保护并阻止写入。",
-    "1024px 工作区入口已恢复为紧凑图标模式，四张视觉基线均无溢出或重叠。",
-    "Vite 开发来源固定为 127.0.0.1:5173，端口被占用时明确失败。"
   ],
   "release_gate": {
-    "status": "pending_manual_real_directory_acceptance",
-    "decision": "自动化验收通过，当前没有开放功能缺陷；完成真实 Windows 目录手工清单后即可关闭 v0.7 发布门。",
-    "remaining_actions": [
-      "在真实 Chrome 或 Edge 与 Windows 测试目录上执行 LOCAL_WORKSPACE_ACCEPTANCE.md。",
-      "确认首次选择目录后能看到 workspace.json、tasks、trash，以及每个任务的独立子文件夹。",
-      "完成手工清单后再次运行 npm run verify 和 npm run visual:baseline。"
+    "status": "blocked",
+    "exit_criteria": [
+      "提示条在桌面和移动端均不遮挡或拦截工作区操作按钮。",
+      "未选择本地目录时所有会创建持久化数据的入口都具有明确且一致的禁用状态。",
+      "完成真实 Windows Chrome/Edge 目录验收。"
     ]
   },
-  "residual_risk": [
-    "自动化中的目录能力主要由 Chromium OPFS 与代理句柄提供，不能完全代表 Windows NTFS 权限、杀毒软件占用、同步软件竞争和磁盘空间不足。",
-    "Web Locks 与 BroadcastChannel 已实现，但没有独立的双标签页竞争测试；当前主要由 revision 和内容哈希阻止静默覆盖。",
-    "package.json 仍标记 0.6.0；真正发布 v0.7 前需按独立产品线策略更新版本和发布元数据。"
-  ],
   "git_policy": {
     "commit_created": false,
     "merge_performed": false,
     "current_branch": "codex/local-workspace-storage",
-    "develop_merged_after_acceptance": false,
-    "reason": "遵循用户要求：不要提交；验收后也不要合并回 develop。"
+    "develop_merged_after_acceptance": false
   }
 }

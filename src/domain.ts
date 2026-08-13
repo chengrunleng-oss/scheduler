@@ -90,6 +90,25 @@ export function createDefaultState(now = Date.now()): AppState {
   };
 }
 
+export function createEmptyState(): AppState {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    preferences: {
+      activeStatusFilter: "all",
+      theme: "system",
+      viewMode: "tree_manual",
+      folderScope: "all",
+      defaultTaskDueDate: "today",
+      defaultTaskPriority: "low",
+      expandedHandledContainers: [],
+      navigationCollapsedFolders: [],
+      workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
+    },
+    folders: [],
+    tasks: [],
+  };
+}
+
 export function createTask(draft: TaskDraft, now = Date.now(), id = createId("task", now), order = 0): Task {
   const status = coerceTaskStatus(draft.status);
   return {

@@ -28,11 +28,10 @@
 
     <section class="sidebar-section workspace-storage-section">
       <div class="section-heading"><h2>工作区</h2><span id="workspaceStorageIndicator" class="workspace-storage-indicator" aria-hidden="true"></span></div>
-      <p id="workspaceStorageStatus" class="workspace-storage-status">浏览器存储</p>
+      <p id="workspaceStorageStatus" class="workspace-storage-status">尚未选择本地工作区</p>
       <div class="workspace-storage-actions">
         <button id="chooseWorkspaceDirectory" class="button secondary wide" type="button" title="选择本地目录" aria-label="选择本地目录"><i data-lucide="folder-open"></i><span>选择本地目录</span></button>
         <button id="reauthorizeWorkspaceDirectory" class="button ghost wide" type="button" title="重新授权原目录" aria-label="重新授权原目录" hidden><i data-lucide="folder-pen"></i><span>重新授权原目录</span></button>
-        <button id="useBrowserStorage" class="button ghost wide" type="button" title="切回浏览器存储" aria-label="切回浏览器存储" hidden><i data-lucide="database"></i><span>切回浏览器存储</span></button>
       </div>
     </section>
 

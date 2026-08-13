@@ -9,15 +9,57 @@ const host = "127.0.0.1";
 const port = 4180;
 const primaryTask = "确定今天最重要的一件事";
 
+function createVisualFixture() {
+  const now = Date.now();
+  return {
+    schemaVersion: 5,
+    preferences: {
+      activeStatusFilter: "all",
+      theme: "system",
+      viewMode: "tree_manual",
+      folderScope: "all",
+      defaultTaskDueDate: "today",
+      defaultTaskPriority: "low",
+      expandedHandledContainers: [],
+      navigationCollapsedFolders: [],
+      workspaceWidth: 620,
+    },
+    folders: [
+      { id: "folder-work", name: "工作", parentId: null, order: 0, collapsed: false, createdAt: now - 2_000, updatedAt: now - 2_000 },
+      { id: "folder-personal", name: "个人", parentId: null, order: 1, collapsed: false, createdAt: now - 1_000, updatedAt: now - 1_000 },
+    ],
+    tasks: [
+      { id: "task-1", title: primaryTask, notes: "写下明确结果，并安排第一个可执行步骤。", descriptionMarkdown: "", priority: "high", dueDate: new Date(now).toISOString().slice(0, 10), tag: "重点", status: "active", folderId: "folder-work", order: 0, resolvedAt: null, pendingResolution: null, rescheduleHistory: [], createdAt: now - 7_200_000, updatedAt: now - 7_200_000 },
+      { id: "task-2", title: "安排一段不被打扰的专注时间", notes: "", descriptionMarkdown: "", priority: "low", dueDate: "", tag: "日常", status: "active", folderId: "folder-personal", order: 0, resolvedAt: null, pendingResolution: null, rescheduleHistory: [], createdAt: now - 3_600_000, updatedAt: now - 3_600_000 },
+    ],
+  };
+}
+
 await mkdir(output, { recursive: true });
 const server = await preview({ root, logLevel: "silent", preview: { host, port, strictPort: true } });
 const browser = await chromium.launch();
 
-async function capture(name, viewport, { openWorkspace = false, theme = "light" } = {}) {
+async function capture(name, viewport, { openWorkspace = false, theme = "light", seedWorkspace = true } = {}) {
   const page = await browser.newPage({ viewport });
+  const directoryName = `visual-${name}`;
+  await page.addInitScript((workspaceName) => {
+    window.showDirectoryPicker = async () => {
+      const root = await navigator.storage.getDirectory();
+      try { await root.removeEntry(workspaceName, { recursive: true }); } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+      }
+      return root.getDirectoryHandle(workspaceName, { create: true });
+    };
+  }, directoryName);
   await page.goto(`http://${host}:${port}/`);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
+  if (seedWorkspace) {
+    await page.evaluate((fixture) => localStorage.setItem("task-workbench-state-v5", JSON.stringify(fixture)), createVisualFixture());
+    await page.locator("#chooseWorkspaceDirectory").evaluate((button) => button.click());
+    await page.locator("#workspaceSetupImport").click();
+    await page.waitForFunction(() => document.documentElement.dataset.appReady === "true" && document.querySelector("#workspaceStorageStatus")?.textContent?.includes("本地目录"));
+  }
   await page.locator("#themeSelect").evaluate((select, value) => {
     select.value = value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -25,7 +67,7 @@ async function capture(name, viewport, { openWorkspace = false, theme = "light" 
   if (openWorkspace) {
     await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   }
-  await page.locator(openWorkspace ? "#taskDetail.is-open" : ".task-item").first().waitFor();
+  await page.locator(seedWorkspace && openWorkspace ? "#taskDetail.is-open" : seedWorkspace ? ".task-item" : "#emptyState:not([hidden])").first().waitFor();
 
   const geometry = await page.evaluate(() => ({
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -62,6 +104,7 @@ async function capture(name, viewport, { openWorkspace = false, theme = "light" 
 
 try {
   const results = [];
+  results.push(await capture("workspace-empty", { width: 1440, height: 900 }, { seedWorkspace: false }));
   results.push(await capture("workspace-overview", { width: 1440, height: 900 }, { openWorkspace: true, theme: "dark" }));
   results.push(await capture("workspace-standard", { width: 1024, height: 768 }));
   results.push(await capture("workspace-tablet", { width: 768, height: 1024 }));

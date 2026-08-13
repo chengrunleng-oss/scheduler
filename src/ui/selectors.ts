@@ -29,7 +29,6 @@ export interface Elements {
   workspaceStorageIndicator: HTMLElement;
   chooseWorkspaceDirectory: HTMLButtonElement;
   reauthorizeWorkspaceDirectory: HTMLButtonElement;
-  useBrowserStorage: HTMLButtonElement;
   undoAction: HTMLButtonElement;
   redoAction: HTMLButtonElement;
   themeSelect: HTMLSelectElement;
@@ -104,6 +103,10 @@ export interface Elements {
   confirmClose: HTMLButtonElement;
   confirmCancel: HTMLButtonElement;
   confirmOk: HTMLButtonElement;
+  workspaceSetupDialog: HTMLDialogElement;
+  workspaceSetupImport: HTMLButtonElement;
+  workspaceSetupEmpty: HTMLButtonElement;
+  workspaceSetupCancel: HTMLButtonElement;
   conflictDialog: HTMLDialogElement;
   conflictText: HTMLElement;
   conflictClose: HTMLButtonElement;
@@ -137,7 +140,7 @@ export function queryElements(): Elements {
     statusFilters: document.querySelectorAll(".status-segment"), viewModes: document.querySelectorAll(".view-segment"),
     metricActive: requiredElement("#metricActive"), metricCompleted: requiredElement("#metricCompleted"), metricDiscarded: requiredElement("#metricDiscarded"), metricDue: requiredElement("#metricDue"),
     exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
-    workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"), useBrowserStorage: requiredElement("#useBrowserStorage"),
+    workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
     taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
     workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),
@@ -155,7 +158,7 @@ export function queryElements(): Elements {
     folderDeleteText: requiredElement("#folderDeleteText"), folderDeleteMove: requiredElement("#folderDeleteMove"), folderDeleteBranch: requiredElement("#folderDeleteBranch"),
     folderDeleteCancel: requiredElement("#folderDeleteCancel"), folderDeleteClose: requiredElement("#folderDeleteClose"), confirmDialog: requiredElement("#confirmDialog"),
     confirmTitle: requiredElement("#confirmTitle"), confirmText: requiredElement("#confirmText"), confirmClose: requiredElement("#confirmClose"),
-    confirmCancel: requiredElement("#confirmCancel"), confirmOk: requiredElement("#confirmOk"), conflictDialog: requiredElement("#conflictDialog"), conflictText: requiredElement("#conflictText"),
+    confirmCancel: requiredElement("#confirmCancel"), confirmOk: requiredElement("#confirmOk"), workspaceSetupDialog: requiredElement("#workspaceSetupDialog"), workspaceSetupImport: requiredElement("#workspaceSetupImport"), workspaceSetupEmpty: requiredElement("#workspaceSetupEmpty"), workspaceSetupCancel: requiredElement("#workspaceSetupCancel"), conflictDialog: requiredElement("#conflictDialog"), conflictText: requiredElement("#conflictText"),
     conflictClose: requiredElement("#conflictClose"), conflictReload: requiredElement("#conflictReload"), conflictCopy: requiredElement("#conflictCopy"), conflictCancel: requiredElement("#conflictCancel"), moveDialog: requiredElement("#moveDialog"),
     moveDialogForm: requiredElement("#moveDialogForm"), moveFolder: requiredElement("#moveFolder"), movePriority: requiredElement("#movePriority"),
     movePrevious: requiredElement("#movePrevious"), moveNext: requiredElement("#moveNext"), moveRestriction: requiredElement("#moveRestriction"),

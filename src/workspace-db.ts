@@ -15,20 +15,20 @@ interface AttachmentBlobRecord {
   blob: Blob;
 }
 
-export class IndexedDbBackend implements WorkspaceBackend {
+export class LegacyBrowserImportReader implements WorkspaceBackend {
   private constructor(
     private readonly db: IDBDatabase | null,
     private readonly storage: Storage,
     readonly errorMessage = "",
   ) {}
 
-  static async open(storage: Storage = localStorage): Promise<IndexedDbBackend> {
-    if (!("indexedDB" in globalThis)) return new IndexedDbBackend(null, storage, "当前浏览器不支持工作记录存储，工作区已切换为只读模式。");
+  static async open(storage: Storage = localStorage): Promise<LegacyBrowserImportReader> {
+    if (!("indexedDB" in globalThis)) return new LegacyBrowserImportReader(null, storage, "当前浏览器不支持旧数据迁移读取。");
     try {
       const db = await openDatabase();
-      return new IndexedDbBackend(db, storage);
+      return new LegacyBrowserImportReader(db, storage);
     } catch {
-      return new IndexedDbBackend(null, storage, "工作记录存储初始化失败，原有任务仍可查看；工作区已切换为只读模式。");
+      return new LegacyBrowserImportReader(null, storage, "旧浏览器数据读取初始化失败。");
     }
   }
 

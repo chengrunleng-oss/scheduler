@@ -12,7 +12,9 @@ registerWorkspaceBackendContract("LocalDirectoryBackend", async (page) => {
     }
     const directory = await storageRoot.getDirectoryHandle(directoryName, { create: true });
     const LocalDirectoryBackend = globalThis.__localDirectoryBackendForTests;
-    globalThis.__workspaceBackendContractTarget = new LocalDirectoryBackend(directory);
+    const backend = new LocalDirectoryBackend(directory);
+    await backend.importSnapshot({ state: globalThis.__createDefaultStateForTests(), workLogs: [], attachments: [], attachmentBlobs: new Map() });
+    globalThis.__workspaceBackendContractTarget = backend;
   }, contractDirectory);
 }, async (page) => {
   const layout = await page.evaluate(async (directoryName) => {
@@ -69,7 +71,7 @@ test("migration uses Windows-safe temporary names and leaves no temporary files"
       },
     });
     const backend = new globalThis.__localDirectoryBackendForTests(guard(rawDirectory));
-    const snapshot = await globalThis.__workspaceBackendForTests.exportSnapshot();
+    const snapshot = { state: globalThis.__createDefaultStateForTests(), workLogs: [], attachments: [], attachmentBlobs: new Map() };
     await backend.importSnapshot(snapshot);
     const names = [];
     const collect = async (directory, prefix = "") => {
@@ -85,7 +87,7 @@ test("migration uses Windows-safe temporary names and leaves no temporary files"
   expect(result).toEqual({ hasIndex: true, hasTasks: true, hasTrash: true, temporary: [] });
 });
 
-test("directory picker migrates current data and can switch back without losing tasks", async ({ page }) => {
+test("directory picker creates an empty local workspace without browser fallback", async ({ page }) => {
   await page.addInitScript(() => {
     window.showDirectoryPicker = async () => {
       const root = await navigator.storage.getDirectory();
@@ -96,12 +98,13 @@ test("directory picker migrates current data and can switch back without losing 
     };
   });
   await page.goto("/");
+  await expect(page.locator(".task-item")).toHaveCount(0);
   await page.locator("#chooseWorkspaceDirectory").click();
-  await expect(page.locator("#confirmTitle")).toHaveText("创建本地工作区");
-  await page.locator("#confirmOk").click();
+  await expect(page.locator("#workspaceSetupDialog")).toBeVisible();
+  await page.locator("#workspaceSetupEmpty").click();
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：picker-workspace");
-  await expect(page.getByRole("option", { name: /确定今天最重要的一件事/ })).toBeVisible();
+  await expect(page.locator(".task-item")).toHaveCount(0);
 
   const workspaceFormat = await page.evaluate(async () => {
     const root = await navigator.storage.getDirectory();
@@ -110,12 +113,83 @@ test("directory picker migrates current data and can switch back without losing 
   });
   expect(workspaceFormat).toBe("task-workbench-workspace");
 
-  await page.locator("#useBrowserStorage").click();
-  await expect(page.locator("#confirmTitle")).toHaveText("切回浏览器存储");
-  await page.locator("#confirmOk").click();
+  await expect(page.locator("#useBrowserStorage")).toHaveCount(0);
+});
+
+test("local workspace writes keep browser storage free of business data", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.showDirectoryPicker = async () => {
+      const root = await navigator.storage.getDirectory();
+      try { await root.removeEntry("storage-purity-workspace", { recursive: true }); } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+      }
+      return root.getDirectoryHandle("storage-purity-workspace", { create: true });
+    };
+  });
+  await page.goto("/");
+  await page.evaluate(() => localStorage.clear());
+  await page.locator("#chooseWorkspaceDirectory").click();
+  await page.locator("#workspaceSetupEmpty").click();
   await page.waitForLoadState("domcontentloaded");
-  await expect(page.locator("#workspaceStorageStatus")).toHaveText("浏览器存储");
-  await expect(page.getByRole("option", { name: /确定今天最重要的一件事/ })).toBeVisible();
+  await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：storage-purity-workspace");
+
+  await page.locator("#globalNewTask").click();
+  const form = page.locator('form.inline-create[data-inline-kind="task"][data-folder-id="root"]');
+  await form.locator('input[name="title"]').fill("本地目录纯度验证");
+  await form.locator('input[name="title"]').press("Enter");
+  await expect(page.getByRole("option", { name: /本地目录纯度验证/ })).toBeVisible();
+  await page.getByRole("option", { name: /本地目录纯度验证/ }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#newWorklog").click();
+  await page.locator("#worklogEditor [contenteditable='true'], #worklogEditor textarea").first().fill("本地目录工作记录");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await page.locator("#attachmentsTab").click();
+  await page.locator("#attachmentFile").setInputFiles({ name: "purity.txt", mimeType: "text/plain", buffer: Buffer.from("本地目录附件") });
+  await expect(page.locator(".attachment-row")).toHaveCount(1, { timeout: 20_000 });
+
+  const storage = await page.evaluate(async () => ({
+    localStorageKeys: Object.keys(localStorage),
+    databases: typeof indexedDB.databases === "function" ? (await indexedDB.databases()).map((database) => database.name).filter(Boolean).sort() : [],
+  }));
+  expect(storage.localStorageKeys).toEqual(["task-workbench-preferences-v1"]);
+  expect(storage.databases).toEqual(["task-workbench-workspace-handles-v1"]);
+});
+
+test("renaming a task keeps its physical directory and local content", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => Boolean(globalThis.__localDirectoryBackendForTests));
+  const result = await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    try { await root.removeEntry("rename-directory-workspace", { recursive: true }); } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+    }
+    const directory = await root.getDirectoryHandle("rename-directory-workspace", { create: true });
+    const backend = new globalThis.__localDirectoryBackendForTests(directory);
+    const state = globalThis.__createDefaultStateForTests();
+    const task = { ...state.tasks[0], id: "rename-stable-task", title: "重命名前标题", descriptionMarkdown: "重命名后描述仍在" };
+    await backend.saveWorkspaceIndex({ ...state, tasks: [task] });
+    await backend.saveWorkLog({ taskId: task.id, workDate: "2026-08-13", contentMarkdown: "重命名后记录仍在", progressPercent: 42 });
+    const attachment = await backend.putAttachment(task.id, new File(["重命名后附件仍在"], "rename-proof.txt", { type: "text/plain" }));
+    const tasksDirectory = await directory.getDirectoryHandle("tasks");
+    const before = [];
+    for await (const [name] of tasksDirectory.entries()) before.push(name);
+    await backend.saveTask({ ...task, title: "重命名后标题", updatedAt: Date.now() });
+    const after = [];
+    for await (const [name] of tasksDirectory.entries()) after.push(name);
+    const loaded = await backend.loadWorkspace();
+    const reloadedTask = loaded.state.tasks.find((item) => item.id === task.id);
+    const worklog = (await backend.listWorkLogs(task.id))[0];
+    const attachmentText = await (await backend.readAttachment(attachment.id))?.text();
+    backend.close();
+    return { before, after, title: reloadedTask?.title, description: reloadedTask?.descriptionMarkdown, worklog: worklog?.contentMarkdown, attachmentText };
+  });
+  expect(result.before).toEqual([encodeURIComponent("rename-stable-task")]);
+  expect(result.after).toEqual(result.before);
+  expect(result.title).toBe("重命名后标题");
+  expect(result.description).toBe("重命名后描述仍在");
+  expect(result.worklog).toBe("重命名后记录仍在");
+  expect(result.attachmentText).toBe("重命名后附件仍在");
 });
 
 test("missing workspace index with remaining content is protected from reads and writes", async ({ page }) => {
@@ -169,7 +243,7 @@ test("removed saved directory falls back safely and can be replaced", async ({ p
   });
   await page.goto("/");
   await page.locator("#chooseWorkspaceDirectory").click();
-  await page.locator("#confirmOk").click();
+  await page.locator("#workspaceSetupEmpty").click();
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：stale-workspace");
 
@@ -186,14 +260,15 @@ test("removed saved directory falls back safely and can be replaced", async ({ p
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("原工作区不可用：stale-workspace");
   await expect(page.locator("#chooseWorkspaceDirectory")).toHaveAccessibleName("改选本地目录");
   await expect(page.locator("#reauthorizeWorkspaceDirectory")).toBeHidden();
-  await expect(page.getByRole("option", { name: /确定今天最重要的一件事/ })).toBeVisible();
+  await expect(page.locator(".task-item")).toHaveCount(0);
+  await expect(page.locator("#globalNewTask")).toBeDisabled();
 
   await page.locator("#chooseWorkspaceDirectory").click();
-  await expect(page.locator("#confirmTitle")).toHaveText("创建本地工作区");
-  await page.locator("#confirmOk").click();
+  await expect(page.locator("#workspaceSetupDialog")).toBeVisible();
+  await page.locator("#workspaceSetupEmpty").click();
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：replacement-workspace");
-  await expect(page.getByRole("option", { name: /确定今天最重要的一件事/ })).toBeVisible();
+  await expect(page.locator(".task-item")).toHaveCount(0);
 });
 
 test("LocalDirectoryBackend rejects a stale workspace revision", async ({ page }) => {
@@ -230,7 +305,7 @@ test("state undo restores a trashed task with its complete local content", async
     const root = await navigator.storage.getDirectory();
     const directory = await root.getDirectoryHandle("undo-workspace", { create: true });
     const backend = new globalThis.__localDirectoryBackendForTests(directory);
-    const state = (await backend.loadWorkspace()).state;
+    const state = globalThis.__createDefaultStateForTests();
     const task = { ...state.tasks[0], id: "undo-task", title: "完整撤销任务", descriptionMarkdown: "保留描述" };
     const withTask = { ...state, tasks: [task] };
     await backend.saveWorkspaceIndex(withTask);
@@ -269,7 +344,7 @@ test("external description, worklog, and attachment changes are rejected", async
     const root = await navigator.storage.getDirectory();
     const directory = await root.getDirectoryHandle("content-conflicts", { create: true });
     const backend = new globalThis.__localDirectoryBackendForTests(directory);
-    const state = (await backend.loadWorkspace()).state;
+    const state = globalThis.__createDefaultStateForTests();
     const task = { ...state.tasks[0], id: "conflict-task", title: "冲突测试", descriptionMarkdown: "browser description" };
     await backend.saveWorkspaceIndex({ ...state, tasks: [task] });
     await backend.saveWorkLog({ taskId: task.id, workDate: "2026-08-13", contentMarkdown: "browser log", progressPercent: 10 });
@@ -327,7 +402,7 @@ test("invalid first migration leaves no loadable partial workspace", async ({ pa
     }
     const directory = await timed("create-directory", root.getDirectoryHandle("failed-first-migration", { create: true }));
     const backend = new globalThis.__localDirectoryBackendForTests(directory);
-    const snapshot = await timed("export-snapshot", globalThis.__workspaceBackendForTests.exportSnapshot());
+    const snapshot = { state: globalThis.__createDefaultStateForTests(), workLogs: [], attachments: [], attachmentBlobs: new Map() };
     const taskId = snapshot.state.tasks[0].id;
     const attachmentId = "migration-failure-attachment";
     snapshot.attachments.push({ id: attachmentId, taskId, name: "failure.bin", type: "application/octet-stream", size: 1, lastModified: 1, kind: "binary", createdAt: 1 });
@@ -354,7 +429,7 @@ test("invalid replacement migration preserves the existing workspace", async ({ 
     }
     const directory = await root.getDirectoryHandle("rollback-workspace", { create: true });
     const backend = new globalThis.__localDirectoryBackendForTests(directory);
-    const state = (await backend.loadWorkspace()).state;
+    const state = globalThis.__createDefaultStateForTests();
     const original = { ...state.tasks[0], id: "original-task", title: "迁移前任务", descriptionMarkdown: "迁移前描述" };
     await backend.saveWorkspaceIndex({ ...state, tasks: [original] });
     await backend.saveWorkLog({ taskId: original.id, workDate: "2026-08-13", contentMarkdown: "迁移前记录", progressPercent: 30 });
@@ -386,7 +461,7 @@ test("permission and write failures preserve the last durable content", async ({
     }
     const directory = await root.getDirectoryHandle("failure-workspace", { create: true });
     const backend = new globalThis.__localDirectoryBackendForTests(directory);
-    const state = (await backend.loadWorkspace()).state;
+       const state = globalThis.__createDefaultStateForTests();
     const task = { ...state.tasks[0], id: "failure-task", title: "故障任务", descriptionMarkdown: "durable" };
     await backend.saveWorkspaceIndex({ ...state, tasks: [task] });
     await backend.loadWorkspace();
@@ -461,7 +536,7 @@ test("createWritable, write, and close failures roll back the original file", as
       }
       const directory = await storageRoot.getDirectoryHandle(directoryName, { create: true });
       const backend = new globalThis.__localDirectoryBackendForTests(directory);
-      const state = (await backend.loadWorkspace()).state;
+      const state = globalThis.__createDefaultStateForTests();
       const task = { ...state.tasks[0], id: `task-${failureStage}`, title: failureStage, descriptionMarkdown: "durable" };
       await backend.saveWorkspaceIndex({ ...state, tasks: [task] });
       const tasks = await directory.getDirectoryHandle("tasks");
@@ -543,8 +618,9 @@ test("description conflicts offer cancel, conflict copy, and external reload", a
     };
   });
   await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("task-workbench-state-v5", JSON.stringify(globalThis.__createDefaultStateForTests())));
   await page.locator("#chooseWorkspaceDirectory").click();
-  await page.locator("#confirmOk").click();
+  await page.locator("#workspaceSetupImport").click();
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：conflict-ui-workspace");
   await page.getByRole("option", { name: /确定今天最重要的一件事/ }).locator(".task-main").click();
@@ -603,10 +679,11 @@ test("task delete, UI undo, and reload restore all local task files", async ({ p
     };
   });
   await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("task-workbench-state-v5", JSON.stringify(globalThis.__createDefaultStateForTests())));
   await page.locator("#chooseWorkspaceDirectory").click();
   await Promise.all([
     page.waitForEvent("framenavigated", (frame) => frame === page.mainFrame()),
-    page.locator("#confirmOk").click(),
+    page.locator("#workspaceSetupImport").click(),
   ]);
   await expect(page.locator("html")).toHaveAttribute("data-app-ready", "true");
   await page.getByRole("option", { name: /确定今天最重要的一件事/ }).locator(".task-main").click();

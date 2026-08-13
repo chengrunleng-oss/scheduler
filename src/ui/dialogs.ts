@@ -7,6 +7,7 @@ export interface Dialogs {
   moveFolder(folder: Folder, folders: Folder[]): Promise<{ parentId: string | null; targetIndex: number } | null>;
   chooseFolderDeletion(folder: Folder, childFolderCount: number, taskCount: number): Promise<FolderDeleteStrategy | null>;
   confirm(title: string, message: string): Promise<boolean>;
+  chooseWorkspaceSetup(directoryName: string): Promise<"import" | "empty" | null>;
   resolveConflict(message: string): Promise<"reload" | "copy" | "cancel">;
   toast(message: string): void;
 }
@@ -152,6 +153,31 @@ export function createDialogs(els: Elements): Dialogs {
         els.confirmClose.addEventListener("click", onCancel);
         els.confirmDialog.addEventListener("close", onCancel, { once: true });
         els.confirmDialog.showModal();
+      });
+    },
+
+    chooseWorkspaceSetup(directoryName) {
+      return new Promise((resolve) => {
+        const finish = (value: "import" | "empty" | null) => {
+          cleanup();
+          closeDialog(els.workspaceSetupDialog);
+          resolve(value);
+        };
+        const onImport = () => finish("import");
+        const onEmpty = () => finish("empty");
+        const onCancel = () => finish(null);
+        const cleanup = () => {
+          els.workspaceSetupImport.removeEventListener("click", onImport);
+          els.workspaceSetupEmpty.removeEventListener("click", onEmpty);
+          els.workspaceSetupCancel.removeEventListener("click", onCancel);
+          els.workspaceSetupDialog.removeEventListener("close", onCancel);
+        };
+        els.workspaceSetupDialog.querySelector(".confirm-text")!.textContent = `目录“${directoryName}”尚未初始化。请选择一次性导入旧浏览器数据，或创建空工作区。`;
+        els.workspaceSetupImport.addEventListener("click", onImport);
+        els.workspaceSetupEmpty.addEventListener("click", onEmpty);
+        els.workspaceSetupCancel.addEventListener("click", onCancel);
+        els.workspaceSetupDialog.addEventListener("close", onCancel, { once: true });
+        els.workspaceSetupDialog.showModal();
       });
     },
 

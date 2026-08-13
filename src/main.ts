@@ -1,12 +1,14 @@
 import { createApp, nextTick } from "vue";
 import App from "./App.vue";
 import "./styles/index.css";
-import { hydrateState } from "./domain.js";
+import { createDefaultState, createEmptyState, hydrateState } from "./domain.js";
 import { LocalDirectoryBackend, type WorkspaceDirectoryHandle } from "./local-directory-backend.js";
 import { createStore } from "./store.js";
 import type { AppState } from "./types.js";
 import type { WorkspaceBackend } from "./workspace-backend.js";
-import { IndexedDbBackend } from "./workspace-db.js";
+import { LegacyBrowserImportReader } from "./workspace-db.js";
+import { hasLegacyStateInStorage, loadPreferencesFromStorage, savePreferencesToStorage } from "./storage.js";
+import { UnavailableWorkspaceBackend } from "./unavailable-workspace-backend.js";
 import { clearWorkspaceDirectoryHandle, loadWorkspaceDirectoryHandle, saveWorkspaceDirectoryHandle } from "./workspace-handle-store.js";
 import { createDialogs } from "./ui/dialogs.js";
 import { createDragAndDrop } from "./ui/drag-drop.js";
@@ -20,48 +22,56 @@ createApp(App).mount("#app");
 await nextTick();
 
 const els = queryElements();
-const browserBackend = await IndexedDbBackend.open();
-let backend: WorkspaceBackend = browserBackend;
+let backend: WorkspaceBackend = new UnavailableWorkspaceBackend();
 let storedDirectoryHandle: WorkspaceDirectoryHandle | null = null;
 let directoryRecovery: "none" | "permission" | "replace" = "none";
 let unavailableDirectoryName = "";
+let loaded = await backend.loadWorkspace();
 try {
   storedDirectoryHandle = await loadWorkspaceDirectoryHandle();
   if (storedDirectoryHandle) {
     const candidate = new LocalDirectoryBackend(storedDirectoryHandle);
-    if (await candidate.ensurePermission(false)) backend = candidate;
-    else directoryRecovery = "permission";
+    if (await candidate.ensurePermission(false)) {
+      try {
+        loaded = await candidate.loadWorkspace();
+        backend = candidate;
+      } catch (error) {
+        candidate.close();
+        unavailableDirectoryName = candidate.workspaceName;
+        directoryRecovery = isDirectoryPermissionError(error) ? "permission" : "replace";
+        if (directoryRecovery === "replace") {
+          storedDirectoryHandle = null;
+          await clearWorkspaceDirectoryHandle();
+        }
+        backend = new UnavailableWorkspaceBackend(
+          isDirectoryPermissionError(error) ? `需要重新授权本地目录：${candidate.workspaceName}` : `本地工作区不可用：${candidate.workspaceName}`,
+        );
+        loaded = await backend.loadWorkspace();
+      }
+    } else {
+      directoryRecovery = "permission";
+      backend = new UnavailableWorkspaceBackend(`需要重新授权本地目录：${storedDirectoryHandle.name}`);
+      loaded = await backend.loadWorkspace();
+    }
   }
 } catch {
   directoryRecovery = "replace";
-}
-let loaded;
-try {
+  storedDirectoryHandle = null;
+  await clearWorkspaceDirectoryHandle();
+  backend = new UnavailableWorkspaceBackend("已保存的本地工作区无法恢复，请重新选择目录。");
   loaded = await backend.loadWorkspace();
-} catch (error) {
-  if (backend !== browserBackend) {
-    unavailableDirectoryName = (backend as LocalDirectoryBackend).workspaceName;
-    backend = browserBackend;
-    directoryRecovery = isDirectoryPermissionError(error) ? "permission" : "replace";
-    if (directoryRecovery === "replace") {
-      storedDirectoryHandle = null;
-      await clearWorkspaceDirectoryHandle();
-    }
-    loaded = await browserBackend.loadWorkspace();
-    loaded.message = error instanceof Error
-      ? `本地工作区无法打开，已回退到浏览器存储：${error.message}`
-      : "本地工作区无法打开，已回退到浏览器存储。";
-  } else {
-    throw error;
-  }
 }
+const storedPreferences = loadPreferencesFromStorage();
+if (!backend.available && storedPreferences) loaded.state = { ...createEmptyState(), preferences: storedPreferences };
 if (import.meta.env.DEV) {
   const testGlobals = globalThis as typeof globalThis & {
     __workspaceBackendForTests?: WorkspaceBackend;
     __localDirectoryBackendForTests?: typeof LocalDirectoryBackend;
+    __createDefaultStateForTests?: typeof createDefaultState;
   };
   testGlobals.__workspaceBackendForTests = backend;
   testGlobals.__localDirectoryBackendForTests = LocalDirectoryBackend;
+  testGlobals.__createDefaultStateForTests = createDefaultState;
 }
 const store = createStore(hydrateState(loaded.state));
 const renderer = createRenderer(els);
@@ -72,18 +82,24 @@ let lastStorageFailureMessage = "";
 let lastScheduledState: AppState | null = store.getState();
 let currentSave = Promise.resolve(true);
 let writeQueue = Promise.resolve();
+document.documentElement.dataset.workspaceSaveState = backend.available ? "saved" : "unavailable";
 
 function persistState(): Promise<boolean> {
   const state = store.getState();
+  savePreferencesToStorage(state.preferences);
+  if (!backend.available) return Promise.resolve(true);
   if (state === lastScheduledState) return currentSave;
   lastScheduledState = state;
+  document.documentElement.dataset.workspaceSaveState = "saving";
   const write = writeQueue.then(() => backend.saveWorkspaceIndex(state));
   writeQueue = write.catch(() => undefined);
   currentSave = write.then(() => {
     lastStorageFailureMessage = "";
+    document.documentElement.dataset.workspaceSaveState = "saved";
     return true;
   }, (error: unknown) => {
     if (lastScheduledState === state) lastScheduledState = null;
+    document.documentElement.dataset.workspaceSaveState = "error";
     const message = error instanceof Error ? error.message : "本地任务存储不可用。";
     if (message !== lastStorageFailureMessage) {
       lastStorageFailureMessage = message;
@@ -119,10 +135,7 @@ document.documentElement.dataset.appReady = "true";
 window.setInterval(() => {
   if (store.getState().tasks.some((task) => task.pendingResolution)) render();
 }, 1_000);
-window.addEventListener("pagehide", () => {
-  backend.close();
-  if (backend !== browserBackend) browserBackend.close();
-}, { once: true });
+window.addEventListener("pagehide", () => backend.close(), { once: true });
 
 els.chooseWorkspaceDirectory.addEventListener("click", () => {
   void switchWorkspaceDirectory(false);
@@ -152,7 +165,7 @@ async function switchWorkspaceDirectory(reauthorize: boolean): Promise<void> {
     }
     const directoryBackend = new LocalDirectoryBackend(handle);
     if (!(await directoryBackend.ensurePermission(true))) {
-      dialogs.toast("未获得目录读写权限，继续使用浏览器存储。");
+      dialogs.toast("未获得目录读写权限，请重新授权原目录或改选本地目录。");
       return;
     }
 
@@ -160,8 +173,32 @@ async function switchWorkspaceDirectory(reauthorize: boolean): Promise<void> {
     if (existing.recovered) {
       if (!(await dialogs.confirm("打开本地工作区", `切换到“${handle.name}”并重新加载其中的任务吗？`))) return;
     } else {
-      if (!(await dialogs.confirm("创建本地工作区", `将当前任务、工作记录和附件复制到“${handle.name}”吗？`))) return;
-      await directoryBackend.importSnapshot(await backend.exportSnapshot());
+      const setup = await dialogs.chooseWorkspaceSetup(handle.name);
+      if (!setup) return;
+      if (setup === "import") {
+        if (!hasLegacyStateInStorage()) {
+          dialogs.toast("没有找到可迁移的旧浏览器任务数据，请创建空工作区。");
+          return;
+        }
+        const legacyBackend = await LegacyBrowserImportReader.open();
+        if (!legacyBackend.available) {
+          legacyBackend.close();
+          dialogs.toast("旧浏览器数据不可读取，请改为创建空工作区。");
+          return;
+        }
+        try {
+          const legacyLoaded = await legacyBackend.loadWorkspace();
+          if (!legacyLoaded.recovered) {
+            dialogs.toast("没有找到可迁移的有效旧浏览器任务数据，请创建空工作区。");
+            return;
+          }
+          await directoryBackend.importSnapshot(await legacyBackend.exportSnapshot());
+        } finally {
+          legacyBackend.close();
+        }
+      } else {
+        await directoryBackend.importSnapshot({ state: { ...createEmptyState(), preferences: store.getState().preferences }, workLogs: [], attachments: [], attachmentBlobs: new Map() });
+      }
     }
     await saveWorkspaceDirectoryHandle(handle);
     window.location.reload();
@@ -173,7 +210,7 @@ async function switchWorkspaceDirectory(reauthorize: boolean): Promise<void> {
       directoryRecovery = "replace";
       await clearWorkspaceDirectoryHandle();
       updateWorkspaceStorageStatus();
-      dialogs.toast("原目录已移动、删除或无法恢复，请改选本地目录；浏览器数据仍然保留。");
+      dialogs.toast("原目录已移动、删除或无法恢复，请改选本地目录。旧浏览器数据不会自动作为运行时数据加载。");
       return;
     }
     dialogs.toast(error instanceof Error ? error.message : "本地工作区切换失败，当前数据未更改。");
@@ -182,21 +219,6 @@ async function switchWorkspaceDirectory(reauthorize: boolean): Promise<void> {
     els.reauthorizeWorkspaceDirectory.disabled = false;
   }
 }
-
-els.useBrowserStorage.addEventListener("click", async () => {
-  if (backend === browserBackend) return;
-  if (!(await flushBeforeBackendSwitch())) return;
-  if (!(await dialogs.confirm("切回浏览器存储", "将当前本地工作区完整复制到浏览器存储，并重新加载吗？"))) return;
-  els.useBrowserStorage.disabled = true;
-  try {
-    await browserBackend.importSnapshot(await backend.exportSnapshot());
-    await clearWorkspaceDirectoryHandle();
-    window.location.reload();
-  } catch (error) {
-    dialogs.toast(error instanceof Error ? error.message : "切换失败，当前工作区未更改。");
-    els.useBrowserStorage.disabled = false;
-  }
-});
 
 function updateWorkspaceStorageStatus(): void {
   const localBackend = backend instanceof LocalDirectoryBackend ? backend : null;
@@ -207,7 +229,7 @@ function updateWorkspaceStorageStatus(): void {
       ? `需要重新授权：${storedDirectoryHandle.name}`
       : directoryRecovery === "replace" && unavailableDirectoryName
         ? `原工作区不可用：${unavailableDirectoryName}`
-      : "浏览器存储";
+      : backend.errorMessage || "尚未选择本地工作区";
   els.workspaceStorageIndicator.classList.toggle("local", local);
   els.workspaceStorageIndicator.classList.toggle("attention", directoryRecovery !== "none");
   const directoryAction = directoryRecovery === "replace" ? "改选本地目录" : local ? "切换本地目录" : "选择本地目录";
@@ -215,7 +237,10 @@ function updateWorkspaceStorageStatus(): void {
   els.chooseWorkspaceDirectory.title = directoryAction;
   els.chooseWorkspaceDirectory.setAttribute("aria-label", directoryAction);
   els.reauthorizeWorkspaceDirectory.hidden = directoryRecovery !== "permission" || !storedDirectoryHandle;
-  els.useBrowserStorage.hidden = !local;
+  for (const control of [els.globalNewTask, els.newFolder, els.exportData, els.importData, els.resetDemo, els.undoAction, els.redoAction]) {
+    control.disabled = !local;
+    control.setAttribute("aria-disabled", String(!local));
+  }
 }
 
 async function flushBeforeBackendSwitch(): Promise<boolean> {

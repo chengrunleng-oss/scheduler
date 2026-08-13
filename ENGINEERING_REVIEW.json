@@ -1,13 +1,13 @@
 {
   "document_type": "scheduler_upgrade_feedback",
-  "format_version": 4,
-  "review_date": "2026-08-12",
-  "source_branch": "develop",
-  "source_revision": "5c3ee7b",
-  "document_policy": "本文件整体替换上一版改进反馈，只描述当前确认的视觉重构与后续本地工作区存储重构，不保留已经实施或已被新决策替代的旧方案。",
+  "format_version": 5,
+  "review_date": "2026-08-13",
+  "source_branch": "codex/local-workspace-storage",
+  "source_revision": "2d8ff3d",
+  "document_policy": "本文件整体替换上一版改进反馈，只描述当前确认的视觉重构与后续本地工作区存储重构，并将最新的单一真实数据源决策作为存储阶段的最高优先级约束。已经被新决策否定的浏览器业务数据回退、双向复制和自动合并方案不再作为目标。",
   "executive_summary": {
-    "decision": "采用严格串行的两阶段升级：先在当前 develop 分支完成并上线真正的 Vue 3 视觉重构；视觉版本验收完成后，再从 develop 的最新视觉版本提交创建独立分支 codex/local-workspace-storage，实施本地工作区目录与可替换存储后端。",
-    "reason": "视觉重构会调整 Vue 组件边界、任务行 DOM 和 CSS 架构，存储重构会调整数据生命周期、编辑器保存和附件接口。如果同时在两个长期分支修改相同组件，合并冲突和回归风险都会明显增加。",
+    "decision": "采用严格串行的两阶段升级：先在 develop 完成并验收 Vue 3 视觉重构；再在 codex/local-workspace-storage 实施本地工作区存储重构。存储阶段采用单一真实数据源原则：用户选定的本地目录是唯一任务业务数据源，localStorage 只保存界面偏好，IndexedDB 最多保存目录句柄，不保存任务、工作记录或附件，也不作为默认回退后端。",
+    "reason": "视觉重构与数据生命周期重构分阶段可以降低回归和合并风险；单一本地数据源可以消除浏览器数据与本地目录之间的分叉、静默覆盖、双向迁移和启动时自动合并问题。",
     "release_sequence": [
       "v0.6：develop 上完成视觉重构",
       "v0.6 视觉与交互验收通过",
@@ -108,7 +108,14 @@
   "phase_2_local_workspace_storage": {
     "goal": "让每个待办事项映射到用户选定根目录下的独立本地文件夹，任务元数据、长期描述、每日进度和附件均以用户可管理的本地文件保存，同时保持未来接入 GitHub、Supabase 或自建 API 的能力。",
     "branch": "codex/local-workspace-storage",
-    "core_decision": "用户只选择一次工作区根目录，系统为每个任务自动创建稳定 ID 命名的子目录；不要求用户逐条任务选择文件夹。",
+    "core_decision": "用户必须选择工作区根目录，系统为每个任务自动创建稳定 ID 命名的独立子目录；本地目录是唯一业务数据源，不要求用户逐条任务选择根目录，也不在未选择目录时创建可持久化任务。",
+    "source_of_truth": {
+      "business_data": "本地工作区目录唯一保存 workspace.json、任务元数据、长期描述、每日工作记录和附件；应用启动、读取、保存、删除、撤销和备份均以该目录为准。",
+      "local_storage": "浏览器 localStorage 仅保存主题、视图、筛选、折叠、工作区面板宽度等界面偏好，不保存任务或任何任务内容。",
+      "indexed_db": "IndexedDB 不保存任务、工作记录、附件元数据或附件 Blob；若需要记住上次选择的目录，只允许保存 FileSystemDirectoryHandle 本身。",
+      "legacy_data": "现有 localStorage/IndexedDB 业务数据只作为用户主动触发的一次性迁移来源，不参与默认启动、自动回退、自动合并或后台同步；迁移成功后由用户决定是否清理旧数据。",
+      "no_directory_state": "用户尚未选择或无法访问目录时，显示空状态/只读说明，禁止创建、编辑或删除需要持久化的任务业务数据。"
+    },
     "filesystem_layout": {
       "root_example": "scheduler-workspace/",
       "entries": [
@@ -125,7 +132,7 @@
       "primary_api": "File System Access API 的 showDirectoryPicker 与 FileSystemDirectoryHandle。",
       "permission_rule": "首次必须由用户主动选择并授权目录；启动时使用 queryPermission 检查，必要时只能在用户操作后 requestPermission。",
       "development_origin": "目录句柄和权限与浏览器来源相关，Vite 开发端口必须固定并启用 strictPort，不能静默切换 5174、5175。",
-      "compatibility": "真实目录模式优先支持 Chrome 和 Edge；不支持 showDirectoryPicker 的浏览器继续使用 IndexedDB 兼容后端。",
+      "compatibility": "真实目录模式优先支持 Chrome 和 Edge；不支持 showDirectoryPicker 的浏览器显示本地工作区不可用，不启用 IndexedDB 任务数据回退。",
       "desktop_future": "如果未来要求跨浏览器稳定访问任意真实目录，可将同一 Vue 应用包装为 Tauri，而不改变上层存储接口。"
     },
     "storage_abstraction": {
@@ -150,12 +157,19 @@
         "importSnapshot"
       ],
       "implementations": [
-        "IndexedDbBackend：兼容模式和迁移前来源",
-        "LocalDirectoryBackend：v0.7 主实现",
+        "LocalDirectoryBackend：v0.7 默认且唯一业务后端",
+        "LegacyBrowserImportReader：仅在用户主动迁移旧浏览器数据时临时读取旧 localStorage/IndexedDB，不作为运行时后端",
         "未来 GitHubBackend",
         "未来 SupabaseBackend 或 CustomApiBackend"
       ],
-      "composition": "任务核心状态与工作记录、附件使用同一个后端实例，避免当前 localStorage 与 IndexedDB 分步成功造成不一致。"
+      "composition": "任务树、工作区、编辑器、附件和备份始终使用当前唯一业务后端；v0.7 默认只能是 LocalDirectoryBackend，不能在 LocalDirectoryBackend 与浏览器业务后端之间自动切换。",
+      "prohibited_default_paths": [
+        "启动时不得先加载 IndexedDbBackend 再等待本地目录",
+        "本地目录不可用时不得自动回退到浏览器任务数据",
+        "不得把本地目录和浏览器任务数据自动合并",
+        "不得在本地目录保存成功后自动复制或持续写入浏览器业务数据",
+        "不得把 localStorage 的任务状态当作业务数据源"
+      ]
     },
     "file_policy": {
       "upload": "上传或拖入文件时复制到任务 attachments 目录，不只保存外部原文件引用。",
@@ -188,32 +202,34 @@
       "delete": "删除任务先移动或复制到 trash，再更新索引；彻底清理作为独立操作。"
     },
     "migration": {
-      "source": "现有 localStorage task-workbench-state-v5 与 IndexedDB task-workbench-content-v5。",
+      "source": "旧版本用户主动选择的 localStorage task-workbench-state-v5 与 IndexedDB task-workbench-content-v5；这些只作为一次性兼容导入来源，不再是 v0.7 的运行时存储。",
       "process": [
-        "用户选择或新建工作区根目录。",
-        "扫描并显示待迁移任务、工作记录和附件数量。",
-        "写入新目录的临时迁移区并校验 JSON、Markdown 数量、附件大小和哈希。",
-        "校验通过后生成 workspace.json 并切换当前后端。",
-        "原浏览器数据保持不变，直到用户明确执行清理。"
+        "首次启动只显示选择本地工作区；未选择前不加载或展示旧浏览器业务数据。",
+        "用户主动选择目标目录后，明确选择“从旧浏览器数据导入”或“创建空工作区”；不得隐式迁移。",
+        "扫描并显示待迁移任务、工作记录和附件数量，写入新目录临时区并校验 JSON、Markdown 数量、附件大小和哈希。",
+        "校验通过后发布 workspace.json，保存目录句柄，并将 LocalDirectoryBackend 设为唯一运行时后端。",
+        "原浏览器业务数据保持不变但不再参与运行；用户可在确认迁移完成后手动清理旧数据。"
       ],
-      "rollback": "迁移失败或权限中断时删除或标记未完成的临时迁移区，继续使用原 IndexedDB 后端，不产生半迁移工作区。",
+      "rollback": "迁移失败或权限中断时删除或标记未完成的临时迁移区，停留在本地工作区不可用/未初始化状态；不得自动回退到旧浏览器业务数据，也不得产生半迁移工作区。",
       "backup": "继续保留现有完整 ZIP 导入导出，作为跨浏览器迁移与灾难恢复方案。"
     },
     "user_experience": {
-      "setup": "首次进入本地目录模式时显示选择工作区按钮和简短权限说明，选择后展示目录名称而不是完整敏感路径。",
+      "setup": "首次打开必须选择本地工作区；未选择前显示空状态和只读说明，隐藏或禁用会持久化任务的新增、编辑、完成、删除和附件操作。选择后展示目录名称而不是完整敏感路径。",
       "status": "顶部提供本地工作区、只读、需要重新授权、保存中、已保存、外部冲突和存储失败等明确状态。",
-      "fallback": "权限被拒绝或目录不可用时允许继续以 IndexedDB 模式运行，不阻止查看已有任务。",
+      "fallback": "权限被撤销、目录被移动/删除或目录不可用时显示“本地工作区不可用”，允许重新授权原目录或改选目录；不显示旧浏览器任务，不自动回退到 IndexedDB，也不自动合并任何数据。",
       "switching": "切换工作区前保存当前编辑并确认目标；禁止在未完成写入时无提示切换。"
     },
     "acceptance": [
       "每个任务拥有唯一物理目录，重命名任务不会改变目录标识或丢失数据。",
       "任务元数据、长期描述、每日进度和附件均可在关闭浏览器后从目录重新恢复。",
       "文本类附件可在浏览器内查看、编辑和保存，图片与 PDF 可预览。",
-      "权限撤销、目录移动、外部修改、磁盘写入失败和配额问题均不会静默丢失数据。",
-      "迁移失败可以回退到现有浏览器数据，原数据不会被自动删除。",
-      "IndexedDbBackend 与 LocalDirectoryBackend 通过同一套契约测试。",
-      "更换后端不需要修改任务树、工作区或编辑器组件。",
-      "npm run verify 通过，并新增真实 Chromium 文件系统权限、迁移和故障恢复测试。"
+      "localStorage 只包含界面偏好；IndexedDB 只包含目录句柄或为空，不包含任务、工作记录和附件。",
+      "首次未选目录时不展示旧任务、不允许创建需要持久化的任务。",
+      "权限撤销、目录移动、外部修改、磁盘写入失败和配额问题均不会静默丢失数据，也不会自动切换业务数据源。",
+      "旧浏览器数据只能由用户主动发起一次性迁移，迁移失败停留在不可用/未初始化状态，不自动回退或合并。",
+      "LocalDirectoryBackend 通过业务存储契约测试；旧 IndexedDbBackend 不再作为默认业务后端。",
+      "更换未来远端后端不需要修改任务树、工作区或编辑器组件。",
+      "npm run verify 通过，并新增无目录启动、无 IndexedDB 业务数据、主动迁移和不可用目录阻断测试。"
     ]
   },
   "implementation_order": [
@@ -235,7 +251,7 @@
     {
       "step": 4,
       "branch": "codex/local-workspace-storage",
-      "work": "定义 WorkspaceBackend，先用现有 IndexedDB 行为实现契约测试，再解除 UI 对具体仓库类的直接依赖。"
+      "work": "定义 WorkspaceBackend，以 LocalDirectoryBackend 作为唯一运行时业务后端；将旧 IndexedDB/localStorage 读取封装为仅在用户主动迁移时调用的 LegacyBrowserImportReader，不让旧后端进入默认启动路径。"
     },
     {
       "step": 5,
@@ -245,7 +261,7 @@
     {
       "step": 6,
       "branch": "codex/local-workspace-storage",
-      "work": "实现现有数据迁移、回滚、备份兼容、浏览器内文本编辑和故障恢复。"
+      "work": "实现用户主动触发的旧浏览器数据一次性迁移、回滚、备份兼容、浏览器内文本编辑和故障恢复；迁移失败时保持本地工作区不可用，不回退到旧业务数据。"
     },
     {
       "step": 7,
@@ -260,7 +276,7 @@
     },
     {
       "risk": "浏览器不能静默获得任意目录权限，权限也不保证跨会话持续。",
-      "mitigation": "用户主动选择根目录，保存句柄，启动时检查权限，并保留 IndexedDB 兼容模式。"
+      "mitigation": "用户主动选择根目录，最多在 IndexedDB 保存目录句柄，启动时检查权限；权限失效时显示本地工作区不可用并提供重新授权或改选，不显示旧业务数据。"
     },
     {
       "risk": "任务元数据和附件分步写入会形成半完成状态。",
@@ -277,6 +293,14 @@
     {
       "risk": "未来云端后端与真实本地目录的数据模型不同。",
       "mitigation": "上层只依赖 WorkspaceBackend 和领域对象；路径、句柄、令牌等后端细节不进入 Vue 组件或 store。"
+    },
+    {
+      "risk": "同时维护本地目录和浏览器任务数据会导致数据分叉、覆盖和迁移歧义。",
+      "mitigation": "本地目录作为唯一业务数据源；localStorage 只保存界面偏好，IndexedDB 只允许保存目录句柄；旧业务数据只在用户主动迁移时读取，不进入默认启动、回退或合并路径。"
+    },
+    {
+      "risk": "用户未选择目录或目录暂时不可用时，用户可能误以为可以继续创建任务。",
+      "mitigation": "显示空状态/只读说明，禁用所有需要持久化的新增、编辑、状态变更、删除和附件操作，并提供明确的选择、重新授权和改选目录入口。"
     }
   ],
   "out_of_scope": {
@@ -289,7 +313,9 @@
       "多人实时协作",
       "浏览器内编辑 Word、Excel、PowerPoint",
       "自动把本地目录同步到 GitHub 或云端",
-      "在 Firefox 和 Safari 中强制提供真实目录写入能力"
+      "在 Firefox 和 Safari 中强制提供真实目录写入能力",
+      "以 IndexedDbBackend 作为默认业务存储",
+      "本地目录与浏览器业务数据的自动双向同步或自动合并"
     ]
   },
   "definition_of_done": [
@@ -298,15 +324,19 @@
     "codex/local-workspace-storage 在 v0.7 验收后继续作为独立长期分支存在，不合并回 develop。",
     "develop 不包含真实本地目录存储、迁移代码或该分支专属的数据模型。",
     "v0.7 的业务代码通过 WorkspaceBackend 使用存储，不直接绑定 File System Access API。",
+    "LocalDirectoryBackend 是 v0.7 唯一默认业务后端；IndexedDB 不保存任务、工作记录或附件，只可保存目录句柄。",
+    "用户未选择或无法访问本地目录时，应用只显示空状态/只读说明，不加载旧浏览器业务数据，也不允许创建需持久化的任务。",
+    "权限失效或目录移动时，应用显示本地工作区不可用，支持重新授权或改选目录，不自动回退或合并浏览器业务数据。",
     "本地目录模式能够完整保存并恢复任务、工作记录和附件。",
-    "现有浏览器数据可以无损迁移且失败可回滚。",
+    "现有浏览器业务数据只能由用户主动发起一次性迁移且失败可回滚；迁移不改变默认单一数据源原则。",
     "两阶段各自拥有独立测试结果和可回退提交，不使用一个混合提交上线。"
   ],
   "repository_state": {
-    "branch_at_review": "develop",
-    "head_at_review": "5c3ee7b",
-    "working_tree_before_write": "clean",
-    "storage_branch_created": false,
-    "reason_not_created": "按确认顺序，必须等视觉重构在 develop 验收完成后再创建。"
+    "branch_at_review": "codex/local-workspace-storage",
+    "head_at_review": "2d8ff3d",
+    "working_tree_before_write": "已有存储重构未提交改动；本轮只更新改进反馈文档",
+    "storage_branch_created": true,
+    "storage_branch_base": "2d8ff3d",
+    "reason_not_created": "不适用；本地工作区存储分支已按 v0.6 验收基线创建并独立保留。"
   }
 }

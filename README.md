@@ -44,9 +44,9 @@ npm run preview
 - 响应式布局：宽屏在选中任务后显示 232px 导航、任务区和 480-680px 可调工作区；标准桌面使用紧凑图标导航，平板与手机使用分层抽屉和全屏详情。
 - 显示设置：支持跟随系统、浅色和深色主题，视图、筛选、默认新任务值和折叠偏好会在刷新后恢复。
 
-默认模式把任务、文件夹和偏好保存在当前浏览器的 `localStorage` 中，工作记录、附件元数据和 Blob 保存在 IndexedDB 中。Chrome/Edge 可在侧栏选择真实本地目录，首次选择空目录会完整复制当前数据，已有工作区会直接打开；也可完整迁回浏览器存储。导入会在完整校验和确认后替换数据，并清空普通撤销/重做历史。
+本地目录是运行时唯一业务数据源。启动时未选择目录会显示空状态，任务、文件夹、描述、工作记录和附件只能写入已授权的本地工作区；目录权限失效或目录不可恢复时，只能重新授权原目录或改选目录，不会自动加载浏览器业务数据。选择空目录时可明确创建空工作区，旧浏览器数据仅在用户主动选择“从旧数据导入”时作为一次性只读迁移来源，导入完成后继续以本地目录为准。
 
-本地目录采用 `workspace.json`、`tasks/<task-id>/task.json`、`description.md`、`worklogs/YYYY-MM-DD.md`、`attachments/<attachment-id>--<safe-name>` 与 `trash/<task-id>/` 布局。临时文件使用不以点号开头的跨平台安全 `tmp-<uuid>-<safe-name>` 名称，并与最终文件一样使用 SHA-256 校验，迁移完成后自动清理；任务索引使用 revision，描述、记录和附件使用内容哈希检测外部修改。冲突时可重新加载外部版本、将当前编辑保存为独立冲突副本或取消保存。迁移先写未完成标记，完整恢复和逐项校验后才发布 `workspace.json`，失败会清理空目标或恢复原工作区。仅权限失效时可重新授权原目录；目录被移动、删除或句柄不可恢复时可改选新目录。启动失败会回退浏览器存储并保留其中数据；非空目录缺少 `workspace.json` 时会按损坏工作区阻止读取和写入，避免静默初始化覆盖原资料。
+本地目录采用 `workspace.json`、`tasks/<task-id>/task.json`、`description.md`、`worklogs/YYYY-MM-DD.md`、`attachments/<attachment-id>--<safe-name>` 与 `trash/<task-id>/` 布局。临时文件使用不以点号开头的跨平台安全 `tmp-<uuid>-<safe-name>` 名称，并与最终文件一样使用 SHA-256 校验，迁移完成后自动清理；任务索引使用 revision，描述、记录和附件使用内容哈希检测外部修改。冲突时可重新加载外部版本、将当前编辑保存为独立冲突副本或取消保存。迁移先写未完成标记，完整恢复和逐项校验后才发布 `workspace.json`，失败会清理空目标或恢复原工作区。权限失效时可重新授权原目录；目录被移动、删除或句柄不可恢复时必须改选目录。非空目录缺少 `workspace.json` 时会按损坏工作区阻止读取和写入，避免静默初始化覆盖原资料。
 
 ## 文档目录
 
@@ -63,7 +63,7 @@ npm run preview
 - `src/domain.ts`：schema v5、旧版迁移、校验、日期分组、视图排序和文件夹约束。
 - `src/store.ts`：原子移动、待决处理、改期时间线、撤销/重做和 no-op 保护。
 - `src/storage.ts`：轻量状态保存、旧版本 fallback 和旧 JSON 导入。
-- `src/workspace-db.ts`：兼容现有浏览器数据的 `IndexedDbBackend`。
+- `src/workspace-db.ts`：仅在用户主动迁移时只读读取旧浏览器数据的兼容层。
 - `src/local-directory-backend.ts`：基于 File System Access API 的真实目录后端。
 - `src/workspace-handle-store.ts`：保存目录句柄并支持启动权限恢复。
 - `src/backup.ts`：完整 ZIP 备份生成、校验和恢复。

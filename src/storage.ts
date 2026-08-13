@@ -1,7 +1,8 @@
 import { createDefaultState, hydrateState, validateBackupPayload, validateStoredPayload } from "./domain.js";
-import type { AppState } from "./types.js";
+import type { AppState, Preferences } from "./types.js";
 
 export const STORAGE_KEY = "task-workbench-state-v5";
+export const PREFERENCES_STORAGE_KEY = "task-workbench-preferences-v1";
 export const LEGACY_STORAGE_KEYS = ["task-workbench-state-v4", "task-workbench-state-v3", "task-workbench-state-v2", "plan-workbench-state-v1"] as const;
 
 export interface StorageResult {
@@ -13,6 +14,33 @@ export interface StorageResult {
 export interface SaveResult {
   saved: boolean;
   message: string;
+}
+
+export function loadPreferencesFromStorage(storage: Storage = localStorage): Preferences | null {
+  try {
+    const raw = storage.getItem(PREFERENCES_STORAGE_KEY);
+    if (!raw) return null;
+    return hydrateState({ schemaVersion: 5, preferences: JSON.parse(raw), folders: [], tasks: [] }).preferences;
+  } catch {
+    return null;
+  }
+}
+
+export function hasLegacyStateInStorage(storage: Storage = localStorage): boolean {
+  try {
+    return [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].some((key) => Boolean(storage.getItem(key)));
+  } catch {
+    return false;
+  }
+}
+
+export function savePreferencesToStorage(preferences: Preferences, storage: Storage = localStorage): SaveResult {
+  try {
+    storage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    return { saved: true, message: "" };
+  } catch {
+    return { saved: false, message: "界面偏好暂时无法保存，本次修改仍会保留在当前页面。" };
+  }
 }
 
 export function loadStateFromStorage(storage: Storage = localStorage): StorageResult {

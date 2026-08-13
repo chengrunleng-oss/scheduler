@@ -1,4 +1,4 @@
-import { createDefaultState, createId, hydrateState, normalizeDate } from "./domain.js";
+import { createEmptyState, createId, hydrateState, normalizeDate } from "./domain.js";
 import type { AppState, AttachmentMeta, Folder, Preferences, Task, WorkLog } from "./types.js";
 import {
   MAX_ATTACHMENT_BYTES,
@@ -97,12 +97,12 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     const index = await readJsonIfExists<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
     if (!index) {
       if (await directoryHasEntries(this.root)) {
-        throw new Error("本地工作区缺少 workspace.json，已阻止写入；请恢复索引、选择正确目录或切回浏览器存储。");
+        throw new Error("本地工作区缺少 workspace.json，已阻止写入；请恢复索引或改选正确目录。");
       }
       this.lastRevision = null;
       this.taskRevisions.clear();
       this.expectedContentHashes.clear();
-      return { state: createDefaultState(), recovered: false, message: "当前目录尚未初始化为任务工作区。" };
+      return { state: createEmptyState(), recovered: false, message: "当前目录尚未初始化为任务工作区。" };
     }
     validateWorkspaceIndex(index);
     this.taskRevisions.clear();
@@ -148,7 +148,7 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       await this.assertPermission();
       const current = await readJsonIfExists<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
       if (!current && await directoryHasEntries(this.root)) {
-        throw new Error("本地工作区缺少 workspace.json，已阻止写入；请恢复索引、选择正确目录或切回浏览器存储。");
+        throw new Error("本地工作区缺少 workspace.json，已阻止写入；请恢复索引或改选正确目录。");
       }
       this.assertRevision(current?.revision ?? null);
       const tasksDirectory = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });
@@ -250,19 +250,19 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
   async saveWorkLog(input: WorkLogInput, now = Date.now()): Promise<WorkLog> {
     const workDate = normalizeDate(input.workDate);
     if (!workDate) throw new Error("工作日期无效。");
-    const taskDirectory = await this.getTaskDirectory(input.taskId);
-    const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
-    const existing = taskFile.workLogs.find((item) => item.workDate === workDate);
-    const record: WorkLog = {
-      id: workLogId(input.taskId, workDate),
-      taskId: input.taskId,
-      workDate,
-      contentMarkdown: normalizeMarkdown(input.contentMarkdown),
-      progressPercent: input.progressPercent === null ? null : Math.max(0, Math.min(100, Math.round(input.progressPercent))),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    };
-    await this.enqueueWrite(async () => {
+    return this.enqueueWrite(async () => {
+      const taskDirectory = await this.getTaskDirectory(input.taskId);
+      const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
+      const existing = taskFile.workLogs.find((item) => item.workDate === workDate);
+      const record: WorkLog = {
+        id: workLogId(input.taskId, workDate),
+        taskId: input.taskId,
+        workDate,
+        contentMarkdown: normalizeMarkdown(input.contentMarkdown),
+        progressPercent: input.progressPercent === null ? null : Math.max(0, Math.min(100, Math.round(input.progressPercent))),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
       this.assertTaskRevision(taskFile);
       const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
       const key = workLogHashKey(input.taskId, workDate);
@@ -280,8 +280,8 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       this.expectedContentHashes.set(key, hashes.workLogs[workDate]!);
       taskFile.workLogs = [...taskFile.workLogs.filter((item) => item.id !== record.id), workLogMeta(record)];
       await this.writeTaskFile(taskDirectory, taskFile);
+      return record;
     });
-    return record;
   }
 
   async deleteWorkLog(id: string): Promise<void> {

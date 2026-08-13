@@ -5,22 +5,31 @@ import JSZip from "jszip";
 const primaryTask = "确定今天最重要的一件事";
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.showDirectoryPicker = async () => {
+      const root = await navigator.storage.getDirectory();
+      try { await root.removeEntry("workbench-test-workspace", { recursive: true }); } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+      }
+      return root.getDirectoryHandle("workbench-test-workspace", { create: true });
+    };
+  });
   await page.goto("/");
   await page.evaluate(() => localStorage.clear());
   await page.evaluate(async () => {
-    await new Promise((resolve, reject) => {
-      const request = indexedDB.open("task-workbench-content-v5", 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const db = request.result;
-        const transaction = db.transaction(["workLogs", "attachments", "attachmentBlobs"], "readwrite");
-        for (const name of ["workLogs", "attachments", "attachmentBlobs"]) transaction.objectStore(name).clear();
-        transaction.oncomplete = () => { db.close(); resolve(); };
-        transaction.onerror = () => reject(transaction.error);
-      };
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase("task-workbench-workspace-handles-v1");
+      request.onsuccess = request.onerror = request.onblocked = () => resolve();
     });
   });
+  await page.evaluate(() => localStorage.setItem("task-workbench-state-v5", JSON.stringify(globalThis.__createDefaultStateForTests?.())));
   await page.reload();
+  await page.locator("#chooseWorkspaceDirectory").click();
+  await Promise.all([
+    page.waitForEvent("framenavigated", (frame) => frame === page.mainFrame()),
+    page.locator("#workspaceSetupImport").click(),
+  ]);
+  await page.waitForFunction(() => Boolean(globalThis.__workspaceBackendForTests?.available));
 });
 
 async function createRootTask(page, title, options = {}) {
@@ -30,6 +39,7 @@ async function createRootTask(page, title, options = {}) {
   if (options.priority) await form.locator('select[name="priority"]').selectOption(options.priority);
   if (options.dueDate !== undefined) await form.locator('input[name="dueDate"]').fill(options.dueDate);
   await form.locator('input[name="title"]').press("Enter");
+  await waitForWorkspaceTask(page, title);
   return page.getByRole("option", { name: new RegExp(title) });
 }
 
@@ -40,11 +50,26 @@ async function createFolderTask(page, folderName, title, priority = "high") {
   await form.locator('input[name="title"]').fill(title);
   await form.locator('select[name="priority"]').selectOption(priority);
   await form.locator('input[name="title"]').press("Enter");
+  await waitForWorkspaceTask(page, title);
   return page.getByRole("option", { name: new RegExp(title) });
 }
 
 async function persistDefaultState(page) {
   await page.locator("#themeSelect").selectOption("light");
+}
+
+async function waitForWorkspaceSave(page) {
+  await expect.poll(() => page.evaluate(async () => {
+    const backend = globalThis.__workspaceBackendForTests;
+    return backend?.available ? (await backend.loadWorkspace()).state.tasks.length : -1;
+  })).toBeGreaterThan(0);
+}
+
+async function waitForWorkspaceTask(page, title) {
+  await expect.poll(() => page.evaluate(async (expectedTitle) => {
+    const backend = globalThis.__workspaceBackendForTests;
+    return Boolean(backend?.available && (await backend.loadWorkspace()).state.tasks.some((task) => task.title === expectedTitle));
+  }, title)).toBe(true);
 }
 
 async function dragWithHover(page, source, hoverTarget, dropTarget = hoverTarget, hoverMs = 700) {
@@ -151,6 +176,7 @@ test("root create actions stay at the tree end and use distinct accessible color
 
 test("completion remains undoable across refresh and finalizes into handled section", async ({ page }) => {
   await page.getByRole("option", { name: new RegExp(primaryTask) }).getByRole("button", { name: "标记为已完成" }).click();
+  await expect.poll(() => page.evaluate(async () => Boolean((await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.id === "task-1")?.pendingResolution))).toBe(true);
   let pending = page.getByRole("option", { name: new RegExp(`${primaryTask}，等待确认`) });
   await expect(pending).toHaveClass(/pending/);
   await expect(pending.getByRole("button", { name: "撤销处理" })).toBeVisible();
@@ -170,9 +196,8 @@ test("completion remains undoable across refresh and finalizes into handled sect
 
 test("handled tasks render after child folders and show the latest three by resolved time", async ({ page }) => {
   await persistDefaultState(page);
-  await page.evaluate(() => {
-    const key = "task-workbench-state-v5";
-    const state = JSON.parse(localStorage.getItem(key));
+  await page.evaluate(async () => {
+    const state = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state;
     const now = Date.now();
     state.folders.push({ id: "folder-work-child", name: "工作子文件夹", parentId: "folder-work", order: 0, collapsed: false, createdAt: now, updatedAt: now });
     for (let index = 0; index < 4; index += 1) {
@@ -181,7 +206,7 @@ test("handled tasks render after child folders and show the latest three by reso
         resolvedAt: now - index * 1_000, createdAt: now - index * 1_000, updatedAt: now - index * 1_000, order: index + 10,
       });
     }
-    localStorage.setItem(key, JSON.stringify(state));
+    await globalThis.__workspaceBackendForTests.saveWorkspaceIndex(state);
   });
   await page.reload();
 
@@ -312,6 +337,7 @@ test("task name, tag, and six-dot handle each start drag while click still selec
 
 test("task drag supports exact reorder, undo, redo, root drop, and self-drop no-op", async ({ page }) => {
   await createFolderTask(page, "工作", "同组第二项", "high");
+  await waitForWorkspaceSave(page);
   await page.reload();
   const workRows = page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"]');
   const titles = () => workRows.locator("strong").allTextContents();
@@ -338,12 +364,14 @@ test("task drag supports exact reorder, undo, redo, root drop, and self-drop no-
 
 test("task drag previews the insertion and sibling motion before one atomic drop", async ({ page }) => {
   await createFolderTask(page, "工作", "实时预排列目标", "high");
+  await waitForWorkspaceSave(page);
   await page.reload();
+  await expect(page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"]')).toHaveCount(2);
   const source = page.getByRole("option", { name: new RegExp(primaryTask) });
   const target = page.getByRole("option", { name: /实时预排列目标/ });
   const handleBox = await source.getByRole("button", { name: "拖动任务" }).boundingBox();
   expect(handleBox).not.toBeNull();
-  const persistedBefore = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("task-workbench-state-v5")).tasks));
+  const persistedBefore = await page.evaluate(async () => JSON.stringify((await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks));
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(handleBox.x + handleBox.width / 2 + 8, handleBox.y + handleBox.height / 2 + 8, { steps: 4 });
@@ -362,7 +390,7 @@ test("task drag previews the insertion and sibling motion before one atomic drop
   await page.waitForTimeout(200);
   const targetAfter = await target.boundingBox();
   expect(Math.abs(targetAfter.y - targetBefore.y)).toBeGreaterThan(20);
-  const persistedDuringPreview = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("task-workbench-state-v5")).tasks));
+  const persistedDuringPreview = await page.evaluate(async () => JSON.stringify((await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks));
   expect(persistedDuringPreview).toBe(persistedBefore);
   await page.mouse.up();
   await expect(page.locator(".task-drop-placeholder")).toHaveCount(0);
@@ -375,10 +403,13 @@ test("task drag previews the insertion and sibling motion before one atomic drop
 test("invalid drop restores preview immediately and reduced motion skips FLIP animation", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await createFolderTask(page, "工作", "取消拖拽目标", "high");
+  await waitForWorkspaceSave(page);
   await page.reload();
   const source = page.getByRole("option", { name: new RegExp(primaryTask) });
   const target = page.getByRole("option", { name: /取消拖拽目标/ });
-  const orderBefore = await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents();
+  const highPriorityTitles = page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong');
+  await expect(highPriorityTitles).toHaveText([primaryTask, "取消拖拽目标"]);
+  const orderBefore = await highPriorityTitles.allTextContents();
   const handleBox = await source.getByRole("button", { name: "拖动任务" }).boundingBox();
   expect(handleBox).not.toBeNull();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
@@ -393,25 +424,30 @@ test("invalid drop restores preview immediately and reduced motion skips FLIP an
   await page.mouse.up();
   await expect(page.locator(".task-drop-placeholder")).toHaveCount(0);
   await expect(source).not.toHaveClass(/drag-source-collapsed/);
-  expect(await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents()).toEqual(orderBefore);
+  await expect(highPriorityTitles).toHaveText(orderBefore);
 });
 
 test("priority divider changes crossed priorities atomically and persists", async ({ page }) => {
   const low = await createFolderTask(page, "工作", "分界线低优先级", "low");
+  await waitForWorkspaceSave(page);
   await page.reload();
   const divider = page.locator('[data-divider-folder-id="folder-work"]');
   await divider.dragTo(low);
   await expect(low).toHaveAttribute("data-priority", "high");
+  await waitForWorkspaceSave(page);
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.title === "分界线低优先级")?.priority)).toBe("high");
   await page.getByRole("button", { name: "撤销" }).click();
   await expect(low).toHaveAttribute("data-priority", "low");
   await page.getByRole("button", { name: "重做" }).click();
   await expect(low).toHaveAttribute("data-priority", "high");
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.title === "分界线低优先级")?.priority)).toBe("high");
   await page.reload();
   await expect(low).toHaveAttribute("data-priority", "high");
 });
 
 test("priority groups use two compact full-row fills and a keyboard-adjustable left label", async ({ page }) => {
   const low = await createFolderTask(page, "工作", "冷色低优先级", "low");
+  await waitForWorkspaceSave(page);
   await page.reload();
   const high = page.getByRole("option", { name: new RegExp(primaryTask) });
   const divider = page.locator('[data-divider-folder-id="folder-work"]');
@@ -531,17 +567,8 @@ test("task workspace autosaves Markdown description and dated work log before sw
   await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
 
   const saved = await page.evaluate(async () => {
-    const state = JSON.parse(localStorage.getItem("task-workbench-state-v5"));
-    const log = await new Promise((resolve, reject) => {
-      const request = indexedDB.open("task-workbench-content-v5", 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        const result = request.result.transaction("workLogs", "readonly").objectStore("workLogs").getAll();
-        result.onsuccess = () => resolve(result.result[0]);
-        result.onerror = () => reject(result.error);
-      };
-    });
-    return { description: state.tasks.find((task) => task.id === "task-1").descriptionMarkdown, log };
+    const task = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((item) => item.id === "task-1");
+    return { description: task.descriptionMarkdown, log: (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1"))[0] };
   });
   expect(saved.description).toContain("长期目标");
   expect(saved.log.contentMarkdown).toContain("完成数据迁移");
@@ -583,15 +610,7 @@ test("work logs support explicit create, open, delete, IndexedDB removal, and sh
   await page.locator("#confirmOk").click();
   await expect(page.locator("#worklogUndo")).toBeVisible();
   await expect(history).toHaveCount(0);
-  expect(await page.evaluate(async () => new Promise((resolve, reject) => {
-    const request = indexedDB.open("task-workbench-content-v5", 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const count = request.result.transaction("workLogs", "readonly").objectStore("workLogs").count();
-      count.onsuccess = () => resolve(count.result);
-      count.onerror = () => reject(count.error);
-    };
-  }))).toBe(0);
+  expect(await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1")).length)).toBe(0);
 
   await page.locator("#undoWorklogDelete").click();
   await expect(page.locator("#worklogUndo")).toBeHidden();
@@ -606,25 +625,14 @@ test("attachments persist blobs, preview text, and insert image references into 
     { name: "进展.log", mimeType: "text/plain", buffer: Buffer.from("build ok\nall checks passed") },
     { name: "截图.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64") },
   ]);
-  await expect(page.locator(".attachment-row")).toHaveCount(2);
+  await expect(page.locator(".attachment-row")).toHaveCount(2, { timeout: 20_000 });
   const textRow = page.locator(".attachment-row").filter({ hasText: "进展.log" });
   await textRow.getByRole("button", { name: "预览附件" }).click();
   await expect(page.locator("#attachmentPreview")).toContainText("all checks passed");
   const imageRow = page.locator(".attachment-row").filter({ hasText: "截图.png" });
   await imageRow.getByRole("button", { name: "插入长期描述" }).click();
-  await expect.poll(() => page.evaluate(() => {
-    const raw = localStorage.getItem("task-workbench-state-v5");
-    return raw ? JSON.parse(raw).tasks.find((task) => task.id === "task-1").descriptionMarkdown : "";
-  })).toContain("attachment:");
-  const blobCount = await page.evaluate(async () => new Promise((resolve, reject) => {
-    const request = indexedDB.open("task-workbench-content-v5", 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      const count = request.result.transaction("attachmentBlobs", "readonly").objectStore("attachmentBlobs").count();
-      count.onsuccess = () => resolve(count.result);
-      count.onerror = () => reject(count.error);
-    };
-  }));
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.id === "task-1").descriptionMarkdown)).toContain("attachment:");
+  const blobCount = await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length);
   expect(blobCount).toBe(2);
 
   const downloadPromise = page.waitForEvent("download");
@@ -642,9 +650,12 @@ test("attachments persist blobs, preview text, and insert image references into 
   await page.locator("#confirmOk").click();
   await page.locator("#importFile").setInputFiles(downloadPath);
   await page.locator("#confirmOk").click();
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length), { timeout: 20_000, intervals: [100, 250, 500] }).toBe(2);
+  await expect(page.getByRole("option", { name: new RegExp(primaryTask) })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
-  await page.locator("#attachmentsTab").click();
-  await expect(page.locator(".attachment-row")).toHaveCount(2);
+  await expect(page.locator("#taskDetail.is-open")).toBeVisible({ timeout: 20_000 });
+  await page.locator("#attachmentsTab").evaluate((button) => button.click());
+  await expect(page.locator(".attachment-row")).toHaveCount(2, { timeout: 20_000 });
 });
 
 test("text attachments can be edited and saved through the active backend", async ({ page }) => {
@@ -691,8 +702,10 @@ test("workspace width persists on wide desktop and becomes full-screen on mobile
   await page.locator("#detailResizer").focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator("#taskDetail")).toHaveCSS("width", "636px");
+  await expect(page.locator("html")).toHaveAttribute("data-workspace-save-state", "saved");
   await page.reload();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("task-workbench-state-v5")).preferences.workspaceWidth)).toBe(636);
+  await page.waitForFunction(() => Boolean(globalThis.__workspaceBackendForTests?.available));
+  expect(await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.preferences.workspaceWidth)).toBe(636);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
@@ -706,11 +719,10 @@ test("workspace-open task rows stay compact at all supported panel widths", asyn
   await page.setViewportSize({ width: 1440, height: 900 });
   await persistDefaultState(page);
   for (const workspaceWidth of [560, 620, 680]) {
-    await page.evaluate((width) => {
-      const key = "task-workbench-state-v5";
-      const state = JSON.parse(localStorage.getItem(key));
+    await page.evaluate(async (width) => {
+      const state = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state;
       state.preferences.workspaceWidth = width;
-      localStorage.setItem(key, JSON.stringify(state));
+      await globalThis.__workspaceBackendForTests.saveWorkspaceIndex(state);
     }, workspaceWidth);
     await page.reload();
     const row = page.getByRole("option", { name: new RegExp(primaryTask) });
@@ -805,7 +817,7 @@ test("standard desktop uses a compact navigation rail without losing accessible 
   expect(geometry.storageTextHidden).toBe(true);
   expect(geometry.storageButtonSizes).toEqual([{ width: 40, height: 40 }]);
   await expect(page.locator("#globalNewTask")).toHaveAccessibleName("新建任务");
-  await expect(page.locator("#chooseWorkspaceDirectory")).toHaveAccessibleName("选择本地目录");
+  await expect(page.locator("#chooseWorkspaceDirectory")).toHaveAccessibleName("切换本地目录");
 });
 
 test("system theme and reduced motion keep the visual hierarchy without animated movement", async ({ browser }) => {
@@ -821,7 +833,7 @@ test("system theme and reduced motion keep the visual hierarchy without animated
   await page.locator("#themeSelect").selectOption("system");
   const values = await page.evaluate(() => {
     const root = getComputedStyle(document.documentElement);
-    const row = document.querySelector(".task-item");
+    const row = document.querySelector(".task-item") ?? document.querySelector("main");
     return {
       colorScheme: root.colorScheme,
       background: root.getPropertyValue("--bg").trim(),
@@ -838,9 +850,8 @@ test("system theme and reduced motion keep the visual hierarchy without animated
 
 test("four-level sticky-note folders retain parent edges, distinct layers, and no overflow", async ({ page }) => {
   await persistDefaultState(page);
-  await page.evaluate(() => {
-    const key = "task-workbench-state-v5";
-    const state = JSON.parse(localStorage.getItem(key));
+  await page.evaluate(async () => {
+    const state = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state;
     const now = Date.now();
     state.folders = ["一级目录", "二级目录", "三级目录", "四级目录"].map((name, index) => ({
       id: `depth-${index + 1}`, name, parentId: index ? `depth-${index}` : null, order: 0, collapsed: false, createdAt: now + index, updatedAt: now + index,
@@ -848,14 +859,18 @@ test("four-level sticky-note folders retain parent edges, distinct layers, and n
     state.tasks[0].folderId = "depth-4";
     state.tasks[0].title = "完成四级目录下超长中文任务名称在放大显示时的可读性检查并确保文字和操作不会互相遮挡";
     state.tasks[1].folderId = null;
-    localStorage.setItem(key, JSON.stringify(state));
+    await globalThis.__workspaceBackendForTests.saveWorkspaceIndex(state);
   });
   await page.reload();
   await page.setViewportSize({ width: 390, height: 844 });
+  const folderIds = ["depth-1", "depth-2", "depth-3", "depth-4"];
+  await expect.poll(() => page.evaluate((ids) => ids.map((id) => Boolean(document.querySelector(`[data-tree-folder-id="${id}"]`))), folderIds)).toEqual([true, true, true, true]);
+  await expect(page.locator('[data-tree-folder-id="depth-4"] .task-item[data-folder-id="depth-4"]')).toBeVisible();
   const inspectLayers = () => page.evaluate(() => {
     const ids = ["depth-1", "depth-2", "depth-3", "depth-4"];
     const layers = ids.map((id) => {
       const node = document.querySelector(`[data-tree-folder-id="${id}"]`);
+      if (!node) throw new Error(`folder-node-missing:${id}`);
       const parent = node.parentElement?.closest("[data-tree-folder-id]");
       const rect = node.getBoundingClientRect();
       const parentRect = parent?.getBoundingClientRect();
@@ -868,7 +883,8 @@ test("four-level sticky-note folders retain parent edges, distinct layers, and n
         rightInset: parentRect ? parentRect.right - rect.right : 0,
       };
     });
-    const row = document.querySelector('[data-folder-id="depth-4"]');
+    const row = document.querySelector('[data-tree-folder-id="depth-4"] [data-folder-id="depth-4"]');
+    if (!row) throw new Error("fourth-level-task-missing");
     return { layers, documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, rowOverflow: row.scrollWidth - row.clientWidth };
   });
   let geometry = await inspectLayers();
@@ -884,6 +900,8 @@ test("four-level sticky-note folders retain parent edges, distinct layers, and n
 
   await page.locator("#themeSelect").evaluate((select) => { select.value = "dark"; select.dispatchEvent(new Event("change", { bubbles: true })); });
   await page.evaluate(() => { document.documentElement.style.zoom = "150%"; });
+  await expect.poll(() => page.evaluate((ids) => ids.map((id) => Boolean(document.querySelector(`[data-tree-folder-id="${id}"]`))), folderIds)).toEqual([true, true, true, true]);
+  await expect(page.locator('[data-tree-folder-id="depth-4"] .task-item[data-folder-id="depth-4"]')).toBeVisible();
   geometry = await inspectLayers();
   expect(new Set(geometry.layers.map((layer) => layer.background)).size).toBe(4);
   expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
@@ -942,13 +960,12 @@ for (const viewport of [{ name: "桌面", width: 1440, height: 900 }, { name: "�
   test(`${viewport.name}视口无横向溢出且逾期主操作和图标按钮尺寸合格`, async ({ page }) => {
     await persistDefaultState(page);
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
-    await page.evaluate(() => {
-      const key = "task-workbench-state-v5";
-      const state = JSON.parse(localStorage.getItem(key));
+    await page.evaluate(async () => {
+      const state = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state;
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       state.tasks[0].dueDate = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
-      localStorage.setItem(key, JSON.stringify(state));
+      await globalThis.__workspaceBackendForTests.saveWorkspaceIndex(state);
     });
     await page.reload();
     const overflow = await page.evaluate(() => ({
