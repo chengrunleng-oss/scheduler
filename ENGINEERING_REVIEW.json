@@ -1,342 +1,449 @@
 {
   "document_type": "scheduler_upgrade_feedback",
-  "format_version": 5,
-  "review_date": "2026-08-13",
+  "format_version": 6,
+  "review_date": "2026-08-14",
   "source_branch": "codex/local-workspace-storage",
-  "source_revision": "2d8ff3d",
-  "document_policy": "本文件整体替换上一版改进反馈，只描述当前确认的视觉重构与后续本地工作区存储重构，并将最新的单一真实数据源决策作为存储阶段的最高优先级约束。已经被新决策否定的浏览器业务数据回退、双向复制和自动合并方案不再作为目标。",
+  "source_revision": "2aa212a",
+  "target_release": "v0.8-merge-import",
+  "implementation_status": "planned_not_implemented",
+  "document_policy": "本文件整体替换上一版改进反馈，只保留下一版导入合并功能及与其直接相关的用户体验、数据模型、兼容、回滚和验收要求。已完成的视觉重构与本地目录单一数据源实施细节不再重复记录。",
+  "terminology": {
+    "task": "本文中的任务、待办事项和用户所说的项目均指 Task 实体。",
+    "folder": "文件夹是任务的分类与树状归属容器，拥有独立稳定 ID，不使用名称判断身份。",
+    "merge_import": "在保留当前本地工作区数据的前提下，把备份中的新增内容和可安全确认的修改合入当前工作区。",
+    "restore_replace": "以备份完整替换当前工作区，只用于灾难恢复，不属于普通合并。"
+  },
   "executive_summary": {
-    "decision": "采用严格串行的两阶段升级：先在 develop 完成并验收 Vue 3 视觉重构；再在 codex/local-workspace-storage 实施本地工作区存储重构。存储阶段采用单一真实数据源原则：用户选定的本地目录是唯一任务业务数据源，localStorage 只保存界面偏好，IndexedDB 最多保存目录句柄，不保存任务、工作记录或附件，也不作为默认回退后端。",
-    "reason": "视觉重构与数据生命周期重构分阶段可以降低回归和合并风险；单一本地数据源可以消除浏览器数据与本地目录之间的分叉、静默覆盖、双向迁移和启动时自动合并问题。",
-    "release_sequence": [
-      "v0.6：develop 上完成视觉重构",
-      "v0.6 视觉与交互验收通过",
-      "从验收后的 develop 最新提交创建 codex/local-workspace-storage",
-      "v0.7：独立分支完成存储层重构",
-      "v0.7 验收后在 codex/local-workspace-storage 独立发布并长期保留，不合并回 develop"
+    "decision": "沿用现有导入按钮作为统一入口，但把默认动作从整库替换改为合并导入；完整恢复并替换降为次级危险操作。任务创建时间仅作为疑似重复判断与排序证据，稳定实体 ID 才是自动认定同一任务的首要依据，版本谱系、内容哈希和事件 ID 用于判断变更、去重与冲突。",
+    "reason": "仅按精确创建时间认定同一任务会受到毫秒碰撞、时钟偏差、旧数据补时间、复制任务和多设备并发编辑影响。使用稳定 ID 保证身份，使用版本关系判断修改来源，使用哈希去重，无法证明的情况交给用户确认，能够避免误合并和静默覆盖。",
+    "product_principles": [
+      "本地工作区目录继续作为唯一业务数据源，合并不得引入浏览器业务数据副本或自动回退。",
+      "合并必须先分析和预览，用户确认后才写入本地目录。",
+      "任何无法证明安全的自动决策都转为疑似重复或冲突，不按时间戳直接覆盖。",
+      "合并过程必须可验证、可回滚、可重复执行且不会因重复导入产生重复数据。",
+      "普通用户只需要理解新增、更新、冲突、跳过和恢复，不暴露内部版本术语。"
     ]
   },
-  "confirmed_branch_strategy": {
-    "visual_refresh": {
-      "branch": "develop",
-      "release": "v0.6",
-      "status": "next",
-      "rule": "视觉重构直接在当前 develop 分支实施，不另开视觉分支。",
-      "scope_boundary": "只修改视觉系统、Vue 组件划分、响应式布局、任务行交互反馈和相关测试；不在本阶段引入真实本地目录、文件系统权限或新的远端同步后端。"
-    },
-    "local_storage_refactor": {
-      "branch": "codex/local-workspace-storage",
-      "release": "v0.7",
-      "status": "create_after_visual_acceptance_and_keep_independent",
-      "base_commit": "必须是 v0.6 视觉重构验收通过后的 develop 最新提交，不得从当前 5c3ee7b 或视觉开发中间状态提前创建。",
-      "rule": "本地目录存储、数据迁移和后端抽象全部只在该独立分支实施；验收后仍作为独立产品线保留，禁止合并回 develop。",
-      "lifecycle": "codex/local-workspace-storage 是长期维护分支，不是等待合并的临时功能分支；其版本、测试结果和发布标记均独立管理。"
-    },
-    "integration_rule": "如果视觉版本上线后仍需通用界面修复，先在 develop 完成并验收，再按需单向同步到存储分支；存储分支的存储实现、迁移代码和专属功能不得反向合并到 develop。"
-  },
-  "phase_1_visual_refresh": {
-    "goal": "将 Vue 3 迁移从结构拆分升级为真正的新视觉系统，形成紧凑、安静、适合长时间使用的桌面任务工作台。",
-    "architecture": {
-      "current_problem": "Vue 组件已经拆分，但约 489 行视觉规则仍集中在根目录 styles.css，组件继续高度依赖旧全局类名，视觉迁移尚未真正发生。",
-      "target_style_structure": [
-        "src/styles/tokens.css：浅色、深色、状态色、尺寸、间距和层级令牌",
-        "src/styles/base.css：重置、字体、焦点和通用表单规则",
-        "src/styles/layout.css：应用外壳、三栏结构和滚动边界",
-        "src/styles/states.css：选中、过期、待处理、完成和拖放状态",
-        "src/styles/motion.css：拖拽 FLIP、面板切换和 reduced-motion",
-        "src/styles/responsive.css：桌面、平板和手机断点",
-        "Vue 组件 scoped style：组件自身结构与局部视觉"
-      ],
-      "entry_rule": "样式入口由 src/main.ts 导入并交给 Vite 管理，移除 index.html 中直接链接根目录 styles.css 的方式。"
-    },
-    "design_direction": {
-      "product_character": "工作密度优先的任务管理工具，不使用营销式大标题、装饰性大卡片或大面积单一色背景。",
-      "palette": {
-        "base": "中性灰和炭灰承担页面、导航、任务区和工作区层级。",
-        "primary": "青绿色只用于主要命令、焦点和导航选中。",
-        "high_priority": "暖琥珀色整行填充。",
-        "low_priority": "冷青蓝色整行填充。",
-        "overdue": "鲜明红色并配合状态文字或图标。",
-        "completed": "绿色。",
-        "discarded": "灰紫色。",
-        "folder_layers": "低饱和、多色递进的便利签式层级。"
-      },
-      "density": "减少贯穿横线、重复边框和无用途留白，保持 40px 桌面命中区与 44px 触屏命中区。"
-    },
-    "layout": {
-      "wide_desktop": "文件夹导航约 232px；任务区自适应；工作区 480-680px 可调。",
-      "standard_desktop": "导航压缩为图标栏或可收起窄栏，任务区与工作区并排且不重叠。",
-      "tablet": "任务列表和工作区切换显示，不使用覆盖后仍可误操作的双层布局。",
-      "mobile": "导航抽屉、任务页和工作区采用全屏分层导航。",
-      "workspace_resizer": "保留鼠标和键盘调宽及持久化，增加常驻但克制的可见轨道或握柄。"
-    },
-    "task_row": {
-      "normal_layout": "任务标题与标签、优先级、截止日期、操作保持稳定列对齐。",
-      "workspace_open_layout": "改为紧凑两行：首行放拖拽柄、标题和主操作；次行集中标签、文件夹路径、优先级和截止日期。",
-      "height_target": "普通任务行 64-72px；工作区打开时 84-96px，任何常规任务不超过 112px。",
-      "selection": "高优先级选中态继续使用暖色系，低优先级选中态继续使用冷色系；通过同色系提亮、2px 内描边和左侧强调共同表达选中。",
-      "click_target": "除真实按钮、表单、链接和拖拽控件外，任务卡片所有区域都可选中任务。"
-    },
-    "folder_tree": {
-      "appearance": "父文件夹保留可见底板和四周留白，子文件夹逐层内缩并略微缩小可用宽度。",
-      "header": "移除文件夹标题下方贯穿横线，以标题底色、间距、文件夹图标和容器边界表达层级。",
-      "depth": "最多四层使用可区分但克制的辅助色，深浅主题均不能造成横向溢出。"
-    },
-    "priority_divider": {
-      "appearance": "使用约 28x32px 的双色阈值标记，上半部为高优先级暖色，下半部为低优先级冷色，中间使用 GripHorizontal 图标。",
-      "interaction": "实际命中区不小于 40x40px，保留鼠标、触屏和键盘调整；通过 tooltip 和 aria-label 说明用途，不再依赖 9px 的高/低文字。"
-    },
-    "drag_feedback": {
-      "preview": "拖动期间显示与源任务等高的占位符，并在鼠标经过有效位置时实时预排列。",
-      "motion": "相邻任务使用 160-220ms FLIP 位移动画连续让位。",
-      "folder_behavior": "跨文件夹时沿用自动展开，并在展开后把占位符移入目标内容区。",
-      "data_rule": "拖动期间只更新临时预览，松手后一次性写入 store 和撤销历史。",
-      "accessibility": "prefers-reduced-motion 环境关闭位移动画但保留清晰落点。"
-    },
-    "acceptance": [
-      "高低优先级普通、悬停和选中状态始终属于各自色系。",
-      "工作区打开后常规任务行不超过 112px，任务标题、元数据和操作不重叠。",
-      "任务行非控件区域全部可选中，按钮和拖拽操作不会误触选中。",
-      "文件夹标题无贯穿横线，四层便利签包含关系清晰。",
-      "拖动松手前可看到真实预排列，相邻任务移动连续。",
-      "1440x900、1366x768、1024x768、768x1024 和 390x844 无重叠或横向溢出。",
-      "浅色、深色、跟随系统和 reduced-motion 完成浏览器视觉验收。",
-      "npm run verify 全部通过，并为新版视觉关键状态保留截图或视觉回归基线。"
+  "current_state_audit": {
+    "confirmed": [
+      "当前任务与文件夹已有稳定 ID，ID 由创建时间和随机后缀共同构成，比单独使用创建时间更可靠。",
+      "Task、Folder、WorkLog 和 AttachmentMeta 均已包含 createdAt；任务和工作记录另有 updatedAt。",
+      "当前 ZIP 备份格式为 schemaVersion 5，包含任务状态、工作记录索引和附件索引。",
+      "当前导入流程解析备份后直接调用 importSnapshot，再通过 replace-state 替换当前状态。",
+      "当前导入确认文案明确表示会替换任务、工作记录和附件，因此现有按钮可自然升级为导入中心入口。"
     ],
-    "release_gate": "以上验收全部通过并在 develop 形成稳定版本后，才能创建存储重构分支。"
+    "gaps": [
+      "备份没有 workspaceId、snapshotId、父快照或实体版本谱系，无法可靠判断两个备份是否来自共同版本。",
+      "删除没有持久化墓碑记录，旧备份可能把已删除任务重新带回。",
+      "改期和状态历史缺少稳定事件 ID，跨设备合并时难以精确去重。",
+      "附件没有内容哈希，同名、同 ID 和内容相同目前无法可靠区分。",
+      "导入没有只读分析、预览、逐项冲突决策、自动备份、合并报告和一键回滚。"
+    ],
+    "conclusion": "现有备份和导入代码可以作为入口与兼容基础，但不能仅修改确认文案后直接执行合并；必须先补充合并模型、纯分析引擎和事务式应用流程。"
   },
-  "phase_2_local_workspace_storage": {
-    "goal": "让每个待办事项映射到用户选定根目录下的独立本地文件夹，任务元数据、长期描述、每日进度和附件均以用户可管理的本地文件保存，同时保持未来接入 GitHub、Supabase 或自建 API 的能力。",
-    "branch": "codex/local-workspace-storage",
-    "core_decision": "用户必须选择工作区根目录，系统为每个任务自动创建稳定 ID 命名的独立子目录；本地目录是唯一业务数据源，不要求用户逐条任务选择根目录，也不在未选择目录时创建可持久化任务。",
-    "source_of_truth": {
-      "business_data": "本地工作区目录唯一保存 workspace.json、任务元数据、长期描述、每日工作记录和附件；应用启动、读取、保存、删除、撤销和备份均以该目录为准。",
-      "local_storage": "浏览器 localStorage 仅保存主题、视图、筛选、折叠、工作区面板宽度等界面偏好，不保存任务或任何任务内容。",
-      "indexed_db": "IndexedDB 不保存任务、工作记录、附件元数据或附件 Blob；若需要记住上次选择的目录，只允许保存 FileSystemDirectoryHandle 本身。",
-      "legacy_data": "现有 localStorage/IndexedDB 业务数据只作为用户主动触发的一次性迁移来源，不参与默认启动、自动回退、自动合并或后台同步；迁移成功后由用户决定是否清理旧数据。",
-      "no_directory_state": "用户尚未选择或无法访问目录时，显示空状态/只读说明，禁止创建、编辑或删除需要持久化的任务业务数据。"
+  "confirmed_product_decisions": {
+    "entry_point": {
+      "control": "继续使用现有导入按钮，按钮可改名为“导入/合并”或“合并导入”，tooltip 明确说明不会直接覆盖当前数据。",
+      "primary_action": "合并导入，默认选中并使用主要按钮样式。",
+      "secondary_action": "完整恢复并替换，放在次级菜单或恢复区域，使用危险色、影响摘要和二次确认。",
+      "rule": "不得继续让一个含义模糊的“导入”按钮默认执行整库替换。"
     },
-    "filesystem_layout": {
-      "root_example": "scheduler-workspace/",
-      "entries": [
-        "workspace.json：schema、文件夹树、任务索引、工作区 revision 和更新时间",
-        "tasks/<task-id>/task.json：标题、状态、优先级、截止日期、排序、标签和改期历史",
-        "tasks/<task-id>/description.md：长期任务描述",
-        "tasks/<task-id>/worklogs/YYYY-MM-DD.md：当天工作记录，Front Matter 保存日期、进度和更新时间",
-        "tasks/<task-id>/attachments/<attachment-id>--<safe-name>：附件原始副本",
-        "trash/<task-id>/：待彻底清理或恢复的任务目录"
-      ],
-      "naming_rule": "物理目录只使用稳定 taskId，不直接使用任务标题；显示名称保存在 task.json，避免重命名、同名和非法字符问题。"
+    "identity": {
+      "automatic_same_entity": "实体 ID 相同，或以后存在可验证的 originEntityId 且来源一致时，才自动认定为同一实体。",
+      "created_at_role": "createdAt 保持不可变，用于排序、来源线索和疑似重复评分，不作为唯一身份键。",
+      "suspected_duplicate": "不同 ID 但创建时间、规范化标题、文件夹路径和内容特征高度一致时，仅标记为疑似重复，由用户确认合并、保留两个或跳过。",
+      "copy_rule": "复制任务必须生成新的 ID 和新的 createdAt，可选记录 copiedFromId，避免副本被错误合并回原任务。",
+      "legacy_rule": "旧备份没有版本谱系时采用保守策略；可以自动添加完全确定的新实体，但不能仅凭较新的 updatedAt 覆盖当前实体。"
     },
-    "browser_capability": {
-      "primary_api": "File System Access API 的 showDirectoryPicker 与 FileSystemDirectoryHandle。",
-      "permission_rule": "首次必须由用户主动选择并授权目录；启动时使用 queryPermission 检查，必要时只能在用户操作后 requestPermission。",
-      "development_origin": "目录句柄和权限与浏览器来源相关，Vite 开发端口必须固定并启用 strictPort，不能静默切换 5174、5175。",
-      "compatibility": "真实目录模式优先支持 Chrome 和 Edge；不支持 showDirectoryPicker 的浏览器显示本地工作区不可用，不启用 IndexedDB 任务数据回退。",
-      "desktop_future": "如果未来要求跨浏览器稳定访问任意真实目录，可将同一 Vue 应用包装为 Tauri，而不改变上层存储接口。"
-    },
-    "storage_abstraction": {
-      "rule": "Vue 组件、store、编辑器和备份逻辑不得直接依赖 FileSystemDirectoryHandle 或 IndexedDB。",
-      "interface_name": "WorkspaceBackend",
-      "required_operations": [
-        "loadWorkspace",
-        "saveWorkspaceIndex",
-        "saveTask",
-        "deleteTask",
-        "restoreTask",
-        "saveDescription",
-        "listWorkLogs",
-        "saveWorkLog",
-        "deleteWorkLog",
-        "listAttachments",
-        "putAttachment",
-        "readAttachment",
-        "renameAttachment",
-        "deleteAttachment",
-        "exportSnapshot",
-        "importSnapshot"
-      ],
-      "implementations": [
-        "LocalDirectoryBackend：v0.7 默认且唯一业务后端",
-        "LegacyBrowserImportReader：仅在用户主动迁移旧浏览器数据时临时读取旧 localStorage/IndexedDB，不作为运行时后端",
-        "未来 GitHubBackend",
-        "未来 SupabaseBackend 或 CustomApiBackend"
-      ],
-      "composition": "任务树、工作区、编辑器、附件和备份始终使用当前唯一业务后端；v0.7 默认只能是 LocalDirectoryBackend，不能在 LocalDirectoryBackend 与浏览器业务后端之间自动切换。",
-      "prohibited_default_paths": [
-        "启动时不得先加载 IndexedDbBackend 再等待本地目录",
-        "本地目录不可用时不得自动回退到浏览器任务数据",
-        "不得把本地目录和浏览器任务数据自动合并",
-        "不得在本地目录保存成功后自动复制或持续写入浏览器业务数据",
-        "不得把 localStorage 的任务状态当作业务数据源"
+    "data_source": {
+      "business_data": "当前用户选定的本地工作区目录仍是唯一业务数据源。",
+      "preferences": "localStorage 中的主题、视图、折叠和面板宽度等界面偏好不参加导入合并。",
+      "indexed_db": "IndexedDB 最多保存目录句柄，不保存任务、工作记录、附件或合并副本。",
+      "no_background_merge": "禁止后台静默合并、浏览器数据自动合并以及失败后自动切换数据源。"
+    }
+  },
+  "why_created_time_alone_is_insufficient": [
+    "同一毫秒可能创建多个实体，旧系统或批量导入还可能为多条记录补上相同时间。",
+    "不同设备的系统时钟可能不一致，精确时间不等于统一时间。",
+    "复制、模板生成和旧数据迁移可能保留或重建创建时间。",
+    "两个设备离线编辑同一任务时，较新的 updatedAt 不能证明该版本包含另一方的修改。",
+    "仅按时间自动合并会把恰好同一时间创建的不同任务误认成同一任务，也可能让已删除内容复活。"
+  ],
+  "target_data_model": {
+    "backup_schema": {
+      "version": 6,
+      "manifest_fields": [
+        "workspaceId：工作区稳定身份，只用于来源与谱系识别，不暴露完整本地路径。",
+        "snapshotId：每次导出生成的快照 ID。",
+        "parentSnapshotId：可选，指向已知前一快照，用于识别共同祖先。",
+        "exportedAt：展示和审计用途，不用于决定覆盖。",
+        "schemaVersion：格式兼容判断。",
+        "contentSummary：任务、文件夹、工作记录和附件数量及校验摘要。"
       ]
     },
-    "file_policy": {
-      "upload": "上传或拖入文件时复制到任务 attachments 目录，不只保存外部原文件引用。",
-      "editable_in_browser": [
-        "Markdown",
-        "TXT",
-        "JSON",
-        "CSV",
-        "LOG"
+    "entity_revision": {
+      "fields": [
+        "revisionId：本次实体修订的稳定 ID。",
+        "parentRevisionId：可选，指向该实体的直接父版本。",
+        "createdAt：实体第一次创建时间，之后保持不变。",
+        "updatedAt：用户展示、排序和辅助诊断用途。",
+        "contentHash：规范化业务内容哈希，用于判断未变和重复内容。"
       ],
-      "preview_only": [
-        "PNG/JPG/JPEG/WEBP/GIF",
-        "PDF"
+      "rule": "版本关系优先于 updatedAt；没有共同父版本时，两个不同内容版本视为冲突而不是自动取较新时间。"
+    },
+    "event_identity": {
+      "reschedule_history": "每条改期记录增加 eventId，并保留 changedAt、来源和原因。",
+      "status_history": "完成、不再需要、恢复等状态变化使用稳定 eventId，避免重复导入重复写历史。",
+      "work_log": "工作记录继续使用稳定 id；同任务同日期不是唯一键，因为同一天可能存在并发记录。"
+    },
+    "deletion_tombstone": {
+      "fields": [
+        "entityType",
+        "entityId",
+        "deletedAt",
+        "revisionId"
       ],
-      "external_only": [
-        "DOCX",
-        "XLSX",
-        "PPTX",
-        "压缩包",
-        "其它二进制文件"
+      "rule": "墓碑参与合并，防止旧备份无提示恢复已删除实体；删除与另一侧修改并发时进入冲突。"
+    },
+    "attachment_integrity": {
+      "fields": [
+        "contentHash",
+        "byteSize",
+        "mediaType"
       ],
-      "security": "HTML、SVG 和其它主动内容默认按纯文本或净化后预览，绝不直接执行附件脚本。",
-      "write_strategy": "正文和 JSON 使用临时文件写入、关闭成功后再替换正式文件；保存失败时保留编辑器内存副本并允许重试。"
+      "rule": "附件去重以内容哈希为主，不以文件名为主；同名不同内容不得覆盖。"
     },
-    "consistency_and_conflicts": {
-      "write_queue": "同一任务的概览、Markdown 自动保存、工作记录、附件和拖拽排序进入串行写入队列。",
-      "revision": "workspace.json 与 task.json 保存 revision、updatedAt 和内容哈希，写入前检测外部修改。",
-      "multi_tab": "使用 Web Locks 保护写事务，并通过 BroadcastChannel 通知同源其它标签页刷新。",
-      "external_change": "检测到磁盘文件被其它程序修改时，不静默覆盖；提供重新加载、保留当前编辑为冲突副本或取消保存。",
-      "delete": "删除任务先移动或复制到 trash，再更新索引；彻底清理作为独立操作。"
+    "compatibility": "保留现有任务、文件夹、工作记录和附件 ID，不批量重命名现有任务目录；schema v5 在读取时生成兼容视图，但缺失的版本谱系不能伪造为确定关系。"
+  },
+  "matching_policy": [
+    {
+      "rank": 1,
+      "evidence": "实体 ID 完全相同",
+      "decision": "自动认定为同一实体，继续进行版本和内容比较。"
     },
-    "migration": {
-      "source": "旧版本用户主动选择的 localStorage task-workbench-state-v5 与 IndexedDB task-workbench-content-v5；这些只作为一次性兼容导入来源，不再是 v0.7 的运行时存储。",
-      "process": [
-        "首次启动只显示选择本地工作区；未选择前不加载或展示旧浏览器业务数据。",
-        "用户主动选择目标目录后，明确选择“从旧浏览器数据导入”或“创建空工作区”；不得隐式迁移。",
-        "扫描并显示待迁移任务、工作记录和附件数量，写入新目录临时区并校验 JSON、Markdown 数量、附件大小和哈希。",
-        "校验通过后发布 workspace.json，保存目录句柄，并将 LocalDirectoryBackend 设为唯一运行时后端。",
-        "原浏览器业务数据保持不变但不再参与运行；用户可在确认迁移完成后手动清理旧数据。"
-      ],
-      "rollback": "迁移失败或权限中断时删除或标记未完成的临时迁移区，停留在本地工作区不可用/未初始化状态；不得自动回退到旧浏览器业务数据，也不得产生半迁移工作区。",
-      "backup": "继续保留现有完整 ZIP 导入导出，作为跨浏览器迁移与灾难恢复方案。"
+    {
+      "rank": 2,
+      "evidence": "ID 不同，但存在可验证且一致的来源实体标识",
+      "decision": "自动认定为同源实体，保留来源关系并进行冲突分析。"
     },
-    "user_experience": {
-      "setup": "首次打开必须选择本地工作区；未选择前显示空状态和只读说明，隐藏或禁用会持久化任务的新增、编辑、完成、删除和附件操作。选择后展示目录名称而不是完整敏感路径。",
-      "status": "顶部提供本地工作区、只读、需要重新授权、保存中、已保存、外部冲突和存储失败等明确状态。",
-      "fallback": "权限被撤销、目录被移动/删除或目录不可用时显示“本地工作区不可用”，允许重新授权原目录或改选目录；不显示旧浏览器任务，不自动回退到 IndexedDB，也不自动合并任何数据。",
-      "switching": "切换工作区前保存当前编辑并确认目标；禁止在未完成写入时无提示切换。"
+    {
+      "rank": 3,
+      "evidence": "ID 不同，createdAt、规范化标题、文件夹路径及内容特征高度一致",
+      "decision": "标记为疑似重复，禁止自动合并，交给用户确认。"
     },
-    "acceptance": [
-      "每个任务拥有唯一物理目录，重命名任务不会改变目录标识或丢失数据。",
-      "任务元数据、长期描述、每日进度和附件均可在关闭浏览器后从目录重新恢复。",
-      "文本类附件可在浏览器内查看、编辑和保存，图片与 PDF 可预览。",
-      "localStorage 只包含界面偏好；IndexedDB 只包含目录句柄或为空，不包含任务、工作记录和附件。",
-      "首次未选目录时不展示旧任务、不允许创建需要持久化的任务。",
-      "权限撤销、目录移动、外部修改、磁盘写入失败和配额问题均不会静默丢失数据，也不会自动切换业务数据源。",
-      "旧浏览器数据只能由用户主动发起一次性迁移，迁移失败停留在不可用/未初始化状态，不自动回退或合并。",
-      "LocalDirectoryBackend 通过业务存储契约测试；旧 IndexedDbBackend 不再作为默认业务后端。",
-      "更换未来远端后端不需要修改任务树、工作区或编辑器组件。",
-      "npm run verify 通过，并新增无目录启动、无 IndexedDB 业务数据、主动迁移和不可用目录阻断测试。"
+    {
+      "rank": 4,
+      "evidence": "只有 createdAt 相同",
+      "decision": "视为证据不足的不同实体，不自动合并。"
+    },
+    {
+      "rank": 5,
+      "evidence": "ID 和主要特征均不同",
+      "decision": "作为新增实体导入。"
+    }
+  ],
+  "merge_rules": {
+    "tasks": [
+      "ID 与内容哈希都相同：标记未变化并跳过写入。",
+      "存在共同父版本且只有一侧变化：安全采用变化侧。",
+      "存在共同父版本且双方修改了互不冲突字段：首版可以保守提示冲突；后续再增加字段级自动合并。",
+      "双方修改同一任务且无法证明包含关系：显示冲突，提供保留当前、使用导入、保留两份和逐字段选择。",
+      "保留两份时为导入副本生成新 ID、创建时间和清晰后缀，并记录来源关系。",
+      "pendingResolution 等八秒待处理状态在导出或分析前应结算为确定状态，避免导入后重复倒计时。"
+    ],
+    "work_logs": [
+      "不同任务或不同日期的记录按稳定 ID 合并并按日期排序。",
+      "同 ID 且内容哈希相同：去重。",
+      "同 ID 且存在单边修订：采用变化侧。",
+      "同一任务同一天出现不同 ID 或并发内容：保留两条并提示复核，不静默拼接 Markdown。",
+      "progressPercent 冲突不得自动取最大值，因为较高数值可能已被用户回退或纠正。"
+    ],
+    "attachments": [
+      "同 ID 且内容哈希相同：跳过。",
+      "不同 ID 但内容哈希相同：默认只保留一份文件，并保留必要的引用关系。",
+      "同 ID 但内容哈希不同：冲突，默认两份都保留并为导入文件增加来源后缀。",
+      "同名但内容不同：绝不覆盖，保留两份并显示大小、修改时间和来源供用户辨认。"
+    ],
+    "folders_and_order": [
+      "文件夹以稳定 ID 认定身份，名称相同但 ID 不同默认视为不同文件夹或疑似重复。",
+      "现有任务默认保留当前本地文件夹归属和用户手动顺序；新增任务沿用导入来源的树状归属。",
+      "文件夹父子关系冲突时提示用户选择，不以名称或更新时间自动迁移整棵树。",
+      "应用前必须校验循环引用、孤儿 parentId、重复 ID 和最大层级限制。"
+    ],
+    "status_and_history": [
+      "改期、完成、不再需要和恢复历史按 eventId 并集合并，再按事件时间展示。",
+      "当前状态由可验证的事件谱系推导；删除与编辑、完成与恢复等并发状态进入冲突。",
+      "状态合并不得丢失延期记录，也不得因重复导入产生重复历史。"
+    ],
+    "deletions": [
+      "只有一侧存在墓碑且另一侧未在墓碑之后修改：保留删除。",
+      "一侧删除、另一侧在未知或并发版本上修改：显示删除冲突，提供维持删除、恢复修改版或保留副本。",
+      "没有墓碑的旧 schema v5 备份不得推断当前缺失实体一定被删除。"
+    ],
+    "preferences": "主题、筛选、视图方式、折叠状态、面板宽度等界面偏好始终保留当前设备设置，不从备份合并。"
+  },
+  "import_user_experience": {
+    "entry_state": {
+      "with_workspace": "点击导入/合并后打开统一导入流程，默认进入合并导入。",
+      "without_workspace": "未选择或未授权本地工作区时不允许写入，界面先解释原因并引导选择、重新授权或改选目录。",
+      "privacy": "只展示工作区名称和备份来源信息，不展示完整敏感路径。"
+    },
+    "recommended_flow": [
+      {
+        "step": 1,
+        "name": "选择文件",
+        "content": "首版支持应用 ZIP 备份；旧 JSON 以兼容模式读取，并提前说明可自动判断的信息较少。"
+      },
+      {
+        "step": 2,
+        "name": "只读分析",
+        "content": "解析格式、校验哈希、构建身份映射和合并计划，不修改任何本地文件。"
+      },
+      {
+        "step": 3,
+        "name": "预览结果",
+        "content": "展示来源文件、导出时间、来源工作区、实体数量，以及新增、可安全更新、未变化、疑似重复、冲突和无效项统计。"
+      },
+      {
+        "step": 4,
+        "name": "处理疑似与冲突",
+        "content": "默认先显示需要决定的项目；用户可逐项选择保留当前、使用导入、保留两份或跳过，并对同类安全决策批量应用。"
+      },
+      {
+        "step": 5,
+        "name": "确认影响",
+        "content": "列出即将新增、更新、保留副本、删除或跳过的准确数量，创建合并前自动备份。"
+      },
+      {
+        "step": 6,
+        "name": "事务写入",
+        "content": "依次显示备份、写入临时区、校验和发布索引进度；进入原子发布阶段后禁用关闭和重复提交。"
+      },
+      {
+        "step": 7,
+        "name": "结果与回退",
+        "content": "显示成功、警告和失败明细，允许查看被影响任务、导出合并报告或一键恢复到合并前快照。"
+      }
+    ],
+    "visual_language": {
+      "new": "绿色加号图标与文字",
+      "safe_update": "蓝色刷新图标与文字",
+      "conflict": "红色警告图标与文字",
+      "suspected_duplicate": "琥珀色重叠图标与文字",
+      "unchanged": "中性灰色对勾或短横线",
+      "rule": "颜色必须同时配合图标和文本，不能只靠颜色传递状态；整体沿用当前视觉令牌，不另造一套高饱和配色。"
+    },
+    "layout_and_accessibility": [
+      "桌面端使用宽对话框或独立导入页面；大量冲突时优先独立页面，避免在嵌套卡片中继续叠加弹窗。",
+      "移动端使用全屏分步流程，每一步保留返回、取消和当前进度，不让双栏比较产生横向滚动。",
+      "冲突列表支持键盘导航、明确焦点、屏幕阅读器状态播报和可见错误摘要。",
+      "长任务显示阶段进度和剩余项目数量；原子发布前允许安全取消，发布时明确说明正在完成写入。",
+      "关闭或刷新页面前，如果存在未应用的冲突决定或正在写入，必须提示影响。"
     ]
   },
-  "implementation_order": [
+  "additional_user_experience_improvements": [
     {
-      "step": 1,
-      "branch": "develop",
-      "work": "完成视觉令牌、样式拆分、三栏布局、任务卡片、文件夹、优先级标签和拖拽预览重构。"
+      "priority": "P0",
+      "item": "将原按钮改名为“导入/合并”并补充 tooltip",
+      "value": "避免用户把普通导入误解为覆盖恢复，也让新能力可被直接发现。"
     },
     {
-      "step": 2,
-      "branch": "develop",
-      "work": "完成多视口、深浅主题、交互命中、动效和可访问性验收，发布 v0.6 视觉版本。"
+      "priority": "P0",
+      "item": "合并前自动创建本地快照，并在完成页提供一键回滚",
+      "value": "用户可以放心处理大量冲突，错误操作不需要手工找备份。"
     },
     {
-      "step": 3,
-      "branch": "new branch from accepted develop",
-      "work": "创建 codex/local-workspace-storage；不得提前从旧基线创建。"
+      "priority": "P0",
+      "item": "默认展示“只看需要处理”，并提供新增、更新、疑似、冲突、跳过筛选",
+      "value": "大型备份不会让用户在大量未变化项目中寻找少数冲突。"
     },
     {
-      "step": 4,
-      "branch": "codex/local-workspace-storage",
-      "work": "定义 WorkspaceBackend，以 LocalDirectoryBackend 作为唯一运行时业务后端；将旧 IndexedDB/localStorage 读取封装为仅在用户主动迁移时调用的 LegacyBrowserImportReader，不让旧后端进入默认启动路径。"
+      "priority": "P0",
+      "item": "重复导入同一备份时显示“没有新变化”而不是再次生成副本",
+      "value": "幂等反馈能消除用户对重复点击或不确定是否完成的顾虑。"
     },
     {
-      "step": 5,
-      "branch": "codex/local-workspace-storage",
-      "work": "实现 LocalDirectoryBackend、工作区权限、磁盘目录、原子写入、并发保护和附件读写。"
+      "priority": "P1",
+      "item": "冲突比较中同时显示当前值、导入值、来源、更新时间和发生变化的字段",
+      "value": "减少凭标题猜测，帮助用户快速做出可信决定。"
     },
     {
-      "step": 6,
-      "branch": "codex/local-workspace-storage",
-      "work": "实现用户主动触发的旧浏览器数据一次性迁移、回滚、备份兼容、浏览器内文本编辑和故障恢复；迁移失败时保持本地工作区不可用，不回退到旧业务数据。"
+      "priority": "P1",
+      "item": "对相同冲突类型提供“应用到其余同类项”，但明确显示适用数量并允许撤销",
+      "value": "降低几十条冲突逐项点击的操作成本，同时避免不可见的全局决定。"
     },
     {
-      "step": 7,
-      "branch": "codex/local-workspace-storage",
-      "work": "完成 v0.7 独立验收和发布标记；继续保留并维护 codex/local-workspace-storage，不创建合并回 develop 的操作。"
+      "priority": "P1",
+      "item": "错误信息定位到具体任务、工作记录或附件，并提供重试、跳过或返回修改决定",
+      "value": "替代笼统的导入失败提示，用户能够处理单个坏文件而不必放弃全部导入。"
+    },
+    {
+      "priority": "P1",
+      "item": "完成页提供“在任务树中查看变更”，按本次合并临时筛选受影响任务",
+      "value": "导入结束后用户可以立即检查结果，不必凭记忆在树中搜索。"
+    },
+    {
+      "priority": "P1",
+      "item": "增加产品级合并历史与可下载 JSON 报告",
+      "value": "记录时间、来源、统计、用户决策和回滚点；这是用户数据操作记录，不属于开发历史。"
+    },
+    {
+      "priority": "P2",
+      "item": "为备份文件预检提供明确兼容说明",
+      "value": "schema v5、损坏包或来自未来版本的包在写入前说明可导入范围和限制。"
+    },
+    {
+      "priority": "P2",
+      "item": "首版不提供任意按类别排除数据的开关",
+      "value": "避免只导入任务却遗漏依赖工作记录或附件造成半完整实体；用户仍可逐项跳过冲突。"
     }
+  ],
+  "technical_architecture": {
+    "merge_engine": {
+      "module": "建议新增 src/merge.ts 或等价领域模块。",
+      "input": "当前 WorkspaceSnapshot、导入 WorkspaceSnapshot、双方清单元数据和用户已确认的冲突决策。",
+      "output": "只读 MergePlan、统计、冲突列表、校验问题和最终可物化 WorkspaceSnapshot。",
+      "rules": "合并引擎必须是可重复测试的纯逻辑，不访问 DOM、FileSystemDirectoryHandle 或弹窗。"
+    },
+    "application_pipeline": [
+      "parse：解析并校验备份，不触碰当前工作区。",
+      "plan：执行身份匹配、谱系比较、哈希去重和约束检查。",
+      "preview：界面展示 MergePlan 并收集用户决策。",
+      "materialize：根据决定生成最终快照并再次验证引用完整性。",
+      "backup：创建当前工作区合并前快照。",
+      "apply：由 WorkspaceBackend 在临时区写入并原子发布索引。",
+      "verify：重新读取并核对数量、引用和内容哈希。",
+      "report：保存合并结果和回滚点。"
+    ],
+    "backend_boundary": "Vue 组件和合并界面只调用合并服务及 WorkspaceBackend，不直接操作目录句柄。现有 importSnapshot 可以继续承担已确认最终快照的原子应用职责，或演进为语义更清楚的 applyMergeSnapshot；整库恢复与合并必须使用不同的服务入口。",
+    "failure_semantics": "解析、分析或校验失败不写文件；应用失败恢复合并前快照；若回滚也失败，必须保留恢复目录和可操作的错误报告，不显示虚假的成功状态。",
+    "performance": "附件哈希采用流式或分块计算并缓存于清单；分析大量附件时持续反馈进度，避免一次把全部 Blob 长期保存在内存。"
+  },
+  "compatibility_and_migration": {
+    "schema_v6": "新导出开始写 workspaceId、snapshotId、实体修订、事件 ID、墓碑和附件哈希。",
+    "schema_v5": "继续支持读取；相同稳定 ID 可参与比较，缺少谱系和哈希的内容采用保守策略，无法证明的修改进入冲突。",
+    "legacy_json": "只包含任务状态的旧 JSON 可以添加确定的新任务；不把缺失的工作记录或附件解释为删除。",
+    "future_schema": "遇到高于当前支持版本的备份时只显示不兼容说明，不尝试降级写入。",
+    "id_migration": "不重写现有 ID，不改变现有 tasks/<task-id> 目录；缺失的新元数据通过一次性 schema 升级补充。",
+    "workspace_lineage": "首次升级生成 workspaceId；从同一工作区导出的后续备份保留该 ID。复制整个工作区目录时仍是同源副本，之后通过快照和实体版本识别分叉。"
+  },
+  "implementation_plan": [
+    {
+      "phase": 1,
+      "name": "模型与兼容读取",
+      "work": "定义 schema v6、版本谱系、墓碑、事件 ID、附件哈希和 v5 兼容适配；保持现有实体 ID 与物理目录不变。"
+    },
+    {
+      "phase": 2,
+      "name": "纯合并引擎",
+      "work": "实现身份匹配、内容比较、冲突分类、约束校验、幂等和 MergePlan 单元测试，不接 UI。"
+    },
+    {
+      "phase": 3,
+      "name": "导入中心界面",
+      "work": "改造现有导入按钮，完成选择、分析、预览、筛选、冲突决策、批量操作和响应式可访问流程。"
+    },
+    {
+      "phase": 4,
+      "name": "事务应用与回滚",
+      "work": "实现合并前自动备份、临时区写入、原子发布、失败回滚、结果报告和重复导入保护。"
+    },
+    {
+      "phase": 5,
+      "name": "完整恢复隔离",
+      "work": "保留整库替换能力但移入危险恢复路径，增加影响摘要、工作区名称确认和二次确认。"
+    },
+    {
+      "phase": 6,
+      "name": "真实目录验收",
+      "work": "在 Windows Chrome/Edge 本地目录中覆盖大数据量、附件、权限中断、磁盘失败、重复导入、回滚和多视口人工验收。"
+    }
+  ],
+  "acceptance_criteria": [
+    "相同备份连续导入两次，第二次得到没有新变化，不生成重复任务、记录、历史或附件。",
+    "createdAt 相同但 ID 不同的任务不会被自动认定为同一任务。",
+    "同一任务 ID 的单边修改可以在存在可验证版本关系时安全更新。",
+    "同一任务 ID 的双方并发修改进入冲突，任何一方内容都不会静默丢失。",
+    "不同日期工作记录正确并集合并；同日并发内容被分别保留并提示复核。",
+    "相同附件内容能够按哈希去重，同名不同内容不会覆盖。",
+    "删除墓碑可以阻止旧备份复活任务，删除与修改并发时必须由用户决定。",
+    "文件夹合并不会产生循环、孤儿或超出允许深度的结构。",
+    "改期、完成、不再需要和恢复历史不会重复，延期记录在详情区完整保留。",
+    "合并前自动备份成功后才允许发布；任意写入或校验失败都恢复原工作区。",
+    "合并不修改本机主题、筛选、视图、折叠和工作区面板宽度。",
+    "localStorage 和 IndexedDB 不新增任务、工作记录或附件业务数据。",
+    "未选择、未授权或目录失效时不能执行合并写入，并提供明确恢复入口。",
+    "桌面、平板和手机导入流程无重叠、横向溢出或不可达按钮，键盘与屏幕阅读器可以完成冲突处理。",
+    "错误报告能定位具体实体，完成页可以直接定位本次受影响任务。",
+    "schema v5 ZIP 和旧 JSON 的兼容行为与限制均有自动测试和用户可见说明。",
+    "npm run verify 全部通过，并补充真实 Windows 本地目录的人工验收记录。"
   ],
   "risks_and_mitigations": [
     {
-      "risk": "视觉与存储两个大型改动同时修改 Vue 组件会造成高冲突。",
-      "mitigation": "严格串行；存储分支只从视觉验收后的 develop 创建。"
+      "risk": "仅凭创建时间误合并不同任务。",
+      "mitigation": "稳定 ID 决定身份，创建时间只参与疑似重复评分。"
     },
     {
-      "risk": "浏览器不能静默获得任意目录权限，权限也不保证跨会话持续。",
-      "mitigation": "用户主动选择根目录，最多在 IndexedDB 保存目录句柄，启动时检查权限；权限失效时显示本地工作区不可用并提供重新授权或改选，不显示旧业务数据。"
+      "risk": "按较新 updatedAt 覆盖并发修改。",
+      "mitigation": "使用父版本与哈希判断单边修改；没有谱系时进入冲突。"
     },
     {
-      "risk": "任务元数据和附件分步写入会形成半完成状态。",
-      "mitigation": "使用任务级写入队列、临时文件、revision 和恢复日志；关键索引最后提交。"
+      "risk": "旧备份让已删除任务复活。",
+      "mitigation": "schema v6 引入墓碑；v5 缺失项不被解释为删除或恢复结论。"
     },
     {
-      "risk": "直接用任务标题作为目录会因重命名、同名和非法字符失效。",
-      "mitigation": "目录使用稳定 taskId，标题只作为元数据显示。"
+      "risk": "附件哈希和大备份分析阻塞界面或占用过多内存。",
+      "mitigation": "分块处理、缓存哈希、显示阶段进度并限制并发读取。"
     },
     {
-      "risk": "外部程序与多个浏览器标签页可能同时修改文件。",
-      "mitigation": "结合内容哈希、Web Locks、BroadcastChannel 和显式冲突处理。"
+      "risk": "冲突数量太多导致用户放弃导入。",
+      "mitigation": "默认只看需处理项，支持安全的同类批量决定、清晰差异和随时返回。"
     },
     {
-      "risk": "未来云端后端与真实本地目录的数据模型不同。",
-      "mitigation": "上层只依赖 WorkspaceBackend 和领域对象；路径、句柄、令牌等后端细节不进入 Vue 组件或 store。"
+      "risk": "把合并和完整恢复放在同一入口导致误覆盖。",
+      "mitigation": "合并作为默认主要动作，恢复放入次级危险路径并二次确认。"
     },
     {
-      "risk": "同时维护本地目录和浏览器任务数据会导致数据分叉、覆盖和迁移歧义。",
-      "mitigation": "本地目录作为唯一业务数据源；localStorage 只保存界面偏好，IndexedDB 只允许保存目录句柄；旧业务数据只在用户主动迁移时读取，不进入默认启动、回退或合并路径。"
+      "risk": "应用中断留下任务索引与文件内容不一致。",
+      "mitigation": "合并前快照、临时区物化、完整校验、索引最后原子发布和失败回滚。"
     },
     {
-      "risk": "用户未选择目录或目录暂时不可用时，用户可能误以为可以继续创建任务。",
-      "mitigation": "显示空状态/只读说明，禁用所有需要持久化的新增、编辑、状态变更、删除和附件操作，并提供明确的选择、重新授权和改选目录入口。"
+      "risk": "把用户界面偏好从另一设备带入造成突兀变化。",
+      "mitigation": "偏好只保留本机值，不参与业务数据合并。"
     }
   ],
-  "out_of_scope": {
-    "v0_6_visual": [
-      "真实本地目录权限与文件写入",
-      "存储数据迁移",
-      "GitHub、Supabase 或自建服务同步"
-    ],
-    "v0_7_local_storage": [
-      "多人实时协作",
-      "浏览器内编辑 Word、Excel、PowerPoint",
-      "自动把本地目录同步到 GitHub 或云端",
-      "在 Firefox 和 Safari 中强制提供真实目录写入能力",
-      "以 IndexedDbBackend 作为默认业务存储",
-      "本地目录与浏览器业务数据的自动双向同步或自动合并"
-    ]
+  "out_of_scope_for_v0_8": [
+    "后台或定时自动同步。",
+    "GitHub、云数据库或多人实时协作。",
+    "仅凭标题或创建时间进行模糊自动合并。",
+    "CRDT 或同时在线的实时字段合并。",
+    "Markdown 自动逐行拼接或自动解决语义冲突。",
+    "本地两个目录之间的持续镜像同步。",
+    "导入另一设备的主题、筛选、折叠和面板布局偏好。",
+    "首版允许任意排除任务依赖的工作记录或附件类别。"
+  ],
+  "branch_strategy": {
+    "recommended_branch": "codex/merge-import",
+    "base": "从验收通过的 codex/local-workspace-storage 最新提交创建。",
+    "reason": "合并功能涉及备份 schema、身份模型、目录事务和大规模 UI 流程，应与当前稳定本地存储版本隔离开发和验收。",
+    "integration_rule": "该分支完成验收前不合并到任何稳定分支；是否合并回 develop 继续遵循用户后续明确决定，当前不默认执行。",
+    "current_action": "本轮只生成改进反馈文档，不创建功能分支，不修改产品代码。"
   },
   "definition_of_done": [
-    "v0.6 视觉重构先在 develop 独立完成、测试并验收。",
-    "存储分支从 v0.6 验收后的 develop 最新提交创建。",
-    "codex/local-workspace-storage 在 v0.7 验收后继续作为独立长期分支存在，不合并回 develop。",
-    "develop 不包含真实本地目录存储、迁移代码或该分支专属的数据模型。",
-    "v0.7 的业务代码通过 WorkspaceBackend 使用存储，不直接绑定 File System Access API。",
-    "LocalDirectoryBackend 是 v0.7 唯一默认业务后端；IndexedDB 不保存任务、工作记录或附件，只可保存目录句柄。",
-    "用户未选择或无法访问本地目录时，应用只显示空状态/只读说明，不加载旧浏览器业务数据，也不允许创建需持久化的任务。",
-    "权限失效或目录移动时，应用显示本地工作区不可用，支持重新授权或改选目录，不自动回退或合并浏览器业务数据。",
-    "本地目录模式能够完整保存并恢复任务、工作记录和附件。",
-    "现有浏览器业务数据只能由用户主动发起一次性迁移且失败可回滚；迁移不改变默认单一数据源原则。",
-    "两阶段各自拥有独立测试结果和可回退提交，不使用一个混合提交上线。"
+    "现有导入入口默认执行可预览的合并导入，完整替换被隔离为危险恢复操作。",
+    "任务身份、版本关系、删除、工作记录、附件和文件夹均有明确且可测试的合并规则。",
+    "创建时间只作辅助证据，不存在仅按时间自动覆盖的代码路径。",
+    "所有冲突都由用户明确处理或保留双方，不静默丢弃数据。",
+    "合并具备自动备份、事务写入、校验、失败回滚、结果报告和重复导入幂等性。",
+    "本地目录继续是唯一业务数据源，界面偏好不参与合并。",
+    "schema v5 与旧 JSON 兼容策略通过自动测试并在界面提前说明限制。",
+    "桌面与移动端真实用户流程、可访问性和 Windows 本地目录故障场景完成验收。"
   ],
   "repository_state": {
     "branch_at_review": "codex/local-workspace-storage",
-    "head_at_review": "2d8ff3d",
-    "working_tree_before_write": "已有存储重构未提交改动；本轮只更新改进反馈文档",
-    "storage_branch_created": true,
-    "storage_branch_base": "2d8ff3d",
-    "reason_not_created": "不适用；本地工作区存储分支已按 v0.6 验收基线创建并独立保留。"
+    "head_at_review": "2aa212a",
+    "working_tree_before_write": "clean",
+    "functional_code_changed_in_this_round": false,
+    "new_feature_branch_created_in_this_round": false
   }
 }
