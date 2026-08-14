@@ -1057,12 +1057,16 @@ function parseWorkLog(markdown: string, fallback: Omit<WorkLog, "contentMarkdown
     const raw = line.slice(separator + 1).trim();
     try { values.set(key, JSON.parse(raw)); } catch { values.set(key, raw); }
   }
+  // conflictOrigin 仅在确有取值时作为自有键返回：JSON 序列化会丢弃 undefined，
+  // 若此处始终携带该键，会导致备份导入后逐项校验时（stableValue 比较）与
+  // 备份解析得到的记录形状不一致，使含工作记录的导入被误判为失败并自动回滚。
+  const conflictOrigin = values.get("conflictOrigin") === "imported" ? "imported" : fallback.conflictOrigin;
   return {
     id: typeof values.get("id") === "string" ? String(values.get("id")) : fallback.id,
     taskId: typeof values.get("taskId") === "string" ? String(values.get("taskId")) : fallback.taskId,
     workDate: typeof values.get("workDate") === "string" ? String(values.get("workDate")) : fallback.workDate,
     progressPercent: typeof values.get("progressPercent") === "number" ? Number(values.get("progressPercent")) : null,
-    conflictOrigin: values.get("conflictOrigin") === "imported" ? "imported" : fallback.conflictOrigin,
+    ...(conflictOrigin ? { conflictOrigin } : {}),
     createdAt: typeof values.get("createdAt") === "number" ? Number(values.get("createdAt")) : fallback.createdAt,
     updatedAt: typeof values.get("updatedAt") === "number" ? Number(values.get("updatedAt")) : fallback.updatedAt,
     contentMarkdown: match[2] ?? "",

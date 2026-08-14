@@ -915,7 +915,12 @@ function formatImportBytes(value: number): string {
 
 function stableValue(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableValue).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${stableValue(entry)}`).join(",")}}`;
+  if (value && typeof value === "object") {
+    // 与 JSON 序列化语义保持一致：值为 undefined 的键不参与比较，
+    // 避免“键存在但值为 undefined”与“键不存在”被误判为不同内容。
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, entry]) => entry !== undefined);
+    return `{${entries.sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${stableValue(entry)}`).join(",")}}`;
+  }
   return JSON.stringify(value) ?? "null";
 }
 

@@ -835,6 +835,52 @@ test("import content verification mismatch automatically restores the previous w
   await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks[0].title), { timeout: 20_000 }).toBe(originalTitle);
 });
 
+test("backup with a worklog passes write verification and merges the record (TEST-V08-013)", async ({ page }) => {
+  // 导出当前工作区作为种子：appState 与当前一致，且不含工作记录。
+  const exportPromise = page.waitForEvent("download");
+  await page.locator("#exportData").click();
+  const exported = await exportPromise;
+  const archive = await JSZip.loadAsync(await readFile(await exported.path()));
+  const manifest = JSON.parse(await archive.file("manifest.json").async("text"));
+  expect(manifest.contentSummary.workLogs).toBe(0);
+
+  // 注入一条不含 conflictOrigin 键的工作记录。JSON 序列化会丢弃 undefined 值，
+  // 所以任何正常导出的备份其工作记录都没有该键——这正是修复前写后校验把
+  // “键存在但值为 undefined”与“键不存在”误判为内容不同、导致含工作记录的
+  // 导入全部自动回滚的回归种子。
+  const worklog = {
+    id: "task-1::2026-08-12",
+    taskId: "task-1",
+    workDate: "2026-08-12",
+    progressPercent: 100,
+    createdAt: 1786472141892,
+    updatedAt: 1786472246085,
+    path: "worklogs/task-1/2026-08-12.md",
+  };
+  manifest.workLogs = [worklog];
+  manifest.contentSummary.workLogs = 1;
+  archive.file("manifest.json", JSON.stringify(manifest, null, 2));
+  archive.file(worklog.path, "K+K 相位测量回归验证");
+  const backup = await archive.generateAsync({ type: "nodebuffer" });
+
+  await page.locator("#importFile").setInputFiles({ name: "含工作记录备份.zip", mimeType: "application/zip", buffer: backup });
+  await expect(page.locator("#importCenterDialog")).toBeVisible();
+  const worklogItem = page.locator('#importItemList .import-item[data-merge-type="worklog"]');
+  await expect(worklogItem).toHaveCount(1);
+  await expect(worklogItem).toContainText("2026-08-12 工作记录");
+
+  const safetyDownload = page.waitForEvent("download");
+  await page.locator("#importApplyMerge").click();
+  await safetyDownload;
+  await expect(page.locator("#importProgressDialog")).not.toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#importResultDialog")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#importResultText")).toContainText("通过写入校验");
+  await page.locator("#importResultDone").click();
+
+  // 合并写入的工作记录通过写后校验并持久化。
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1"))[0]?.contentMarkdown), { timeout: 20_000 }).toBe("K+K 相位测量回归验证");
+});
+
 test("text attachments can be edited and saved through the active backend", async ({ page }) => {
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   await page.locator("#attachmentsTab").click();
