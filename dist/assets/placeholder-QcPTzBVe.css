@@ -1,1 +1,0 @@
-.milkdown .crepe-placeholder:before{color:color-mix(in srgb, var(--crepe-color-on-background), transparent 60%);pointer-events:none;content:attr(data-placeholder);height:0;position:absolute}

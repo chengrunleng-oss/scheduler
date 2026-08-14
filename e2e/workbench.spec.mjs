@@ -631,11 +631,11 @@ test("task workspace autosaves Markdown description and dated work log before sw
   await page.locator("#detailClose").click();
   await page.getByRole("option", { name: new RegExp(primaryTask) }).getByRole("button", { name: "标记为已完成" }).click();
   await page.getByRole("option", { name: new RegExp(`${primaryTask}，等待确认`) }).locator(".task-main").click();
-  await expect(page.locator("#descriptionEditor [role='textbox'][contenteditable='false']")).toBeVisible();
+  await expect(page.locator("#descriptionEditor textarea[readonly]")).toBeVisible();
   await page.locator("#detailClose").click();
   await page.getByRole("option", { name: new RegExp(`${primaryTask}，等待确认`) }).getByRole("button", { name: "撤销处理" }).click();
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
-  await expect(page.locator("#descriptionEditor [role='textbox'][contenteditable='true']")).toBeVisible();
+  await expect(page.locator("#descriptionEditor textarea:not([readonly])")).toBeVisible();
 });
 
 test("work logs support explicit create, open, delete, IndexedDB removal, and short undo", async ({ page }) => {
@@ -650,7 +650,7 @@ test("work logs support explicit create, open, delete, IndexedDB removal, and sh
   const history = page.locator(".worklog-history-item");
   await expect(history).toHaveCount(1);
   await history.getByRole("button", { name: /编辑/ }).click();
-  await expect(editor).toContainText("可撤销删除验证");
+  await expect(editor).toHaveValue(/可撤销删除验证/);
 
   await history.getByRole("button", { name: /删除/ }).click();
   await page.locator("#confirmOk").click();
@@ -661,7 +661,86 @@ test("work logs support explicit create, open, delete, IndexedDB removal, and sh
   await page.locator("#undoWorklogDelete").click();
   await expect(page.locator("#worklogUndo")).toBeHidden();
   await expect(history).toHaveCount(1);
-  await expect(editor).toContainText("可撤销删除验证");
+  await expect(editor).toHaveValue(/可撤销删除验证/);
+});
+
+test("worklog editor shows Markdown source while history renders compiled HTML (TEST-V08-014a)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#newWorklog").click();
+  const editor = page.locator("#worklogEditor textarea").first();
+  await editor.fill("# 今日标题\n\n**加粗结论** 与 [示例链接](https://example.com)");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+
+  // 编辑区保留 Markdown 源码。
+  await expect(editor).toHaveValue("# 今日标题\n\n**加粗结论** 与 [示例链接](https://example.com)");
+  // 历史记录显示编译后的 HTML，而不是源码。
+  const historyContent = page.locator("#worklogHistory .history-content");
+  await expect(historyContent.locator("h1")).toHaveText("今日标题");
+  await expect(historyContent.locator("strong")).toHaveText("加粗结论");
+  await expect(historyContent.locator("a")).toHaveAttribute("href", "https://example.com");
+  await expect(historyContent).not.toContainText("**");
+});
+
+test("image dropped into daily record is stored as an attachment reference and survives reload (TEST-V08-014b)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  await page.evaluate((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const file = new File([bytes], "photo.png", { type: "image/png" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const target = document.querySelector("#worklogEditor textarea");
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  }, pngBase64);
+
+  // 编辑器源码出现 attachment: 引用，预览渲染为真实图片。
+  await expect(page.locator("#worklogEditor textarea")).toHaveValue(/!\[photo\.png\]\(attachment:[^)]+\)/, { timeout: 20_000 });
+  await expect(page.locator("#worklogEditor .markdown-preview img")).toHaveAttribute("src", /^blob:/, { timeout: 20_000 });
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+
+  // 照片落入附件分区（backend 附件清单），而不是嵌入会话链接。
+  const attachment = await page.evaluate(async () => {
+    const metas = await globalThis.__workspaceBackendForTests.listAttachments("task-1");
+    return metas[0] ? { name: metas[0].name, kind: metas[0].kind, bytes: (await globalThis.__workspaceBackendForTests.readAttachment(metas[0].id)).size } : null;
+  });
+  expect(attachment).toMatchObject({ name: "photo.png", kind: "image" });
+  expect(attachment.bytes).toBeGreaterThan(0);
+
+  // 刷新后历史记录仍能解析 attachment: 引用并显示图片。
+  await page.reload();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogHistory .history-content img")).toHaveAttribute("src", /^blob:/, { timeout: 20_000 });
+});
+
+test("embedded data-uri images migrate into attachments (TEST-V08-014c)", async ({ page }) => {
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const date = await page.evaluate(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  await page.evaluate(async ({ workDate, base64 }) => {
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate, contentMarkdown: `![内嵌截图](data:image/png;base64,${base64})`, progressPercent: 0 });
+  }, { workDate: date, base64: pngBase64 });
+
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await page.locator("#migrateEmbeddedImages").click();
+  await expect(page.locator("#toast")).toContainText("已迁移 1 张内嵌图片", { timeout: 20_000 });
+
+  const result = await page.evaluate(async () => {
+    const attachments = await globalThis.__workspaceBackendForTests.listAttachments("task-1");
+    const record = (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1"))[0];
+    return { attachments: attachments.map((meta) => ({ name: meta.name, kind: meta.kind })), content: record?.contentMarkdown ?? "" };
+  });
+  expect(result.attachments).toEqual([{ name: "内嵌截图.png", kind: "image" }]);
+  expect(result.content).not.toContain("data:image");
+  expect(result.content).toContain("attachment:");
 });
 
 test("attachments persist blobs, preview text, and insert image references into Markdown", async ({ page }) => {

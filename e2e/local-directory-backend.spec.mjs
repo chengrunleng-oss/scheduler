@@ -717,7 +717,7 @@ test("description conflicts offer cancel, conflict copy, and external reload", a
   await expect(page.locator("#conflictDialog")).toBeVisible({ timeout: 5_000 });
   await page.locator("#conflictCancel").click();
   await expect(page.locator("#descriptionSaveStatus")).toContainText("已被其它程序修改");
-  await expect(editor).toContainText("browser-draft-one");
+  await expect(editor).toHaveValue("browser-draft-one");
 
   await page.locator("#descriptionRetry").click();
   await expect(page.locator("#conflictDialog")).toBeVisible();

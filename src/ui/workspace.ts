@@ -6,6 +6,7 @@ import type { Dialogs } from "./dialogs.js";
 import { createElement } from "./dom.js";
 import { icon } from "./icons.js";
 import { createMarkdownEditor, type MarkdownEditorHandle } from "./markdown-editor.js";
+import { attachmentImageMarkdown, attachmentLinkMarkdown, createMarkdownRenderer, renderPlainMarkdown, type MarkdownRenderer } from "./markdown-render.js";
 import type { Elements } from "./selectors.js";
 
 type SaveKind = "description" | "worklog";
@@ -44,6 +45,7 @@ export function createWorkspaceController(
   let deletedWorklog: WorkLog | null = null;
   let deletedWorklogWasActive = false;
   let worklogUndoTimer = 0;
+  let markdownRenderer: MarkdownRenderer | null = null;
 
   els.worklogDate.max = toISODate();
   els.worklogDate.value = activeWorkDate;
@@ -158,6 +160,8 @@ export function createWorkspaceController(
 
   async function destroyEditors(): Promise<void> {
     editorGeneration += 1;
+    markdownRenderer?.release();
+    markdownRenderer = null;
     await Promise.all([descriptionEditor?.destroy(), worklogEditor?.destroy()]);
     descriptionEditor = null;
     worklogEditor = null;
@@ -177,6 +181,10 @@ export function createWorkspaceController(
     savedWorklogMarkdown = log?.contentMarkdown ?? "";
     activeWorkLogId = log?.id ?? null;
     activeWorkLogConflictOrigin = log?.conflictOrigin;
+    markdownRenderer?.release();
+    markdownRenderer = createMarkdownRenderer(backend, task.id);
+    const render = (markdown: string) => markdownRenderer!.render(markdown);
+    const uploadFiles = readOnly ? undefined : uploadEditorFiles;
     descriptionEditor = await createMarkdownEditor({
       host: els.descriptionEditor,
       value: task.descriptionMarkdown,
@@ -184,6 +192,8 @@ export function createWorkspaceController(
       readonly: readOnly,
       onChange: () => scheduleSave("description"),
       onSave: () => { void saveDescription(); },
+      render,
+      uploadFiles,
     });
     if (generation !== editorGeneration) { await descriptionEditor.destroy(); descriptionEditor = null; return; }
     worklogEditor = await createMarkdownEditor({
@@ -193,10 +203,11 @@ export function createWorkspaceController(
       readonly: readOnly,
       onChange: () => scheduleSave("worklog"),
       onSave: () => { void saveWorklog(); },
+      render,
+      uploadFiles,
     });
     setSaveStatus("description", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
-    if (descriptionEditor.fallback || worklogEditor.fallback) dialogs.toast("所见即所得编辑器未能启动，已切换为 Markdown 源码与预览模式。");
     await renderWorklogHistory();
   }
 
@@ -225,13 +236,16 @@ export function createWorkspaceController(
     savedWorklogMarkdown = log?.contentMarkdown ?? "";
     activeWorkLogId = log?.id ?? null;
     activeWorkLogConflictOrigin = log?.conflictOrigin;
+    const readOnly = task.status !== "active" || !backend.available;
     worklogEditor = await createMarkdownEditor({
       host: els.worklogEditor,
       value: log?.contentMarkdown ?? "",
       placeholder: "记录当天的进展、结论与下一步",
-      readonly: task.status !== "active" || !backend.available,
+      readonly: readOnly,
       onChange: () => scheduleSave("worklog"),
       onSave: () => { void saveWorklog(); },
+      render: (markdown) => markdownRenderer?.render(markdown) ?? Promise.resolve(markdown),
+      uploadFiles: readOnly ? undefined : uploadEditorFiles,
     });
     setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     await renderWorklogHistory();
@@ -248,10 +262,11 @@ export function createWorkspaceController(
       els.worklogHistory.append(createElement("p", { className: "workspace-empty", text: "暂无工作记录" }));
       return;
     }
-    for (const record of records) els.worklogHistory.append(createHistoryItem(record));
+    const items = await Promise.all(records.map((record) => createHistoryItem(record)));
+    for (const item of items) els.worklogHistory.append(item);
   }
 
-  function createHistoryItem(record: WorkLog): HTMLElement {
+  async function createHistoryItem(record: WorkLog): Promise<HTMLElement> {
     const item = createElement("article", { className: "worklog-history-item" });
     item.dataset.worklogId = record.id;
     const header = createElement("div", { className: "worklog-history-head" });
@@ -279,7 +294,11 @@ export function createWorkspaceController(
     remove.append(icon("Trash2", 16));
     actions.append(edit, remove);
     header.append(actions);
-    const content = createElement("pre", { className: "history-content", text: record.contentMarkdown || "（空记录）" });
+    const content = createElement("div", { className: "history-content rendered-markdown" });
+    content.innerHTML = record.contentMarkdown
+      ? await (markdownRenderer?.render(record.contentMarkdown) ?? Promise.resolve(renderPlainMarkdown(record.contentMarkdown)))
+      : "";
+    if (!record.contentMarkdown) content.textContent = "（空记录）";
     content.hidden = record.id !== activeWorkLogId;
     item.append(header, content);
     return item;
@@ -512,6 +531,112 @@ export function createWorkspaceController(
     dialogs.toast("图片引用已插入长期描述。");
     if (descriptionEditor) { await descriptionEditor.destroy(); descriptionEditor = null; await mountEditors(); }
   }
+
+  // 编辑器内拖入/粘贴的文件自动入库为附件，并返回插入光标处的 Markdown 引用片段。
+  async function uploadEditorFiles(files: File[]): Promise<string | null> {
+    const task = currentTask();
+    if (!task || !backend.available) return null;
+    const snippets: string[] = [];
+    const accepted = files.filter((file) => {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        dialogs.toast(`文件“${file.name}”超过 20 MB，未添加。`);
+        return false;
+      }
+      return true;
+    });
+    let done = 0;
+    for (const file of accepted) {
+      done += 1;
+      if (accepted.length > 1) dialogs.toast(`正在入库附件 ${done}/${accepted.length}：${file.name}`);
+      try {
+        const meta = await backend.putAttachment(task.id, file);
+        snippets.push(meta.kind === "image" ? attachmentImageMarkdown(meta.name, meta.id) : attachmentLinkMarkdown(meta.name, meta.id));
+      } catch (error) {
+        dialogs.toast(`文件“${file.name}”入库失败：${error instanceof Error ? error.message : "未知错误"}`);
+      }
+    }
+    if (snippets.length) {
+      dialogs.toast(`已入库 ${snippets.length} 个附件并插入引用。`);
+      await renderAttachments();
+    }
+    return snippets.length ? snippets.join("\n\n") : null;
+  }
+
+  // 把长期描述与工作记录中内嵌的 data: URI 图片提取为附件，替换为 attachment: 引用。
+  const DATA_IMAGE_PATTERN = /!\[([^\]]*)\]\((data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+)\)/g;
+
+  function dataUriToFile(uri: string, fallbackName: string): File | null {
+    const comma = uri.indexOf(",");
+    if (comma < 0) return null;
+    const mimeMatch = /^data:([^;]+)/.exec(uri.slice(0, comma));
+    const mime = mimeMatch?.[1] ?? "image/png";
+    let binary: string;
+    try { binary = atob(uri.slice(comma + 1)); } catch { return null; }
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const extensions: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "image/bmp": "bmp", "image/svg+xml": "svg" };
+    const extension = extensions[mime] ?? "png";
+    const name = fallbackName && !/\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fallbackName) ? `${fallbackName}.${extension}` : (fallbackName || `embedded-image.${extension}`);
+    return new File([bytes], name, { type: mime });
+  }
+
+  async function replaceEmbeddedImages(taskId: string, markdown: string): Promise<{ text: string; migrated: number; skipped: number }> {
+    let migrated = 0;
+    let skipped = 0;
+    let cursor = 0;
+    let output = "";
+    for (const match of markdown.matchAll(DATA_IMAGE_PATTERN)) {
+      const index = match.index ?? 0;
+      output += markdown.slice(cursor, index);
+      const alt = match[1] || "";
+      const file = dataUriToFile(match[2] ?? "", alt);
+      if (!file || file.size > MAX_ATTACHMENT_BYTES) {
+        skipped += 1;
+        output += match[0];
+      } else {
+        try {
+          const meta = await backend.putAttachment(taskId, file);
+          output += attachmentImageMarkdown(meta.name, meta.id);
+          migrated += 1;
+        } catch {
+          skipped += 1;
+          output += match[0];
+        }
+      }
+      cursor = index + match[0].length;
+    }
+    output += markdown.slice(cursor);
+    return { text: output, migrated, skipped };
+  }
+
+  async function migrateEmbeddedImages(): Promise<void> {
+    const task = currentTask();
+    if (!task || task.status !== "active" || !backend.available) return;
+    let migrated = 0;
+    let skipped = 0;
+    const description = await replaceEmbeddedImages(task.id, task.descriptionMarkdown);
+    migrated += description.migrated;
+    skipped += description.skipped;
+    if (description.text !== task.descriptionMarkdown) {
+      await backend.saveDescription(task.id, description.text);
+      store.dispatch({ type: "set-task-description", id: task.id, descriptionMarkdown: description.text });
+      await persistState();
+    }
+    for (const record of await backend.listWorkLogs(task.id)) {
+      const replaced = await replaceEmbeddedImages(task.id, record.contentMarkdown);
+      migrated += replaced.migrated;
+      skipped += replaced.skipped;
+      if (replaced.text !== record.contentMarkdown) await backend.saveWorkLog({ ...record, contentMarkdown: replaced.text });
+    }
+    await destroyEditors();
+    if (activeTab === "worklog") await mountEditors();
+    await renderAttachments();
+    dialogs.toast(migrated
+      ? `已迁移 ${migrated} 张内嵌图片为附件引用${skipped ? `，跳过 ${skipped} 张` : ""}。`
+      : (skipped ? "内嵌图片均未迁移，请检查图片大小。 " : "没有找到需要迁移的内嵌图片。"));
+  }
+
+  els.migrateEmbeddedImages.addEventListener("click", () => { void migrateEmbeddedImages(); });
 
   els.worklogDate.addEventListener("change", () => { void changeWorkDate(els.worklogDate.value); });
   els.worklogProgress.addEventListener("input", () => scheduleSave("worklog"));

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
@@ -27,6 +27,7 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
   readFile(new URL("../src/local-directory-backend.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/backup.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/ui/markdown-render.ts", import.meta.url), "utf8"),
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
@@ -184,15 +185,32 @@ test("workspace-open keeps a mirrored header and animates the wide layout in", (
   assert.doesNotMatch(css, /\.app-shell\.workspace-open \.list-head\s*\{\s*display:\s*none/);
 });
 
-test("work logs and attachments use IndexedDB, autosave, Crepe, fallback preview, and ZIP backup", () => {
+test("work logs edit Markdown source with rendered history, attachment insertion, and ZIP backup", () => {
   assert.match(workspaceDb, /indexedDB\.open/);
   for (const store of ["workLogs", "attachments", "attachmentBlobs"]) assert.match(workspaceDb, new RegExp(`"${store}"`));
   assert.match(workspace, /setTimeout\(\(\) => \{ void saveDescription\(\); \}, 700\)/);
   assert.match(workspace, /workDate/);
-  assert.match(markdownEditor, /import\("@milkdown\/crepe\/builder"\)/);
-  assert.match(markdownEditor, /import\("@milkdown\/crepe\/feature\/toolbar"\)/);
-  assert.doesNotMatch(markdownEditor, /feature\/latex|feature\/code-mirror|common\/latex\.css|common\/code-mirror\.css/);
+  // 源码 + 预览编辑器取代 Crepe：textarea 源码、渲染预览、拖放/粘贴入库回调与工具栏。
+  assert.match(markdownEditor, /markdown-source/);
+  assert.match(markdownEditor, /textarea/);
+  assert.match(markdownEditor, /uploadFiles/);
   assert.match(markdownEditor, /markdown-fallback/);
+  assert.match(markdownEditor, /renderPlainMarkdown/);
+  assert.doesNotMatch(markdownEditor, /@milkdown|prosemirror|Crepe/);
+  // attachment: 引用解析层：消毒渲染、占位改写、对象 URL 解析与失效占位。
+  assert.match(markdownRender, /DOMPurify\.sanitize/);
+  assert.match(markdownRender, /marked\.parse/);
+  assert.match(markdownRender, /prepareAttachmentReferences/);
+  assert.match(markdownRender, /attachment-missing/);
+  assert.match(markdownRender, /createObjectURL|resolveAttachment/);
+  // 编辑器内入库、历史渲染与内嵌图片迁移。
+  assert.match(workspace, /uploadEditorFiles/);
+  assert.match(workspace, /putAttachment/);
+  assert.match(workspace, /attachmentImageMarkdown/);
+  assert.match(workspace, /createMarkdownRenderer/);
+  assert.match(workspace, /rendered-markdown/);
+  assert.match(workspace, /migrateEmbeddedImages/);
+  assert.match(taskWorkspace, /id="migrateEmbeddedImages"/);
   assert.match(workspaceDb, /deleteWorkLog/);
   assert.match(workspaceDb, /restoreWorkLog/);
   assert.match(uiMarkup, /id="newWorklog"/);

@@ -50,6 +50,7 @@
           <button id="addAttachment" class="button primary" type="button"><i data-lucide="paperclip"></i><span>添加附件</span></button>
           <button id="importDescription" class="button secondary" type="button"><i data-lucide="file-input"></i><span>导入长期描述</span></button>
           <button id="importWorklog" class="button secondary" type="button"><i data-lucide="notebook-tabs"></i><span>导入每日记录</span></button>
+          <button id="migrateEmbeddedImages" class="button secondary" type="button"><i data-lucide="images"></i><span>整理内嵌图片</span></button>
         </div>
         <div class="storage-meter"><div class="storage-copy"><span>本地附件空间</span><strong id="storageUsage">0 B</strong></div><progress id="storageProgress" max="100" value="0"></progress></div>
         <div id="attachmentList" class="attachment-list"></div>

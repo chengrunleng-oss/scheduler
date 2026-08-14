@@ -102,8 +102,11 @@
   .root-create-actions { align-items: stretch; flex-direction: column; }
   .root-create-button { width: 100%; }
   .worklog-panel, .attachments-panel { padding-inline: 12px; }
-  .markdown-editor .milkdown .editor { padding-inline: 14px; }
   .markdown-fallback { grid-template-columns: 1fr; }
+  .markdown-fallback .markdown-preview { display: none; }
+  .markdown-fallback.preview-mode .markdown-source { display: none; }
+  .markdown-fallback.preview-mode .markdown-preview { display: block; }
+  .markdown-preview-toggle { display: inline-flex; }
   .markdown-source { border-right: 0; border-bottom: 1px solid var(--line); }
   .attachment-toolbar { align-items: stretch; flex-direction: column; }
   .attachment-row { grid-template-columns: 1fr; }
