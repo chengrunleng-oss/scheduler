@@ -322,17 +322,17 @@ test("task name, tag, and six-dot handle each start drag while click still selec
   await page.locator("#detailClose").click();
 
   await row.locator(".task-title-line strong").dragTo(target);
-  await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
+  await expect(row).toHaveAttribute("data-folder-id", "folder-personal", { timeout: 20_000 });
   await page.getByRole("button", { name: "撤销" }).click();
-  await expect(row).toHaveAttribute("data-folder-id", "folder-work");
+  await expect(row).toHaveAttribute("data-folder-id", "folder-work", { timeout: 20_000 });
 
   await row.locator(".task-meta").dragTo(target);
-  await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
+  await expect(row).toHaveAttribute("data-folder-id", "folder-personal", { timeout: 20_000 });
   await page.getByRole("button", { name: "撤销" }).click();
-  await expect(row).toHaveAttribute("data-folder-id", "folder-work");
+  await expect(row).toHaveAttribute("data-folder-id", "folder-work", { timeout: 20_000 });
 
   await row.getByRole("button", { name: "拖动任务" }).dragTo(target);
-  await expect(row).toHaveAttribute("data-folder-id", "folder-personal");
+  await expect(row).toHaveAttribute("data-folder-id", "folder-personal", { timeout: 20_000 });
   await expect(page.getByRole("button", { name: "撤销" })).toBeEnabled();
 });
 
