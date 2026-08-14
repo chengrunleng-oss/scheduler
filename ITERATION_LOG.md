@@ -1,6 +1,6 @@
 # 迭代记录
 
-## v0.8 补丁二：用户直接体验反馈修复（codex/deepseek-fixes）
+## v0.8 补丁二：用户直接体验反馈修复（deepseek/test-feedback-fixes）
 
 ### 本次修复
 
@@ -14,7 +14,7 @@
 - `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、69 项 Node 测试和 59 项 Playwright 测试全部通过（新增文件夹头部点击与表头保留契约断言、双行表头/轨道过渡 e2e 用例）。
 - `npm run visual:baseline` 通过：1440×900 工作区截图等待轨道过渡结束采集，双行表头进入基线；全部视口零横向溢出。
 
-## v0.8 补丁：测试反馈流程改进与开放问题修复（codex/deepseek-fixes）
+## v0.8 补丁：测试反馈流程改进与开放问题修复（deepseek/test-feedback-fixes）
 
 ### 本次修复
 

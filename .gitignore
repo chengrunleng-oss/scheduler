@@ -6,6 +6,7 @@ desktop.ini
 # Editor folders
 .vscode/
 .idea/
+.modlens-install/
 
 # Dependencies and build output
 node_modules/

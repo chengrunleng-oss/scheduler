@@ -31,7 +31,7 @@
         "finding_ids": [],
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
-        "evidence": "codex/deepseek-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
       },
       {
         "id": "gate-5",
@@ -71,10 +71,10 @@
       "note": "git 引用，未单独归档文件；同样违反可复现性规则。"
     },
     {
-      "snapshot": "git:codex/deepseek-fixes:TEST_FEEDBACK.json",
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
       "test_date": "2026-08-14",
       "format_version": 17,
-      "target_branch": "codex/deepseek-fixes",
+      "target_branch": "deepseek/test-feedback-fixes",
       "source_revision": "cd4e6ab",
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
@@ -226,7 +226,7 @@
       "resolution": "所有 keep-both 分支生成确定性副本 ID 后先检查目标集合：相同 ID 且内容相同视为已应用并跳过，相同 ID 但内容不同生成受内容哈希区分的新冲突 ID；四类实体幂等测试覆盖。",
       "history": [
         { "date": "2026-08-14", "event": "opened", "round": "docs/feedback/2026-08-14.json" },
-        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit fba0a78；67 项 Node 测试全部通过。" }
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit fba0a78；67 项 Node 测试全部通过。" }
       ]
     },
     {
@@ -245,7 +245,7 @@
       "resolution": "手机断点把 import-source 改为单列布局，文件名独占一行并允许安全换行；视觉基线增加 importSourceName 宽度、可见性和文本非空断言。",
       "history": [
         { "date": "2026-08-14", "event": "opened", "round": "docs/feedback/2026-08-14.json" },
-        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit 4ad4208；npm run visual:baseline 与 npm run verify 通过。" }
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4ad4208；npm run visual:baseline 与 npm run verify 通过。" }
       ]
     },
     {
@@ -263,8 +263,8 @@
       "evidence": ["用户直接体验反馈：展开/折叠的点击命中范围只有一个按钮的大小，期望点击整个文件夹头部都能识别。", "事件委托只处理 button[data-action] 的 toggle-folder，标题、图标、计数和留白区域点击无效。"],
       "resolution": "文件夹头部增加 data-toggle-folder-id 与 pointer 光标；点击头部内按钮、summary、输入控件以外的任何区域都切换展开/折叠，操作按钮保持独立行为。",
       "history": [
-        { "date": "2026-08-14", "event": "opened", "round": "codex/deepseek-fixes", "evidence": "用户直接体验反馈。" },
-        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit cd4e6ab；e2e 与契约测试通过。" }
+        { "date": "2026-08-14", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cd4e6ab；e2e 与契约测试通过。" }
       ]
     },
     {
@@ -283,8 +283,8 @@
       "evidence": ["用户直接体验反馈：选中任务后“任务/优先级/截止日期/操作”表头行消失，工作区弹出过程不够丝滑。", "宽屏规则 .app-shell.workspace-open .list-head { display: none; } 直接隐藏表头；面板从 fixed 离屏状态瞬间切换为网格列，没有过渡。"],
       "resolution": "宽屏保持第三轨并给 app-shell 增加 grid-template-columns 过渡；工作区打开后表头保留为与两行任务卡对齐的双行表头；面板增加入场淡入；reduced-motion 下自动禁用动画。",
       "history": [
-        { "date": "2026-08-14", "event": "opened", "round": "codex/deepseek-fixes", "evidence": "用户直接体验反馈。" },
-        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit cd4e6ab；e2e 与视觉基线通过。" }
+        { "date": "2026-08-14", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cd4e6ab；e2e 与视觉基线通过。" }
       ]
     }
   ]

@@ -2,7 +2,7 @@
   "document_type": "scheduler_test_feedback",
   "format_version": 17,
   "test_date": "2026-08-14",
-  "target_branch": "codex/deepseek-fixes",
+  "target_branch": "deepseek/test-feedback-fixes",
   "source_revision": "cd4e6ab",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 codex/deepseek-fixes 分支修复；用户直接体验反馈的文件夹头部点击范围与工作区打开时表头消失两项体验问题也已修复。完整自动验证（69 项 Node 测试、59 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 deepseek/test-feedback-fixes 分支修复；用户直接体验反馈的文件夹头部点击范围与工作区打开时表头消失两项体验问题也已修复。完整自动验证（69 项 Node 测试、59 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -190,7 +190,7 @@
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
         "finding_ids": [],
-        "evidence": "codex/deepseek-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
       },
       {
         "description": "点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
@@ -208,7 +208,7 @@
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
-    "branch": "codex/deepseek-fixes",
+    "branch": "deepseek/test-feedback-fixes",
     "head": "cd4e6ab",
     "feature_changes_committed": true,
     "merge_performed": false,
