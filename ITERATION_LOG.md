@@ -1,5 +1,17 @@
 # 迭代记录
 
+## v0.8 补丁三：含工作记录备份导入的写后校验误判修复（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-013：任何包含工作记录的备份导入都会在写后校验阶段被误判为内容不一致并自动回滚，导入报告停留在 `prepared` 状态。根因是 `parseWorkLog` 总是把值为 `undefined` 的 `conflictOrigin` 作为自有键返回，而备份清单经过 JSON 序列化后会丢弃该键；逐项校验使用的 `stableValue` 把“键存在但值为 undefined”与“键不存在”判为不同内容。修复后 `parseWorkLog` 仅在确有取值时返回 `conflictOrigin`，`stableValue` 忽略值为 `undefined` 的键（与 JSON 语义一致）。
+- 新增 e2e 回归用例：在导出备份中注入一条不含 `conflictOrigin` 键的工作记录，走完整导入流程断言“合并已完成并通过写入校验”且记录持久化；该用例在修复前代码上复现自动回滚失败，修复后通过。
+- 顺带加固拖拽时序敏感 e2e 用例：`task name, tag, and six-dot handle each start drag` 的拖拽落位与撤销回退断言从默认 5s 超时放宽到 20s，消除整轮负载下的偶发抖动。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、69 项 Node 测试和 60 项 Playwright 测试全部通过（新增 TEST-V08-013 导入回归用例）。
+
 ## v0.8 补丁二：用户直接体验反馈修复（deepseek/test-feedback-fixes）
 
 ### 本次修复

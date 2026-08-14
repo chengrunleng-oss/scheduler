@@ -1,7 +1,7 @@
 {
   "document_type": "scheduler_findings_registry",
   "format_version": 1,
-  "updated": "2026-08-14",
+  "updated": "2026-08-15",
   "release_gate": {
     "target_release": "v0.8-merge-import",
     "status": "blocked",
@@ -46,6 +46,13 @@
         "description": "宽屏打开工作区时保留对齐的表头行，面板展开过渡平滑且支持减少动态效果。",
         "status": "met",
         "evidence": "e2e：双行表头可见且 grid-template-areas 对齐、app-shell 过渡含 grid-template-columns；视觉基线通过。"
+      },
+      {
+        "id": "gate-7",
+        "finding_ids": ["TEST-V08-013"],
+        "description": "含工作记录的备份导入必须通过写后校验并完成合并，不得被误判为内容不一致而自动回滚。",
+        "status": "met",
+        "evidence": "e2e 回归用例注入无 conflictOrigin 键的工作记录备份，修复后走完合并与写后校验并持久化记录；修复前同一用例复现自动回滚失败。"
       }
     ]
   },
@@ -79,6 +86,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "用户直接体验反馈轮：TEST-V08-011/012 登记并修复；TEST-V08-009/010 修复验证；TEST-V08-007 等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "4d019c0",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-013 登记并修复：含工作记录备份导入的写后校验误判；新增 e2e 回归用例；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -285,6 +302,28 @@
       "history": [
         { "date": "2026-08-14", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cd4e6ab；e2e 与视觉基线通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-013",
+      "severity": "P1",
+      "category": "import-worklog-verification",
+      "kind": "defect",
+      "title": "含工作记录的备份导入被写后校验误判失败并自动回滚",
+      "status": "fixed",
+      "fix_commit": "4d019c0",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：备份含工作记录（无 conflictOrigin 键）导入通过写后校验并合并持久化（TEST-V08-013）"
+      ],
+      "evidence": [
+        "用户导入 task-workbench-2026-08-15.zip 后提示“导入失败，已自动回滚：工作记录 … 的内容校验失败”，工作区恢复为导入前内容，导入报告停留在 prepared 状态。",
+        "parseWorkLog 总是把值为 undefined 的 conflictOrigin 作为自有键返回；备份清单 JSON 序列化会丢弃 undefined 键，导致解析侧与读回侧记录形状不一致。",
+        "verifyEntityContent 的 stableValue 把 {conflictOrigin: undefined} 与 {} 判为不同内容，任何含工作记录的备份导入都会踩中。"
+      ],
+      "resolution": "parseWorkLog 仅在确有取值时返回 conflictOrigin 键；stableValue 忽略值为 undefined 的键（与 JSON 语义一致）。新增 e2e 回归用例：修复前复现自动回滚失败，修复后通过。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户导入真实备份发现写后校验误判并自动回滚；用真实备份数据复现导入管线定位到 conflictOrigin 键形状不一致。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4d019c0；e2e 回归用例修复前失败、修复后通过；69 项 Node 测试与 60 项 Playwright 测试全部通过。" }
       ]
     }
   ]

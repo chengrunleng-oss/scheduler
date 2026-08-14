@@ -1,9 +1,9 @@
 {
   "document_type": "scheduler_test_feedback",
   "format_version": 17,
-  "test_date": "2026-08-14",
+  "test_date": "2026-08-15",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "cd4e6ab",
+  "source_revision": "4d019c0",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,37 +13,19 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 deepseek/test-feedback-fixes 分支修复；用户直接体验反馈的文件夹头部点击范围与工作区打开时表头消失两项体验问题也已修复。完整自动验证（69 项 Node 测试、59 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-013：任何包含工作记录的备份导入都会在写后校验阶段被误判为内容不一致并自动回滚。根因是 parseWorkLog 返回值为 undefined 的 conflictOrigin 自有键，而备份清单 JSON 序列化会丢弃该键，stableValue 把两种形状判为不同内容。修复后 parseWorkLog 仅在确有取值时返回该键，stableValue 忽略 undefined 值键；新增 e2e 回归用例（修复前复现失败、修复后通过）。完整自动验证（69 项 Node 测试、60 项 Playwright 测试和正式构建）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
-      "full_verification": {
-        "command": "npm run verify",
-        "result": "passed",
-        "duration_seconds": 75.8,
-        "stages": [
-          { "name": "Vue TypeScript typecheck", "result": "passed" },
-          { "name": "Vite production build", "result": "passed" },
-          { "name": "Node unit and structural tests", "result": "passed", "passed": 62, "failed": 0 },
-          { "name": "dist consistency check", "result": "passed" },
-          { "name": "Playwright browser tests", "result": "passed", "passed": 57, "failed": 0 }
-        ]
-      },
-      "priority_persistence_repeat": {
-        "command": "npx playwright test e2e/workbench.spec.mjs --grep \"priority divider changes crossed priorities atomically and persists\" --repeat-each=5",
-        "result": "passed",
-        "passed": 5,
-        "failed": 0
-      },
-      "visual_baseline": {
-        "command": "npm run visual:baseline",
-        "result": "passed_with_visual_finding",
-        "finding": "重新生成的手机导入中心截图中，来源元信息可见，但备份文件名被压缩到不可见。"
-      },
-      "merge_idempotency_probe": {
-        "name": "同一工作记录冲突备份连续两次选择保留两份",
+      "reproduction": {
+        "name": "用真实备份 task-workbench-2026-08-15.zip 复现导入失败",
         "result": "failed_requirement",
-        "conclusion": "冲突副本 ID 生成是确定性的，但 applyMergePlan 在再次保留两份时没有检查该副本是否已存在，导致重复 ID 和非幂等结果。"
+        "conclusion": "合并后写回再读回的工作记录带有值为 undefined 的 conflictOrigin 自有键，而备份解析侧没有该键；stableValue 判为内容不同，工作记录逐项校验抛错并触发自动回滚。"
+      },
+      "e2e_regression_probe": {
+        "name": "含工作记录备份导入 e2e 用例在修复前代码上执行",
+        "result": "failed_as_expected",
+        "conclusion": "导入进度关闭后不出现结果对话框，工作区自动回滚，复现用户遇到的失败。"
       }
     },
     "post_fix_verification": {
@@ -55,10 +37,9 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 69, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 59, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 60, "failed": 0 }
       ],
-      "visual_baseline": "passed：1440x900 与 390x844 导入中心截图中 importSourceName 文本非空、可见、宽度不小于 80px，移动端无裁剪；宽屏工作区截图等待轨道过渡结束后采集。",
-      "e2e_isolation_note": "Playwright 改用专用端口 5180 且禁止复用现有服务器，避免把本地开发服务器（5173）误当作测试目标。"
+      "e2e_stability_note": "拖拽时序敏感用例（task name, tag, and six-dot handle each start drag）在整轮负载下偶发失败（默认 5s 断言超时不足），单独复跑均通过且与本次修复无关；已将该用例拖拽落位与撤销回退断言超时放宽到 20s，随后完整执行 60/60 通过。"
     }
   },
   "verified_progress": [
@@ -74,7 +55,8 @@
     "TEST-V08-011 已修复：点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
     "TEST-V08-012 已修复：宽屏打开工作区时保留双行对齐表头，第三轨平滑展开并支持减少动态效果。",
     "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。",
-    "Playwright e2e 改用专用端口 5180 且禁止复用现有服务器，避免本地开发服务器被误当作测试目标。"
+    "Playwright e2e 改用专用端口 5180 且禁止复用现有服务器，避免本地开发服务器被误当作测试目标。",
+    "TEST-V08-013 已修复：parseWorkLog 仅在确有取值时返回 conflictOrigin，stableValue 忽略 undefined 值键；含工作记录的备份导入通过写后校验并合并持久化，新增 e2e 回归用例。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -164,6 +146,25 @@
           "scripts/capture-visuals.mjs：1440 打开工作区等待轨道过渡结束后的视觉基线"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-013",
+      "severity": "P1",
+      "category": "import-worklog-verification",
+      "title": "含工作记录的备份导入被写后校验误判失败并自动回滚",
+      "evidence": [
+        "用户导入 task-workbench-2026-08-15.zip 后提示“导入失败，已自动回滚：工作记录 … 的内容校验失败”，工作区恢复为导入前内容，导入报告停留在 prepared 状态。",
+        "parseWorkLog 总是把值为 undefined 的 conflictOrigin 作为自有键返回；备份清单 JSON 序列化会丢弃 undefined 键，导致解析侧与读回侧记录形状不一致。",
+        "verifyEntityContent 的 stableValue 把 {conflictOrigin: undefined} 与 {} 判为不同内容，任何含工作记录的备份导入都会踩中。"
+      ],
+      "required_action": "parseWorkLog 仅在确有取值时返回 conflictOrigin 键；stableValue 忽略值为 undefined 的键（与 JSON 语义一致）。新增 e2e 回归用例：注入不含 conflictOrigin 键的工作记录备份，走完整导入流程断言通过写后校验并合并持久化。",
+      "resolution": {
+        "fix_commit": "4d019c0",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：备份含工作记录（无 conflictOrigin 键）导入通过写后校验并合并持久化（TEST-V08-013）",
+          "回归探针：同一 e2e 用例在修复前代码上复现自动回滚失败"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -203,6 +204,12 @@
         "status": "met",
         "finding_ids": ["TEST-V08-012"],
         "evidence": "e2e 双行表头与网格区域对齐断言、app-shell 轨道过渡断言；视觉基线通过。"
+      },
+      {
+        "description": "含工作记录的备份导入必须通过写后校验并完成合并，不得被误判为内容不一致而自动回滚。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-013"],
+        "evidence": "e2e 回归用例注入无 conflictOrigin 键的工作记录备份，修复后通过写后校验并持久化记录；修复前同一用例复现自动回滚失败。"
       }
     ]
   },
