@@ -1,5 +1,20 @@
 # 迭代记录
 
+## v0.8 补丁：测试反馈流程改进与开放问题修复（codex/deepseek-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-009：所有 keep-both 分支生成确定性副本 ID 后先检查目标集合；相同 ID 且内容相同视为已应用并跳过，相同 ID 但内容不同生成受内容哈希区分的新冲突 ID。工作记录、任务、文件夹、附件四类实体均有重复 keep-both 幂等测试。
+- 修复 TEST-V08-010：手机断点把导入中心来源区改为单列布局，备份文件名独占一行并允许安全换行；视觉基线增加 importSourceName 文本非空、可见、宽度不小于 80px 和移动端不裁剪断言。
+- 建立 docs/feedback/ 测试反馈文档体系：每轮不可变快照、问题登记表（registry.json）、JSON Schema 格式契约与零依赖校验脚本（validate:feedback，已纳入 npm run verify）。
+- 确立可复现性规则（source_revision 必须是纯提交哈希）、finding ID 引用约定和发布门槛单一归属（registry.json 为唯一权威，ENGINEERING_REVIEW.json 的 definition_of_done 仅作规划目标）。
+- TEST-V08-007（真实 Windows 本地目录人工验收）保持开放并移入 pending_verification 区，不阻塞代码修复排期。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、67 项 Node 测试和 57 项 Playwright 测试全部通过（Node 测试较上一轮 +5，为四类实体 keep-both 幂等与内容变更新 ID 用例）。
+- `npm run visual:baseline` 通过：1440×900 与 390×844 导入中心均断言 importSourceName 文本非空、可见、宽度不小于 80px，移动端文件名无裁剪。
+
 ## v0.7 本地工作区：存储契约第一阶段（开发中）
 
 - 从已验收的 v0.6 提交创建独立分支 `codex/local-workspace-storage`，保持与 `develop` 分离。

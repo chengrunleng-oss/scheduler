@@ -1,83 +1,63 @@
 {
   "document_type": "scheduler_test_feedback",
-  "format_version": 16,
+  "format_version": 17,
   "test_date": "2026-08-14",
-  "target_branch": "codex/merge-import",
-  "source_revision": "b740eff+uncommitted-working-tree",
-  "target_release": "v0.8-merge-import-working-tree",
-  "document_policy": "本文件整体替换上一版测试反馈，只记录本轮重新执行的验证结果和当前仍未关闭的问题。上一轮已经整改并在本轮通过验证的项目不再作为待办保留。",
+  "target_branch": "codex/deepseek-fixes",
+  "source_revision": "4ad4208",
+  "target_release": "v0.8-merge-import",
+  "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
+  "format_history": [
+    { "version": 16, "changes": "引入 verified_progress、open_findings 与 release_gate 精简结构，问题编号收敛为 TEST-V08-xxx。" },
+    { "version": 17, "changes": "source_revision 强制为纯提交哈希（可复现性规则）；新增 pending_verification 与 resolved_findings 分区、exit_criteria 带状态、format_history 与 registry 引用；发布门槛权威归属 docs/feedback/registry.json。" }
+  ],
   "overall_result": {
-    "status": "changes_required",
+    "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "v0.8 导入合并的主要功能、完整自动测试和旧持久化竞态复测均已通过，但冲突副本重复导入不幂等，手机端无法看到来源文件名，且真实 Windows 目录人工验收尚未完成，因此仍不能判定全部改进完成。"
+    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 codex/deepseek-fixes 分支修复，完整自动验证（67 项 Node 测试、57 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
-    "full_verification": {
+    "pre_fix_verification": {
+      "full_verification": {
+        "command": "npm run verify",
+        "result": "passed",
+        "duration_seconds": 75.8,
+        "stages": [
+          { "name": "Vue TypeScript typecheck", "result": "passed" },
+          { "name": "Vite production build", "result": "passed" },
+          { "name": "Node unit and structural tests", "result": "passed", "passed": 62, "failed": 0 },
+          { "name": "dist consistency check", "result": "passed" },
+          { "name": "Playwright browser tests", "result": "passed", "passed": 57, "failed": 0 }
+        ]
+      },
+      "priority_persistence_repeat": {
+        "command": "npx playwright test e2e/workbench.spec.mjs --grep \"priority divider changes crossed priorities atomically and persists\" --repeat-each=5",
+        "result": "passed",
+        "passed": 5,
+        "failed": 0
+      },
+      "visual_baseline": {
+        "command": "npm run visual:baseline",
+        "result": "passed_with_visual_finding",
+        "finding": "重新生成的手机导入中心截图中，来源元信息可见，但备份文件名被压缩到不可见。"
+      },
+      "merge_idempotency_probe": {
+        "name": "同一工作记录冲突备份连续两次选择保留两份",
+        "result": "failed_requirement",
+        "conclusion": "冲突副本 ID 生成是确定性的，但 applyMergePlan 在再次保留两份时没有检查该副本是否已存在，导致重复 ID 和非幂等结果。"
+      }
+    },
+    "post_fix_verification": {
       "command": "npm run verify",
       "result": "passed",
-      "duration_seconds": 75.8,
       "stages": [
-        {
-          "name": "Vue TypeScript typecheck",
-          "result": "passed"
-        },
-        {
-          "name": "Vite production build",
-          "result": "passed"
-        },
-        {
-          "name": "Node unit and structural tests",
-          "result": "passed",
-          "passed": 62,
-          "failed": 0
-        },
-        {
-          "name": "dist consistency check",
-          "result": "passed"
-        },
-        {
-          "name": "Playwright browser tests",
-          "result": "passed",
-          "passed": 57,
-          "failed": 0
-        }
-      ]
-    },
-    "priority_persistence_repeat": {
-      "command": "npx playwright test e2e/workbench.spec.mjs --grep \"priority divider changes crossed priorities atomically and persists\" --repeat-each=5",
-      "result": "passed",
-      "passed": 5,
-      "failed": 0,
-      "conclusion": "上一轮优先级分界线撤销、重做与刷新后的持久化竞态在本轮未再复现，可以从未关闭问题中移除。"
-    },
-    "visual_baseline": {
-      "command": "npm run visual:baseline",
-      "result": "passed_with_visual_finding",
-      "viewports": [
-        "1440x900 空工作区",
-        "1440x900 工作区",
-        "1024x768 标准桌面",
-        "768x1024 平板",
-        "390x844 手机工作区",
-        "1440x900 导入中心",
-        "390x844 手机导入中心"
+        { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
+        { "name": "Vue TypeScript typecheck", "result": "passed" },
+        { "name": "Vite production build", "result": "passed" },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 67, "failed": 0 },
+        { "name": "dist consistency check", "result": "passed" },
+        { "name": "Playwright browser tests", "result": "passed", "passed": 57, "failed": 0 }
       ],
-      "geometry": "所有视口的 documentOverflow、bodyOverflow、rowOverflow 和 importDialogOverflow 均为 0。",
-      "finding": "重新生成的手机导入中心截图中，来源元信息可见，但备份文件名被压缩到不可见。"
-    },
-    "merge_idempotency_probe": {
-      "name": "同一工作记录冲突备份连续两次选择保留两份",
-      "result": "failed_requirement",
-      "first_import_ids": [
-        "task-1::2026-08-14",
-        "worklog-imported-770ee790"
-      ],
-      "second_import_ids": [
-        "task-1::2026-08-14",
-        "worklog-imported-770ee790",
-        "worklog-imported-770ee790"
-      ],
-      "conclusion": "冲突副本 ID 生成是确定性的，但 applyMergePlan 在再次保留两份时没有检查该副本是否已存在，导致重复 ID 和非幂等结果。"
+      "visual_baseline": "passed：1440x900 与 390x844 导入中心截图中 importSourceName 文本非空、可见、宽度不小于 80px，移动端无裁剪。"
     }
   },
   "verified_progress": [
@@ -88,56 +68,98 @@
     "来源区域已经提供导出时间和工作区摘要，导入过程增加备份、写入、发布、校验阶段和发布前取消。",
     "导入恢复点、报告和备份持久化到本地工作区，重新打开后仍能查看、回滚和定位受影响任务。",
     "写后校验已经覆盖任务、文件夹、工作记录、附件元数据、引用关系、附件 SHA-256 和版本元数据，并有故障注入自动回滚测试。",
-    "完整自动验证共 119 项测试全部通过，视觉基线的布局与横向溢出检查通过。"
+    "TEST-V08-009 已修复：keep-both 副本生成幂等，重复导入不再产生重复 ID，四类实体幂等测试通过。",
+    "TEST-V08-010 已修复：手机导入中心备份文件名独占一行并可安全换行，视觉基线可见性断言通过。",
+    "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。"
   ],
-  "open_findings": [
+  "open_findings": [],
+  "pending_verification": [
+    {
+      "id": "TEST-V08-007",
+      "severity": "P1",
+      "category": "manual-windows-acceptance",
+      "title": "真实 Windows 本地目录验收尚未完成",
+      "evidence": [
+        "现有 Playwright 自动化使用 Chromium OPFS 和代理目录句柄，不能完整代表 Windows NTFS 权限撤销、杀毒软件占用、同步软件竞争、真实文件选择器和磁盘故障。"
+      ],
+      "required_action": "在 Chrome 或 Edge 中选择真实 Windows 测试目录，完成 v5/v6 导入、工作记录与附件冲突、重复导入、持久化恢复记录、权限撤销、写入中断、失败回滚和重新打开后的内容核验。"
+    }
+  ],
+  "resolved_findings": [
     {
       "id": "TEST-V08-009",
       "severity": "P1",
+      "category": "merge-keep-both-idempotency",
       "title": "冲突副本在重复导入时不幂等",
       "evidence": [
         "第一次把同 ID 不同内容的工作记录选择 keep-both 后，结果包含原记录和 worklog-imported-770ee790。",
-        "以第一次结果为当前工作区再次分析同一导入快照，并再次选择 keep-both，结果数组包含两个相同的 worklog-imported-770ee790，记录总数从 2 增加到 3。",
-        "src/merge.ts 的工作记录 keep-both 分支直接 push 确定性 importedId，没有先检查结果集合是否已经存在该 ID。"
+        "以第一次结果为当前工作区再次分析同一导入快照并再次选择 keep-both，结果数组包含两个相同的 worklog-imported-770ee790。",
+        "src/merge.ts 的 keep-both 分支直接 push 确定性 importedId，没有先检查结果集合是否已经存在该 ID。"
       ],
-      "risk": "用户重复导入同一备份时可能得到重复实体 ID；后续写后校验会失败并触发回滚，导致本应幂等的重复导入报错，纯合并引擎调用者还可能接收到非法快照。",
-      "required_action": "所有 keep-both 分支在生成确定性副本 ID 后先检查目标集合；相同 ID 且内容相同应视为已应用并跳过，相同 ID 但内容不同应生成受版本或哈希区分的新冲突 ID。为任务、文件夹、工作记录和附件分别增加重复 keep-both 幂等测试。"
+      "required_action": "所有 keep-both 分支在生成确定性副本 ID 后先检查目标集合；相同 ID 且内容相同应视为已应用并跳过，相同 ID 但内容不同应生成受内容哈希区分的新冲突 ID。为任务、文件夹、工作记录和附件分别增加重复 keep-both 幂等测试。",
+      "resolution": {
+        "fix_commit": "fba0a78",
+        "verified_by": [
+          "tests/merge.test.mjs：工作记录、任务、文件夹、附件四类实体重复 keep-both 幂等用例",
+          "tests/merge.test.mjs：同 ID 冲突内容变化时生成受内容哈希区分的新冲突 ID 用例"
+        ]
+      }
     },
     {
       "id": "TEST-V08-010",
       "severity": "P2",
+      "category": "mobile-import-filename-visibility",
       "title": "手机导入中心无法看到备份文件名",
       "evidence": [
-        "最新 output/playwright/import-center-mobile.png 中可以看到 v6、导出时间和来源工作区摘要，但看不到桌面端显示的备份文件名。",
+        "手机导入中心截图中可以看到 v6、导出时间和来源工作区摘要，但看不到桌面端显示的备份文件名。",
         "import-source 在所有宽度都使用 minmax(0, 1fr) auto；手机端较长的 importSourceMeta 占据 auto 列后，importSourceName 所在第一列被压缩到接近 0。",
-        "当前视觉基线只断言导入对话框不横向溢出，没有断言来源文件名具有可见尺寸。"
+        "视觉基线只断言导入对话框不横向溢出，没有断言来源文件名具有可见尺寸。"
       ],
-      "risk": "手机用户无法确认自己选择的是哪个备份文件，多个相近时间或相同工作区的备份难以辨认。",
-      "required_action": "在手机断点把 import-source 改为单列或让文件名独占一行，并允许安全换行或中间省略；视觉基线增加 importSourceName 宽度、可见性和文本非空断言。"
-    },
-    {
-      "id": "TEST-V08-007",
-      "severity": "P1",
-      "title": "真实 Windows 本地目录验收尚未执行",
-      "evidence": "现有 Playwright 自动化使用 Chromium OPFS 和代理目录句柄，不能完整代表 Windows NTFS 权限撤销、杀毒软件占用、同步软件竞争、真实文件选择器和磁盘故障。",
-      "required_action": "在 Chrome 或 Edge 中选择真实 Windows 测试目录，完成 v5/v6 导入、工作记录与附件冲突、重复导入、持久化恢复记录、权限撤销、写入中断、失败回滚和重新打开后的内容核验。"
+      "required_action": "在手机断点把 import-source 改为单列或让文件名独占一行，并允许安全换行或中间省略；视觉基线增加 importSourceName 宽度、可见性和文本非空断言。",
+      "resolution": {
+        "fix_commit": "4ad4208",
+        "verified_by": [
+          "scripts/capture-visuals.mjs：importSourceName 文本非空、可见、宽度不小于 80px 断言（1440 与 390 两档）",
+          "scripts/capture-visuals.mjs：390px 下来源文件名不裁剪断言"
+        ]
+      }
     }
   ],
   "release_gate": {
     "status": "blocked",
     "exit_criteria": [
-      "同一冲突备份重复执行 keep-both 不增加重复副本或重复 ID，并通过四类实体的幂等测试。",
-      "手机导入中心能够明确显示备份文件名，新增可见性视觉断言。",
-      "完成真实 Windows Chrome/Edge 本地目录导入合并与故障恢复人工验收。",
-      "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。"
+      {
+        "description": "同一冲突备份重复执行 keep-both 不增加重复副本或重复 ID，并通过四类实体的幂等测试。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-009"],
+        "evidence": "fba0a78：四类实体幂等用例与内容变更新 ID 用例全部通过。"
+      },
+      {
+        "description": "手机导入中心能够明确显示备份文件名，新增可见性视觉断言。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-010"],
+        "evidence": "4ad4208：视觉基线在 1440 与 390 两档通过可见性断言，手机截图复核文件名可见。"
+      },
+      {
+        "description": "完成真实 Windows Chrome/Edge 本地目录导入合并与故障恢复人工验收。",
+        "status": "pending",
+        "finding_ids": ["TEST-V08-007"]
+      },
+      {
+        "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
+        "status": "met",
+        "finding_ids": [],
+        "evidence": "codex/deepseek-fixes：反馈文档校验、67 项 Node 测试、57 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+      }
     ]
   },
+  "registry": "docs/feedback/registry.json",
   "repository_state": {
-    "branch": "codex/merge-import",
-    "head": "b740eff",
-    "feature_changes_committed": false,
+    "branch": "codex/deepseek-fixes",
+    "head": "4ad4208",
+    "feature_changes_committed": true,
     "merge_performed": false,
-    "feedback_commit_scope": "TEST_FEEDBACK.json only",
+    "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",
     "unrelated_worktree_changes_preserved": true
   }
 }

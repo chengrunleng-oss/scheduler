@@ -439,6 +439,7 @@
     "schema v5 与旧 JSON 兼容策略通过自动测试并在界面提前说明限制。",
     "桌面与移动端真实用户流程、可访问性和 Windows 本地目录故障场景完成验收。"
   ],
+  "release_gate_authority": "发布门槛以 docs/feedback/registry.json 的 release_gate 为唯一权威；本文档 definition_of_done 仅作为规划期验收目标，两者不一致时以登记表为准。",
   "repository_state": {
     "branch_at_review": "codex/local-workspace-storage",
     "head_at_review": "2aa212a",

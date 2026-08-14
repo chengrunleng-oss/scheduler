@@ -53,8 +53,9 @@ npm run preview
 
 - `README.md`：使用方式、当前功能和工程入口。
 - `ENGINEERING_REVIEW.json`：本轮升级采用的最新改进反馈、产品决策和验收标准。
-- `TEST_FEEDBACK.json`：最新浏览器验收结果、已知问题和后续建议。
+- `TEST_FEEDBACK.json`：最新浏览器验收结果、已知问题和后续建议（format 17，source_revision 必须是纯提交哈希）。
 - `ITERATION_LOG.md`：各版本实现与验证记录。
+- `docs/feedback/`：每轮不可变快照、问题登记表（`registry.json`，发布门槛唯一权威）与格式契约，规则见 `docs/feedback/README.md`；`npm run verify` 会执行 `validate:feedback` 校验。
 - `LOCAL_WORKSPACE_ACCEPTANCE.md`：Chrome/Edge 真实操作系统目录的权限、迁移、冲突和故障恢复验收清单。
 - `BRANCHING.md`：分支和提交约定。
 - `dist/`：由 Vite 生成并带内容哈希的正式浏览器构建产物。

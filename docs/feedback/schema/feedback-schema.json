@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://task-workbench.local/schema/feedback.schema.json",
+  "title": "scheduler_test_feedback",
+  "description": "测试反馈轮次文档的格式契约。根目录 TEST_FEEDBACK.json（format >= 17）与 docs/feedback/ 归档快照均使用本契约；format 16 及以下的历史快照通过 if/then 兼容。",
+  "type": "object",
+  "required": ["document_type", "format_version", "test_date", "target_branch", "source_revision", "target_release", "document_policy", "overall_result", "open_findings"],
+  "properties": {
+    "document_type": { "const": "scheduler_test_feedback" },
+    "format_version": { "type": "integer", "minimum": 1 },
+    "test_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "target_branch": { "type": "string", "minLength": 1 },
+    "source_revision": { "type": "string", "minLength": 1 },
+    "target_release": { "type": "string", "minLength": 1 },
+    "document_policy": { "type": "string", "minLength": 1 },
+    "format_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["version", "changes"],
+        "properties": {
+          "version": { "type": "integer", "minimum": 1 },
+          "changes": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "overall_result": {
+      "type": "object",
+      "required": ["status", "summary"],
+      "properties": {
+        "status": { "enum": ["passed", "partially_conforms", "changes_required", "needs_revision", "passed_with_manual_verification_pending"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "release_gate": { "enum": ["passed", "blocked", "pending"] }
+      }
+    },
+    "test_execution": { "type": "object" },
+    "verified_progress": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "open_findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "pending_verification": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "resolved_findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "release_gate": {
+      "type": "object",
+      "required": ["status", "exit_criteria"],
+      "properties": {
+        "status": { "enum": ["passed", "blocked", "pending"] },
+        "exit_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description", "status"],
+            "properties": {
+              "description": { "type": "string", "minLength": 1 },
+              "status": { "enum": ["met", "pending"] },
+              "evidence": { "type": "string" },
+              "finding_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "registry": { "type": "string" },
+    "repository_state": { "type": "object" }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "severity", "title", "evidence", "required_action"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^TEST-V\\d{2}-\\d{3}$" },
+        "severity": { "enum": ["P0", "P1", "P2"] },
+        "category": { "type": "string" },
+        "title": { "type": "string", "minLength": 1 },
+        "evidence": {
+          "oneOf": [
+            { "type": "array", "items": { "type": "string" } },
+            { "type": "string", "description": "format 16 及以下历史快照允许单字符串，如 TEST-V08-007；format 17 起必须是数组。" }
+          ]
+        },
+        "required_action": { "type": "string", "minLength": 1 },
+        "risk": { "type": "string" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "format_version": { "const": 17 } } },
+      "then": {
+        "required": ["format_history", "pending_verification", "resolved_findings", "release_gate"],
+        "properties": {
+          "source_revision": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+          "format_history": { "minItems": 1 },
+          "release_gate": {
+            "properties": {
+              "exit_criteria": {
+                "items": {
+                  "required": ["description", "status"],
+                  "properties": {
+                    "finding_ids": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

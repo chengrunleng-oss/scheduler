@@ -13,7 +13,8 @@
     "visual:baseline": "npm run build && node scripts/capture-visuals.mjs",
     "typecheck": "vue-tsc --noEmit",
     "check:dist": "node scripts/check-dist-clean.mjs",
-    "verify": "npm run typecheck && npm test && npm run check:dist && npm run test:e2e"
+    "validate:feedback": "node scripts/validate-feedback.mjs",
+    "verify": "npm run validate:feedback && npm run typecheck && npm test && npm run check:dist && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
