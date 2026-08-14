@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-14",
   "target_branch": "codex/deepseek-fixes",
-  "source_revision": "4ad4208",
+  "source_revision": "cd4e6ab",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 codex/deepseek-fixes 分支修复，完整自动验证（67 项 Node 测试、57 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "上一轮发现的冲突副本重复导入不幂等与手机端备份文件名不可见两项问题已在 codex/deepseek-fixes 分支修复；用户直接体验反馈的文件夹头部点击范围与工作区打开时表头消失两项体验问题也已修复。完整自动验证（69 项 Node 测试、59 项 Playwright 测试和视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -53,11 +53,12 @@
         { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
         { "name": "Vue TypeScript typecheck", "result": "passed" },
         { "name": "Vite production build", "result": "passed" },
-        { "name": "Node unit and structural tests", "result": "passed", "passed": 67, "failed": 0 },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 69, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 57, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 59, "failed": 0 }
       ],
-      "visual_baseline": "passed：1440x900 与 390x844 导入中心截图中 importSourceName 文本非空、可见、宽度不小于 80px，移动端无裁剪。"
+      "visual_baseline": "passed：1440x900 与 390x844 导入中心截图中 importSourceName 文本非空、可见、宽度不小于 80px，移动端无裁剪；宽屏工作区截图等待轨道过渡结束后采集。",
+      "e2e_isolation_note": "Playwright 改用专用端口 5180 且禁止复用现有服务器，避免把本地开发服务器（5173）误当作测试目标。"
     }
   },
   "verified_progress": [
@@ -70,7 +71,10 @@
     "写后校验已经覆盖任务、文件夹、工作记录、附件元数据、引用关系、附件 SHA-256 和版本元数据，并有故障注入自动回滚测试。",
     "TEST-V08-009 已修复：keep-both 副本生成幂等，重复导入不再产生重复 ID，四类实体幂等测试通过。",
     "TEST-V08-010 已修复：手机导入中心备份文件名独占一行并可安全换行，视觉基线可见性断言通过。",
-    "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。"
+    "TEST-V08-011 已修复：点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
+    "TEST-V08-012 已修复：宽屏打开工作区时保留双行对齐表头，第三轨平滑展开并支持减少动态效果。",
+    "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。",
+    "Playwright e2e 改用专用端口 5180 且禁止复用现有服务器，避免本地开发服务器被误当作测试目标。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -123,6 +127,43 @@
           "scripts/capture-visuals.mjs：390px 下来源文件名不裁剪断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-011",
+      "severity": "P2",
+      "category": "folder-heading-click-target",
+      "title": "文件夹展开/折叠只在小按钮范围可点击",
+      "evidence": [
+        "用户直接体验反馈：展开/折叠的点击命中范围只有一个按钮的大小，期望点击整个文件夹头部都能识别。",
+        "事件委托只处理 button[data-action] 的 toggle-folder，标题、图标、计数和留白区域点击无效。"
+      ],
+      "required_action": "点击文件夹头部内按钮、summary 和输入控件以外的任何区域都切换该文件夹的展开/折叠；头部内操作按钮保持独立行为。",
+      "resolution": {
+        "fix_commit": "cd4e6ab",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：点击标题文字展开/折叠、头部内操作按钮不误触折叠（TEST-V08-011）",
+          "tests/ui.test.mjs：data-toggle-folder-id 与事件委托排除交互元素的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-012",
+      "severity": "P2",
+      "category": "workspace-open-header-and-motion",
+      "title": "打开工作区时表头消失且过渡不丝滑",
+      "evidence": [
+        "用户直接体验反馈：选中任务后“任务/优先级/截止日期/操作”表头行消失，工作区弹出过程不够丝滑。",
+        "宽屏规则 .app-shell.workspace-open .list-head { display: none; } 直接隐藏表头；面板从 fixed 离屏状态瞬间切换为网格列，没有过渡。"
+      ],
+      "required_action": "宽屏打开工作区后保留与紧凑任务卡对齐的表头行；工作区展开过程平滑过渡；尊重 prefers-reduced-motion。",
+      "resolution": {
+        "fix_commit": "cd4e6ab",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：双行表头可见且网格区域对齐、app-shell 过渡包含 grid-template-columns（TEST-V08-012）",
+          "tests/ui.test.mjs：workspace-open 双行表头与轨道过渡的契约断言",
+          "scripts/capture-visuals.mjs：1440 打开工作区等待轨道过渡结束后的视觉基线"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -149,14 +190,26 @@
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
         "finding_ids": [],
-        "evidence": "codex/deepseek-fixes：反馈文档校验、67 项 Node 测试、57 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "codex/deepseek-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+      },
+      {
+        "description": "点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-011"],
+        "evidence": "e2e 点击标题文字展开/折叠、点击“在此处新建任务”不误触折叠；契约测试覆盖。"
+      },
+      {
+        "description": "宽屏打开工作区时保留对齐的表头行，面板展开过渡平滑且支持减少动态效果。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-012"],
+        "evidence": "e2e 双行表头与网格区域对齐断言、app-shell 轨道过渡断言；视觉基线通过。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "codex/deepseek-fixes",
-    "head": "4ad4208",
+    "head": "cd4e6ab",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

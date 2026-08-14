@@ -1,5 +1,19 @@
 # 迭代记录
 
+## v0.8 补丁二：用户直接体验反馈修复（codex/deepseek-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-011：文件夹头部携带 data-toggle-folder-id 并显示 pointer 光标；点击头部内按钮、菜单和输入控件以外的任何区域（标题、图标、计数、留白）都切换展开/折叠，操作按钮保持独立行为。
+- 修复 TEST-V08-012：宽屏常驻第三轨并给 app-shell 增加 grid-template-columns 过渡，工作区平滑展开；打开工作区后表头保留为与两行任务卡对齐的双行表头（任务/操作首行，优先级/截止日期次行），面板增加入场淡入，reduced-motion 自动禁用动画。
+- Playwright e2e 改用专用端口 5180 且禁止复用现有服务器：此前 reuseExistingServer 会静默复用本地 5173 开发服务器，测试可能在旧代码上运行。
+- 扩展 LOCAL_WORKSPACE_ACCEPTANCE.md：新增 v0.8 合并导入与重复导入的 11 组真实 Windows 目录验收步骤（对应 TEST-V08-007），包含 keep-both 幂等人工复核与 011/012 体验复核。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、69 项 Node 测试和 59 项 Playwright 测试全部通过（新增文件夹头部点击与表头保留契约断言、双行表头/轨道过渡 e2e 用例）。
+- `npm run visual:baseline` 通过：1440×900 工作区截图等待轨道过渡结束采集，双行表头进入基线；全部视口零横向溢出。
+
 ## v0.8 补丁：测试反馈流程改进与开放问题修复（codex/deepseek-fixes）
 
 ### 本次修复

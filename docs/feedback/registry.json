@@ -31,7 +31,21 @@
         "finding_ids": [],
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
-        "evidence": "codex/deepseek-fixes：反馈文档校验、67 项 Node 测试、57 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "codex/deepseek-fixes：反馈文档校验、69 项 Node 测试、59 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+      },
+      {
+        "id": "gate-5",
+        "finding_ids": ["TEST-V08-011"],
+        "description": "点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
+        "status": "met",
+        "evidence": "e2e：点击标题文字展开/折叠、点击“在此处新建任务”不误触折叠；契约测试覆盖 data-toggle-folder-id。"
+      },
+      {
+        "id": "gate-6",
+        "finding_ids": ["TEST-V08-012"],
+        "description": "宽屏打开工作区时保留对齐的表头行，面板展开过渡平滑且支持减少动态效果。",
+        "status": "met",
+        "evidence": "e2e：双行表头可见且 grid-template-areas 对齐、app-shell 过渡含 grid-template-columns；视觉基线通过。"
       }
     ]
   },
@@ -55,6 +69,16 @@
       "target_release": "v0.8-merge-import-working-tree",
       "status": "changes_required",
       "note": "git 引用，未单独归档文件；同样违反可复现性规则。"
+    },
+    {
+      "snapshot": "git:codex/deepseek-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-14",
+      "format_version": 17,
+      "target_branch": "codex/deepseek-fixes",
+      "source_revision": "cd4e6ab",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "用户直接体验反馈轮：TEST-V08-011/012 登记并修复；TEST-V08-009/010 修复验证；TEST-V08-007 等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -222,6 +246,45 @@
       "history": [
         { "date": "2026-08-14", "event": "opened", "round": "docs/feedback/2026-08-14.json" },
         { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit 4ad4208；npm run visual:baseline 与 npm run verify 通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-011",
+      "severity": "P2",
+      "category": "folder-heading-click-target",
+      "kind": "defect",
+      "title": "文件夹展开/折叠只在小按钮范围可点击",
+      "status": "fixed",
+      "fix_commit": "cd4e6ab",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：点击文件夹标题文字展开/折叠、头部内操作按钮不误触折叠（TEST-V08-011）",
+        "tests/ui.test.mjs：tree-group-heading 携带 data-toggle-folder-id 且事件委托排除交互元素的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：展开/折叠的点击命中范围只有一个按钮的大小，期望点击整个文件夹头部都能识别。", "事件委托只处理 button[data-action] 的 toggle-folder，标题、图标、计数和留白区域点击无效。"],
+      "resolution": "文件夹头部增加 data-toggle-folder-id 与 pointer 光标；点击头部内按钮、summary、输入控件以外的任何区域都切换展开/折叠，操作按钮保持独立行为。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "codex/deepseek-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit cd4e6ab；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-012",
+      "severity": "P2",
+      "category": "workspace-open-header-and-motion",
+      "kind": "defect",
+      "title": "打开工作区时表头消失且过渡不丝滑",
+      "status": "fixed",
+      "fix_commit": "cd4e6ab",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：打开任务后双行表头可见且网格区域对齐、app-shell 过渡包含 grid-template-columns（TEST-V08-012）",
+        "tests/ui.test.mjs：workspace-open 双行表头与轨道过渡的契约断言",
+        "scripts/capture-visuals.mjs：1440 打开工作区等待轨道过渡结束后的视觉基线"
+      ],
+      "evidence": ["用户直接体验反馈：选中任务后“任务/优先级/截止日期/操作”表头行消失，工作区弹出过程不够丝滑。", "宽屏规则 .app-shell.workspace-open .list-head { display: none; } 直接隐藏表头；面板从 fixed 离屏状态瞬间切换为网格列，没有过渡。"],
+      "resolution": "宽屏保持第三轨并给 app-shell 增加 grid-template-columns 过渡；工作区打开后表头保留为与两行任务卡对齐的双行表头；面板增加入场淡入；reduced-motion 下自动禁用动画。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "codex/deepseek-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "codex/deepseek-fixes", "evidence": "fix_commit cd4e6ab；e2e 与视觉基线通过。" }
       ]
     }
   ]
