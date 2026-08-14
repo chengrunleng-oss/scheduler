@@ -1,57 +1,195 @@
 {
   "document_type": "scheduler_test_feedback",
-  "format_version": 14,
+  "format_version": 15,
   "test_date": "2026-08-14",
   "target_branch": "codex/local-workspace-storage",
-  "source_revision": "1425676",
-  "target_release": "v0.7-working-tree",
-  "document_policy": "本文件整体替换上一版测试反馈，只保留当前仍需整改或人工验收的内容。已经通过的测试、已关闭问题和能力清单不再保留。",
+  "source_revision": "89476b7+uncommitted-working-tree",
+  "target_release": "v0.8-merge-import-working-tree",
+  "document_policy": "本文件整体替换上一版测试反馈，只记录本轮重新执行的验证结果、当前仍未满足的 v0.8 导入合并要求和发布阻断条件。旧版已经通过或本轮未重新证明的问题不再保留。",
   "overall_result": {
     "status": "changes_required",
     "release_gate": "blocked",
-    "summary": "当前仍有两项界面可用性问题：状态提示条会遮挡工作区底部操作区，未选择本地目录时任务树底部的创建按钮仍呈现为可用状态。此外，真实 Windows 本地目录验收尚未完成。"
+    "summary": "导入合并主流程已经出现并通过部分自动测试，但完整验证失败，且工作记录冲突、事件历史合并、导入预览与写后校验仍不满足最新改进要求，因此不能判定完成。"
   },
+  "test_execution": {
+    "full_verification": {
+      "command": "npm run verify",
+      "result": "failed",
+      "duration_seconds": 84.1,
+      "stages": [
+        {
+          "name": "Vue TypeScript typecheck",
+          "result": "passed"
+        },
+        {
+          "name": "Vite production build",
+          "result": "passed"
+        },
+        {
+          "name": "Node unit and structural tests",
+          "result": "passed",
+          "passed": 58,
+          "failed": 0
+        },
+        {
+          "name": "dist consistency check",
+          "result": "passed"
+        },
+        {
+          "name": "Playwright browser tests",
+          "result": "failed",
+          "passed": 52,
+          "failed": 1,
+          "failed_test": "priority divider changes crossed priorities atomically and persists"
+        }
+      ]
+    },
+    "targeted_repeat": {
+      "command": "npx playwright test e2e/workbench.spec.mjs --grep \"priority divider changes crossed priorities atomically and persists\" --repeat-each=3",
+      "result": "failed_intermittently",
+      "passed": 2,
+      "failed": 1,
+      "conclusion": "该问题可以重复出现，属于界面状态与本地目录持久化之间的时序型缺陷，不能按单次环境波动忽略。"
+    },
+    "merge_engine_probes": [
+      {
+        "name": "同 ID 工作记录内容冲突",
+        "result": "failed_requirement",
+        "observed": "冲突项只允许 keep-current 或 use-imported，没有 keep-both。"
+      },
+      {
+        "name": "不同 eventId 的延期历史并集合并",
+        "result": "failed_requirement",
+        "observed": "当前任务保留 event-a，导入任务中的 event-b 没有并入结果。"
+      }
+    ],
+    "visual_review": {
+      "artifacts": [
+        "output/playwright/import-center.png",
+        "output/playwright/import-center-mobile.png",
+        "test-results/workbench-priority-divider-dcf45-ies-atomically-and-persists-repeat1/test-failed-1.png"
+      ],
+      "result": "import_center_layout_acceptable_but_persistence_failure_visible",
+      "observation": "桌面和手机导入中心未发现明显重叠或横向溢出；失败截图确认页面刷新后目标任务重新显示为低优先级。"
+    }
+  },
+  "verified_progress": [
+    "备份 schema v6、workspaceId、snapshotId、实体修订信息、附件内容哈希和删除墓碑已经接入。",
+    "原导入入口已经出现合并预览、状态分类、逐项决策、全量恢复、导入前备份、结果报告和当前会话回滚。",
+    "相同备份的基础幂等、相同创建时间不同 ID 的疑似重复、直接修订安全更新、附件哈希去重和删除墓碑默认保守处理已有自动测试。",
+    "本轮通过的 58 项单元与结构测试未发现类型或构建错误。"
+  ],
   "open_findings": [
     {
-      "id": "TEST-V07-015",
-      "severity": "P2",
-      "title": "状态提示条会遮挡任务工作区底部操作区",
+      "id": "TEST-V08-001",
+      "severity": "P0",
+      "title": "优先级分界线重做后存在本地持久化竞态",
       "evidence": [
-        "最新 390x844 移动端基线中，固定在页面底部的“已打开本地工作区”提示覆盖了任务工作区底部按钮区域。",
-        "1440x900 深色工作区基线中，提示条也覆盖在右侧工作区底部操作区上方。",
-        "当前 .toast 使用 position: fixed、bottom: 20px 和 z-index: 60，没有根据已打开工作区的底部操作区或移动端安全区调整位置。"
+        "完整 Playwright 测试中，界面上的目标任务已经变为高优先级，但从 WorkspaceBackend 读取时仍为低优先级，等待 5 秒后仍未一致。",
+        "单独重复该测试三次时再次出现一次失败；失败发生在刷新后，任务 data-priority 恢复为 low。",
+        "失败断言位于 e2e/workbench.spec.mjs:443-445，失败截图保存在 test-results/workbench-priority-divider-dcf45-ies-atomically-and-persists-repeat1/test-failed-1.png。"
       ],
-      "risk": "提示显示期间会遮挡按钮文字并可能截获点击，移动端任务概览的取消操作尤其容易受影响。",
-      "required_action": "工作区打开时将提示条放到固定操作区上方，或为底部操作区预留提示占位；在 390x844 和宽屏工作区新增提示条与可点击按钮不相交的几何断言。"
+      "risk": "用户看到的优先级变化可能没有可靠写入本地目录，刷新或重新打开后会回退，破坏任务排序与优先级可信度。",
+      "required_action": "检查分界线操作、撤销、重做和 persistState 写入队列之间的顺序，确保每次动作等待对应状态持久化完成；增加连续拖动、撤销、重做、立即刷新和延迟刷新压力测试，消除时序依赖。"
     },
     {
-      "id": "TEST-V07-016",
-      "severity": "P2",
-      "title": "未选择本地目录时任务树底部创建按钮仍显示为可用",
-      "evidence": "在无本地工作区状态下，“新建任务”和“新建文件夹”两个树底部按钮的 disabled 为 false，且没有 aria-disabled。实际点击不会生成表单，只会提示先选择本地目录。",
-      "risk": "数据写入已被阻断，但按钮外观和辅助技术语义仍暗示操作可用，用户需要点击后才知道前置条件。",
-      "required_action": "无可用 LocalDirectoryBackend 时同步禁用全局、侧栏和任务树内全部创建入口，并提供统一的不可用说明；新增无目录状态测试，枚举并断言全部持久化创建控件均为 disabled 或正确的 aria-disabled。"
+      "id": "TEST-V08-002",
+      "severity": "P0",
+      "title": "工作记录冲突无法保留双方内容",
+      "evidence": [
+        "定向调用 analyzeMerge 后，同 ID 且内容不同的工作记录被识别为 conflict。",
+        "allowedDecisions 实际只有 keep-current 和 use-imported；src/merge.ts 的通用冲突规则只为 task 和 folder 提供 keep-both。",
+        "applyMergePlan 的工作记录分支没有 keep-both 物化逻辑。"
+      ],
+      "risk": "跨设备对同一工作记录产生并发修改时，用户只能丢弃其中一版，违反无法证明安全时保留双方的核心数据安全原则。",
+      "required_action": "为工作记录冲突增加 keep-both；生成新的记录 ID，并为同日冲突副本提供可辨认的来源或冲突标识，同时保证物理文件名不覆盖原记录。补充引擎单元测试和真实目录端到端测试。"
     },
     {
-      "id": "TEST-V07-014",
+      "id": "TEST-V08-003",
       "severity": "P1",
-      "title": "真实 Windows 本地目录验收尚未执行",
-      "evidence": "现有自动化目录能力使用 Chromium OPFS 和代理句柄，不能完整代表 Windows NTFS、目录权限撤销、杀毒软件占用、同步软件竞争和真实磁盘错误。",
-      "required_action": "在 Chrome 或 Edge 中选择真实 Windows 测试目录，完成首次初始化、刷新恢复、每任务独立目录、任务改名、附件编辑、权限撤销与重新授权、目录改选、外部修改冲突和失败恢复验收。"
+      "title": "延期与状态事件没有按稳定事件 ID 合并",
+      "evidence": [
+        "RescheduleRecord 已增加 eventId，但 merge 引擎仍把整个 Task 当作单一内容比较。",
+        "定向测试使用 event-a 和 event-b 两条不同延期记录，默认合并结果只保留 event-a，未执行事件并集。",
+        "当前 Task 模型也没有可合并的完成、不再需要和恢复状态事件历史。"
+      ],
+      "risk": "延期原因和状态变化记录会在跨设备合并时丢失或被整版覆盖，详情面板无法还原完整决策过程。",
+      "required_action": "在任务字段冲突分析之前，先按 eventId 对延期和状态事件执行并集与去重；冲突只针对同 eventId 不同内容。补齐状态事件模型、旧数据迁移和重复导入测试。"
+    },
+    {
+      "id": "TEST-V08-004",
+      "severity": "P1",
+      "title": "导入预览不能准确反映用户最终决定",
+      "evidence": [
+        "导入中心默认调用 applyFilter(\"all\")，没有默认只显示需要处理的项目。",
+        "顶部新增、更新、冲突等统计在打开对话框时一次性生成；修改逐项下拉决定后不会重新计算最终新增、更新、跳过或保留副本数量。",
+        "冲突行只显示实体名称、ID、原因和下拉框，没有当前值与导入值的字段差异，也没有同类批量应用。"
+      ],
+      "risk": "大型合并时用户需要浏览大量无变化项目，并且在点击应用前无法确认自己的选择会产生什么准确结果。",
+      "required_action": "默认进入只看需要处理视图；把统计改为随决定实时计算；为任务、文件夹、记录和附件提供适合各自类型的差异摘要与安全批量决定，并新增键盘和移动端测试。"
+    },
+    {
+      "id": "TEST-V08-005",
+      "severity": "P1",
+      "title": "写入后的完整性校验不足",
+      "evidence": [
+        "verifyImportedWorkspace 只比较任务、文件夹、工作记录和附件 ID 集合。",
+        "附件只检查 attachmentBlobs 中是否存在对应 ID，没有对写回内容重新计算并比较哈希。",
+        "任务字段、文件夹父子关系、工作记录 Markdown、进度数值、附件字节内容和版本元数据均未在 UI 层最终校验。"
+      ],
+      "risk": "实体数量和 ID 正确但内容被截断、覆盖或写错时，界面仍会显示已通过写入校验。",
+      "required_action": "复用规范化内容哈希对所有实体重新读取校验，并验证文件夹引用、任务归属、工作记录内容、附件字节哈希和版本元数据；任何不一致必须触发自动回滚。"
+    },
+    {
+      "id": "TEST-V08-006",
+      "severity": "P2",
+      "title": "导入来源、进度、历史和结果定位仍不完整",
+      "evidence": [
+        "来源区域只显示文件名和 v6、v5 或旧 JSON 类型，没有显示 exportedAt 和来源 workspaceId 的安全摘要。",
+        "导入执行期间没有解析、分析、备份、写入、校验和发布的阶段进度，也没有发布前安全取消入口。",
+        "latestImportReport 和 rollbackSnapshot 仅保存在当前页面内存；关闭结果窗口后没有产品级合并历史或可重新进入的一键回滚入口。",
+        "完成页没有在任务树中定位本次新增或更新任务的操作。"
+      ],
+      "risk": "大备份处理时缺少反馈，用户难以判断来源与进度；关闭结果窗口后也难以审计、定位或撤销本次合并。",
+      "required_action": "补充来源时间与工作区摘要、分阶段进度、发布前取消、工作区内持久化合并历史、回滚点和受影响任务临时筛选。"
+    },
+    {
+      "id": "TEST-V08-007",
+      "severity": "P1",
+      "title": "真实 Windows 本地目录验收尚未完成",
+      "evidence": "现有自动化主要使用 Chromium OPFS 和代理目录句柄，不能完整代表 Windows NTFS 权限撤销、杀毒软件占用、同步软件竞争和真实磁盘故障。",
+      "required_action": "在 Chrome 或 Edge 中选择真实 Windows 测试目录，完成合并前备份、v5/v6 导入、工作记录和附件冲突、重复导入、写入中断、权限撤销、失败回滚及重新打开后的数据核验。"
+    },
+    {
+      "id": "TEST-V08-008",
+      "severity": "P1",
+      "title": "实现没有按计划隔离到独立合并分支",
+      "evidence": [
+        "当前分支仍为 codex/local-workspace-storage。",
+        "v0.8 合并实现、测试、截图和构建产物均为未提交工作区改动；计划中的 codex/merge-import 分支尚未建立。"
+      ],
+      "risk": "大型数据模型和导入流程修改与已验收的本地存储版本混在同一工作区，增加回退、审查和发布边界不清的风险。",
+      "required_action": "在不丢失现有工作区改动的前提下，将 v0.8 实现迁移到 codex/merge-import 或用户明确指定的独立分支，再进行提交和后续验收；不得自动合并回 develop。"
     }
   ],
   "release_gate": {
     "status": "blocked",
     "exit_criteria": [
-      "提示条在桌面和移动端均不遮挡或拦截工作区操作按钮。",
-      "未选择本地目录时所有会创建持久化数据的入口都具有明确且一致的禁用状态。",
-      "完成真实 Windows Chrome/Edge 目录验收。"
+      "npm run verify 连续通过，优先级分界线持久化测试重复执行不再出现状态回退。",
+      "工作记录冲突支持保留双方，延期与状态事件按稳定事件 ID 完整合并。",
+      "导入中心默认聚焦需要处理项，并提供动态最终影响、差异信息和安全批量决策。",
+      "写入后对所有实体内容、引用和附件哈希完成重新读取校验，失败可自动回滚。",
+      "补齐来源信息、阶段进度、持久化合并历史、回滚入口和受影响任务定位。",
+      "完成真实 Windows Chrome/Edge 本地目录合并与故障恢复验收。",
+      "v0.8 实现位于独立功能分支，并保持不自动合并回 develop。"
     ]
   },
-  "git_policy": {
-    "commit_created": false,
+  "repository_state": {
+    "branch": "codex/local-workspace-storage",
+    "head": "89476b7",
+    "feature_changes_committed": false,
     "merge_performed": false,
-    "current_branch": "codex/local-workspace-storage",
-    "develop_merged_after_acceptance": false
+    "feedback_commit_scope": "TEST_FEEDBACK.json only",
+    "unrelated_worktree_changes_preserved": true
   }
 }
