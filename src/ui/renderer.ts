@@ -71,9 +71,6 @@ export function createRenderer(els: Elements): Renderer {
     document.documentElement.style.setProperty("--workspace-width", `${workspaceWidth}px`);
     const workspaceOpen = view.detailPanelOpen && Boolean(view.selectedTaskId);
     els.appShell.classList.toggle("workspace-open", workspaceOpen);
-    els.appShell.style.gridTemplateColumns = workspaceOpen && window.innerWidth >= 1340
-      ? `232px minmax(500px, 1fr) ${workspaceWidth}px`
-      : "";
     els.undoAction.disabled = !canUndo;
     els.redoAction.disabled = !canRedo;
     const dragEnabled = isDragMode(state, view);
@@ -249,6 +246,9 @@ function createTreeHeading(state: AppState, folder: Folder | null, count: number
     const toggle = iconButton("toggle-folder", folder.collapsed ? "ChevronRight" : "ChevronDown", folder.collapsed ? "展开文件夹" : "折叠文件夹", "folder-toggle");
     toggle.dataset.folderId = folder.id;
     heading.append(toggle);
+    // TEST-V08-011：整个文件夹头部都可点击切换展开/折叠（按钮以外的区域）。
+    heading.dataset.toggleFolderId = folder.id;
+    heading.title = folder.collapsed ? "展开文件夹" : "折叠文件夹";
   } else heading.append(createElement("span", { className: "folder-toggle-spacer" }));
   const label = createElement("strong", { text: folder?.name ?? "未分类" });
   heading.append(icon("Folder", 16), label, createElement("span", { className: "group-count", text: String(count) }));

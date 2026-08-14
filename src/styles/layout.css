@@ -83,6 +83,8 @@
 
 .group-heading { display: flex; min-height: 46px; align-items: center; gap: 8px; margin-top: 10px; border-bottom: 1px solid var(--line-strong); color: var(--text); padding: 5px 12px; font-size: 13px; font-weight: 700; }
 .tree-group-heading { margin-top: 8px; margin-bottom: 6px; border-bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--surface) 38%, transparent); padding-left: 8px; color: var(--teal); }
+.tree-group-heading[data-toggle-folder-id] { cursor: pointer; }
+.tree-group-heading[data-toggle-folder-id]:hover { background: color-mix(in srgb, var(--surface) 66%, transparent); }
 .tree-group-heading .folder-toggle { flex: 0 0 40px; }
 .tree-group-heading .group-actions { display: flex; margin-left: auto; gap: 3px; }
 .group-action { border-color: transparent; background: transparent; }

@@ -350,9 +350,9 @@ test("task drag supports exact reorder, undo, redo, root drop, and self-drop no-
   await first.getByRole("button", { name: "拖动任务" }).dragTo(second);
   expect(await titles()).toEqual(["同组第二项", primaryTask]);
   await page.getByRole("button", { name: "撤销" }).click();
-  expect(await titles()).toEqual([primaryTask, "同组第二项"]);
+  await expect(workRows.locator("strong")).toHaveText([primaryTask, "同组第二项"]);
   await page.getByRole("button", { name: "重做" }).click();
-  expect(await titles()).toEqual(["同组第二项", primaryTask]);
+  await expect(workRows.locator("strong")).toHaveText(["同组第二项", primaryTask]);
 
   await page.reload();
   await first.getByRole("button", { name: "拖动任务" }).dragTo(first);
@@ -535,6 +535,42 @@ test("collapsed folder expands after hover, restores when left, and stays open a
   await dragWithHover(page, source.getByRole("button", { name: "拖动任务" }), workHeading);
   await expect(source).toHaveAttribute("data-folder-id", "folder-work");
   await expect(workHeading.getByRole("button", { name: "折叠文件夹" })).toBeVisible();
+});
+
+test("clicking the folder heading body toggles collapse while inner action buttons stay independent (TEST-V08-011)", async ({ page }) => {
+  const workHeading = page.locator('[data-drop-folder-id="folder-work"]');
+  await expect(workHeading.getByRole("button", { name: "折叠文件夹" })).toBeVisible();
+  // 点击标题文字（不是箭头按钮）→ 折叠
+  await workHeading.locator("strong").click();
+  await expect(workHeading.getByRole("button", { name: "展开文件夹" })).toBeVisible();
+  // 再点标题文字 → 展开
+  await workHeading.locator("strong").click();
+  await expect(workHeading.getByRole("button", { name: "折叠文件夹" })).toBeVisible();
+  // 头部内的操作按钮保持独立行为，不会触发折叠
+  await workHeading.getByRole("button", { name: "在此处新建任务" }).click();
+  await expect(workHeading.getByRole("button", { name: "折叠文件夹" })).toBeVisible();
+  await expect(page.locator('form.inline-create[data-inline-kind="task"]')).toBeVisible();
+  await page.keyboard.press("Escape");
+});
+
+test("opening a task keeps the column header visible and animated in the wide layout (TEST-V08-012)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const head = page.locator(".list-head");
+  await expect(head).toBeVisible();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#taskDetail.is-open")).toBeVisible();
+  await expect(head).toBeVisible();
+  for (const label of ["任务", "优先级", "截止日期", "操作"]) {
+    await expect(head.locator("span").filter({ hasText: new RegExp(`^${label}$`) })).toBeVisible();
+  }
+  const contract = await head.evaluate((node) => ({
+    areas: getComputedStyle(node).gridTemplateAreas,
+    display: getComputedStyle(node).display,
+  }));
+  expect(contract.display).toBe("grid");
+  for (const area of ["title", "actions", "meta", "priority", "date"]) expect(contract.areas).toContain(area);
+  const shellTransition = await page.locator("#appShell").evaluate((node) => getComputedStyle(node).transitionProperty);
+  expect(shellTransition).toContain("grid-template-columns");
 });
 
 test("global folder path locates a task in the tree and clears blockers", async ({ page }) => {

@@ -162,10 +162,26 @@ test("task workspace has tabs, resizable desktop width, and full-screen mobile l
   assert.match(css, /--workspace-width/);
   assert.match(css, /width:\s*100vw/);
   assert.match(events, /set-workspace-width/);
-  assert.match(renderer, /232px minmax\(500px, 1fr\)/);
+  assert.doesNotMatch(renderer, /style\.gridTemplateColumns/);
   assert.match(renderer, /Math\.min\(680, Math\.max\(480, preferredWorkspaceWidth\)/);
   assert.match(css, /@media \(min-width:\s*1340px\)[^]*\.app-shell\.workspace-open/s);
   assert.match(css, /@media \(min-width:\s*881px\) and \(max-width:\s*1339px\)[^]*\.workspace\s*\{\s*display:\s*none/s);
+});
+
+test("folder headings toggle on the whole row while inner actions stay independent", () => {
+  assert.match(renderer, /heading\.dataset\.toggleFolderId = folder\.id/);
+  assert.match(events, /\.tree-group-heading\[data-toggle-folder-id\]/);
+  assert.match(events, /target\.closest\("button, summary, input, select, a"\)/);
+  assert.match(events, /type:\s*"toggle-folder",\s*id:\s*heading\.dataset\.toggleFolderId/);
+  assert.match(css, /\.tree-group-heading\[data-toggle-folder-id\]\s*\{\s*cursor:\s*pointer/s);
+});
+
+test("workspace-open keeps a mirrored header and animates the wide layout in", () => {
+  assert.match(css, /\.app-shell\s*\{\s*grid-template-columns:\s*var\(--sidebar-width\) minmax\(0,\s*1fr\) 0px;\s*transition:\s*grid-template-columns/s);
+  assert.match(css, /\.app-shell\.workspace-open\s*\{\s*grid-template-columns:\s*var\(--sidebar-width\) minmax\(500px,\s*1fr\) clamp\(480px,\s*var\(--workspace-width, 620px\),\s*680px\)/s);
+  assert.match(css, /\.app-shell\.workspace-open \.list-head\s*\{[^}]*display:\s*grid[^}]*grid-template-areas:\s*"title actions actions" "meta priority date"/s);
+  assert.match(css, /\.app-shell\.workspace-open \.detail-panel\s*\{[^}]*animation:\s*workspace-panel-in/s);
+  assert.doesNotMatch(css, /\.app-shell\.workspace-open \.list-head\s*\{\s*display:\s*none/);
 });
 
 test("work logs and attachments use IndexedDB, autosave, Crepe, fallback preview, and ZIP backup", () => {

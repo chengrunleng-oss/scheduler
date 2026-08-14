@@ -362,6 +362,12 @@ export function bindEvents(
 
   els.taskList.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
+    // TEST-V08-011：点击文件夹头部的按钮以外区域（标题、图标、计数、留白）切换展开/折叠。
+    const heading = target.closest<HTMLElement>(".tree-group-heading[data-toggle-folder-id]");
+    if (heading && !target.closest("button, summary, input, select, a")) {
+      store.dispatch({ type: "toggle-folder", id: heading.dataset.toggleFolderId ?? "" });
+      return;
+    }
     const button = target.closest<HTMLButtonElement>("button[data-action]");
     const action = button?.dataset.action;
     if (action === "toggle-folder" && button?.dataset.folderId) { store.dispatch({ type: "toggle-folder", id: button.dataset.folderId }); return; }

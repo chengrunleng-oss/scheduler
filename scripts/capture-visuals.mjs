@@ -68,6 +68,8 @@ async function capture(name, viewport, { openWorkspace = false, openImportCenter
     await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   }
   await page.locator(seedWorkspace && openWorkspace ? "#taskDetail.is-open" : seedWorkspace ? ".task-item" : "#emptyState:not([hidden])").first().waitFor();
+  // TEST-V08-012：宽屏打开工作区时等待网格轨道过渡（190ms）结束，避免截图落在动画中间帧。
+  if (openWorkspace) await page.waitForTimeout(240);
   if (openImportCenter) {
     const downloadPromise = page.waitForEvent("download");
     await page.locator("#exportData").click();

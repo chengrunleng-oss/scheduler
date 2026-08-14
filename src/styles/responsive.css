@@ -1,8 +1,15 @@
 @media (min-width: 1340px) {
+  /* TEST-V08-012：宽屏始终保留第三轨，打开工作区时轨道平滑展开而不是瞬间跳变。 */
+  .app-shell { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0px; transition: grid-template-columns 190ms ease; }
   .app-shell.workspace-open { grid-template-columns: var(--sidebar-width) minmax(500px, 1fr) clamp(480px, var(--workspace-width, 620px), 680px); }
   .app-shell.workspace-open .sidebar { width: var(--sidebar-width); }
-  .app-shell.workspace-open .detail-panel { position: static; z-index: auto; grid-column: 3; width: 100%; height: 100dvh; border-top: 0; box-shadow: none; transform: none; transition: none; }
-  .app-shell.workspace-open .list-head { display: none; }
+  .app-shell.workspace-open .detail-panel { position: static; z-index: auto; grid-column: 3; width: 100%; height: 100dvh; border-top: 0; box-shadow: none; transform: none; transition: none; overflow: hidden; animation: workspace-panel-in 190ms ease; }
+  /* TEST-V08-012：工作区打开后保留表头行，改为与两行任务卡对齐的双行表头。 */
+  .app-shell.workspace-open .list-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title actions actions" "meta priority date"; gap: 5px 8px; align-content: center; min-height: 56px; padding: 0 10px; }
+  .app-shell.workspace-open .list-head > span:nth-child(1) { grid-area: title; }
+  .app-shell.workspace-open .list-head > span:nth-child(2) { grid-area: priority; }
+  .app-shell.workspace-open .list-head > span:nth-child(3) { grid-area: date; }
+  .app-shell.workspace-open .list-head > span:nth-child(4) { grid-area: actions; justify-self: end; }
   .app-shell.workspace-open .task-item { min-height: 84px; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title actions actions" "meta priority date"; gap: 5px 8px; padding-block: 8px; }
   .app-shell.workspace-open .task-main { display: contents; }
   .app-shell.workspace-open .task-title-line { grid-area: title; min-height: 40px; }
@@ -12,6 +19,11 @@
   .app-shell.workspace-open .priority { grid-area: priority; }
   .app-shell.workspace-open .task-item time { grid-area: date; margin-left: 0; white-space: nowrap; }
   .app-shell.workspace-open .task-actions { grid-area: actions; width: max-content; align-self: start; justify-content: flex-end; margin-left: 0; flex-wrap: nowrap; }
+}
+
+@keyframes workspace-panel-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (min-width: 881px) and (max-width: 1339px) {
