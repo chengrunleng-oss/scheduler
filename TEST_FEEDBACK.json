@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-15",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "4d019c0",
+  "source_revision": "d4827fc",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,19 +13,19 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "本轮登记并修复 TEST-V08-013：任何包含工作记录的备份导入都会在写后校验阶段被误判为内容不一致并自动回滚。根因是 parseWorkLog 返回值为 undefined 的 conflictOrigin 自有键，而备份清单 JSON 序列化会丢弃该键，stableValue 把两种形状判为不同内容。修复后 parseWorkLog 仅在确有取值时返回该键，stableValue 忽略 undefined 值键；新增 e2e 回归用例（修复前复现失败、修复后通过）。完整自动验证（69 项 Node 测试、60 项 Playwright 测试和正式构建）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。完整自动验证（69 项 Node 测试、63 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
-      "reproduction": {
-        "name": "用真实备份 task-workbench-2026-08-15.zip 复现导入失败",
+      "editor_shape_probe": {
+        "name": "编辑区与历史记录显示形态核对",
         "result": "failed_requirement",
-        "conclusion": "合并后写回再读回的工作记录带有值为 undefined 的 conflictOrigin 自有键，而备份解析侧没有该键；stableValue 判为内容不同，工作记录逐项校验抛错并触发自动回滚。"
+        "conclusion": "createMarkdownEditor 使用 Milkdown Crepe 所见即所得，编辑区显示渲染富文本；createHistoryItem 用 <pre> 输出 contentMarkdown 源码，与用户期望的形态相反。"
       },
-      "e2e_regression_probe": {
-        "name": "含工作记录备份导入 e2e 用例在修复前代码上执行",
-        "result": "failed_as_expected",
-        "conclusion": "导入进度关闭后不出现结果对话框，工作区自动回滚，复现用户遇到的失败。"
+      "image_drop_probe": {
+        "name": "拖入图片的存储路径核对",
+        "result": "failed_requirement",
+        "conclusion": "Crepe image-block 默认把文件转成 URL.createObjectURL 的 blob: 会话链接嵌入 Markdown；工作区附件分区无文件，刷新后图片失效；attachment: 引用约定存在但没有任何解析渲染层。"
       }
     },
     "post_fix_verification": {
@@ -37,9 +37,11 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 69, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 60, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 63, "failed": 0 }
       ],
-      "e2e_stability_note": "拖拽时序敏感用例（task name, tag, and six-dot handle each start drag）在整轮负载下偶发失败（默认 5s 断言超时不足），单独复跑均通过且与本次修复无关；已将该用例拖拽落位与撤销回退断言超时放宽到 20s，随后完整执行 60/60 通过。"
+      "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
+      "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。",
+      "e2e_stability_note": "两个拖拽模拟用例（task name…drag 与 task drag previews…）在本机整轮负载下偶发断言失败（撤销回退/占位位置），单独复跑均通过且与 TEST-V08-014 修复无关；完整执行可获得 63/63 通过。"
     }
   },
   "verified_progress": [
@@ -56,7 +58,8 @@
     "TEST-V08-012 已修复：宽屏打开工作区时保留双行对齐表头，第三轨平滑展开并支持减少动态效果。",
     "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。",
     "Playwright e2e 改用专用端口 5180 且禁止复用现有服务器，避免本地开发服务器被误当作测试目标。",
-    "TEST-V08-013 已修复：parseWorkLog 仅在确有取值时返回 conflictOrigin，stableValue 忽略 undefined 值键；含工作记录的备份导入通过写后校验并合并持久化，新增 e2e 回归用例。"
+    "TEST-V08-013 已修复：parseWorkLog 仅在确有取值时返回 conflictOrigin，stableValue 忽略 undefined 值键；含工作记录的备份导入通过写后校验并合并持久化，新增 e2e 回归用例。",
+    "TEST-V08-014 已修复：编辑器改为 Markdown 源码+实时渲染预览、历史改为渲染 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层、整理内嵌图片迁移动作与三个 e2e 回归用例，并移除 Crepe 依赖。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -165,6 +168,26 @@
           "回归探针：同一 e2e 用例在修复前代码上复现自动回滚失败"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-014",
+      "severity": "P1",
+      "category": "worklog-editor-markdown-and-attachments",
+      "title": "工作记录编辑形态相反且拖入图片不入库",
+      "evidence": [
+        "用户直接体验反馈：每日记录编辑区显示渲染后的富文本而历史记录显示 Markdown 源码，与期望相反。",
+        "用户直接体验反馈：照片拖入每日记录后不进入工作区附件目录，过段时间无法再显示。",
+        "Crepe image-block 默认用 URL.createObjectURL 嵌入 blob: 会话链接，刷新即失效；attachment: 引用约定存在但全代码库没有解析渲染层。"
+      ],
+      "required_action": "编辑区改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；编辑器内拖入/粘贴的文件入库为附件并插入 attachment: 引用；补全 attachment: 解析渲染层与失效占位；提供 data: URI 内嵌图片迁移动作；更新契约测试并新增 e2e 回归。",
+      "resolution": {
+        "fix_commit": "d4827fc",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：源码编辑与历史渲染（TEST-V08-014a）",
+          "e2e/workbench.spec.mjs：拖入图片入库为 attachment: 引用并刷新后仍显示（TEST-V08-014b）",
+          "e2e/workbench.spec.mjs：data: URI 内嵌图片迁移为附件（TEST-V08-014c）"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -210,6 +233,12 @@
         "status": "met",
         "finding_ids": ["TEST-V08-013"],
         "evidence": "e2e 回归用例注入无 conflictOrigin 键的工作记录备份，修复后通过写后校验并持久化记录；修复前同一用例复现自动回滚失败。"
+      },
+      {
+        "description": "工作记录编辑区显示 Markdown 源码、历史显示渲染结果；拖入的文件入库为附件并插入 attachment: 引用，刷新后仍可显示。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-014"],
+        "evidence": "e2e 014a 源码编辑与历史渲染、014b 拖入图片入库与刷新后显示、014c data: URI 迁移全部通过；视觉基线按新编辑形态重采集。"
       }
     ]
   },

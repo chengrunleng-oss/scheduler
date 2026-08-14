@@ -1,5 +1,20 @@
 # 迭代记录
 
+## v0.8 补丁四：工作记录编辑器 Markdown 形态与拖入附件入库（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-014：长期描述与每日记录编辑器从 Milkdown Crepe 所见即所得改为 Markdown 源码编辑 + 实时渲染预览（宽屏左右分栏、窄屏源码/预览切换，配常用语法工具栏），历史记录从源码文本改为渲染后的 HTML；编辑区“所见即所存”，不再被 Crepe 加载/保存时规范化重排。
+- 编辑器内拖入/粘贴文件自动入库为附件：图片插入 `![名称](attachment:ID)` 图片引用，其它文件插入 `[名称](attachment:ID)` 链接；文件写入任务附件分区（tasks/<ID>/attachments/），超过 20 MB 拒绝并提示。旧 Crepe 产生的 blob: 会话链接在渲染时显示为“图片已失效”说明。
+- 新增 `attachment:` 引用解析渲染层（marked + DOMPurify + 按附件 ID 缓存的对象 URL），历史记录、编辑器预览与长期描述统一显示真实图片；附件被删除时显示失效占位。
+- 附件面板新增“整理内嵌图片”维护动作：把长期描述与工作记录中内嵌的 data: URI 图片提取为附件并替换为 `attachment:` 引用。
+- 移除 @milkdown/crepe 与 ProseMirror 依赖（净减 184 个包）：正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、69 项 Node 测试和 63 项 Playwright 测试全部通过（新增 TEST-V08-014a 源码编辑/历史渲染、014b 拖入图片入库与刷新后显示、014c data: URI 迁移三个用例；两个拖拽模拟用例在本机整轮负载下偶发抖动、单独复跑通过，与本轮改动无关）。
+- `npm run visual:baseline` 通过：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。
+
 ## v0.8 补丁三：含工作记录备份导入的写后校验误判修复（deepseek/test-feedback-fixes）
 
 ### 本次修复

@@ -53,6 +53,13 @@
         "description": "含工作记录的备份导入必须通过写后校验并完成合并，不得被误判为内容不一致而自动回滚。",
         "status": "met",
         "evidence": "e2e 回归用例注入无 conflictOrigin 键的工作记录备份，修复后走完合并与写后校验并持久化记录；修复前同一用例复现自动回滚失败。"
+      },
+      {
+        "id": "gate-8",
+        "finding_ids": ["TEST-V08-014"],
+        "description": "工作记录编辑区显示 Markdown 源码、历史显示渲染结果；拖入的文件入库为附件并插入 attachment: 引用，刷新后仍可显示。",
+        "status": "met",
+        "evidence": "e2e 014a 源码编辑与历史渲染、014b 拖入图片入库与刷新后显示、014c data: URI 迁移全部通过；视觉基线按新编辑形态重采集。"
       }
     ]
   },
@@ -96,6 +103,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-013 登记并修复：含工作记录备份导入的写后校验误判；新增 e2e 回归用例；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "d4827fc",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-014 登记并修复：工作记录编辑器 Markdown 形态纠正与拖入文件自动入库；移除 Crepe 依赖；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -324,6 +341,30 @@
       "history": [
         { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户导入真实备份发现写后校验误判并自动回滚；用真实备份数据复现导入管线定位到 conflictOrigin 键形状不一致。" },
         { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4d019c0；e2e 回归用例修复前失败、修复后通过；69 项 Node 测试与 60 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-014",
+      "severity": "P1",
+      "category": "worklog-editor-markdown-and-attachments",
+      "kind": "defect",
+      "title": "工作记录编辑形态相反且拖入图片不入库",
+      "status": "fixed",
+      "fix_commit": "d4827fc",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：源码编辑与历史渲染（TEST-V08-014a）",
+        "e2e/workbench.spec.mjs：拖入图片入库为 attachment: 引用并刷新后仍显示（TEST-V08-014b）",
+        "e2e/workbench.spec.mjs：data: URI 内嵌图片迁移为附件（TEST-V08-014c）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：每日记录编辑区显示渲染后的富文本而历史记录显示 Markdown 源码，与期望相反。",
+        "用户直接体验反馈：照片拖入每日记录后不进入工作区附件目录，过段时间无法再显示。",
+        "Crepe image-block 默认用 URL.createObjectURL 嵌入 blob: 会话链接，刷新即失效；attachment: 引用约定存在但全代码库没有解析渲染层。"
+      ],
+      "resolution": "编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染 HTML；拖入/粘贴文件走 putAttachment 入库并插入 attachment: 引用；新增解析渲染层（对象 URL 缓存与失效占位）与“整理内嵌图片”迁移动作；移除 Crepe 依赖，构建体积显著下降。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d4827fc；69 项 Node 测试与 63 项 Playwright 测试全部通过，视觉基线重采集。" }
       ]
     }
   ]
