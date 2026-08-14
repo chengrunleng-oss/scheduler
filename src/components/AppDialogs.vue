@@ -91,6 +91,9 @@
 @media (max-width: 720px) {
   .import-center-dialog { width: 100vw; height: 100dvh; max-height: none; margin: 0; }
   .import-center-card { height: 100dvh; min-height: 0; max-height: none; grid-template-rows: auto auto auto auto auto minmax(120px, 1fr) auto; border-radius: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  /* TEST-V08-010：手机端来源文件名独占一行并允许安全换行，避免被元信息列压缩到不可见。 */
+  .import-source { grid-template-columns: minmax(0, 1fr); }
+  .import-source strong { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
   .import-summary { grid-template-columns: repeat(3, 1fr); }
   .import-toolbar { align-items: stretch; flex-direction: column; }
   .import-batch-actions { grid-template-columns: 1fr 1fr; }

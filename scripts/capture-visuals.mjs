@@ -79,6 +79,7 @@ async function capture(name, viewport, { openWorkspace = false, openImportCenter
   const geometry = await page.evaluate(() => {
     const importDialog = document.querySelector("#importCenterDialog");
     const importRect = importDialog?.open ? importDialog.getBoundingClientRect() : null;
+    const sourceName = document.querySelector("#importSourceName");
     return ({
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
@@ -87,6 +88,12 @@ async function capture(name, viewport, { openWorkspace = false, openImportCenter
     sidebarWidth: document.querySelector("#sidebar").getBoundingClientRect().width,
     workspaceOpen: document.querySelector("#appShell").classList.contains("workspace-open"),
     importDialogOverflow: importRect ? Math.max(0, -importRect.left, importRect.right - window.innerWidth) : 0,
+    importSourceName: sourceName ? {
+      text: sourceName.textContent?.trim() ?? "",
+      width: sourceName.getBoundingClientRect().width,
+      visible: getComputedStyle(sourceName).display !== "none" && getComputedStyle(sourceName).visibility !== "hidden",
+      clipped: sourceName.scrollWidth > sourceName.clientWidth + 1,
+    } : null,
     storageButtonSizes: Array.from(document.querySelectorAll(".workspace-storage-actions .button:not([hidden])"), (button) => ({
       width: button.getBoundingClientRect().width,
       height: button.getBoundingClientRect().height,
@@ -98,6 +105,14 @@ async function capture(name, viewport, { openWorkspace = false, openImportCenter
     throw new Error(`${name} has horizontal overflow: ${JSON.stringify(geometry)}`);
   }
   if (geometry.importDialogOverflow > 1) throw new Error(`${name} import dialog overflows horizontally: ${geometry.importDialogOverflow}px`);
+  if (openImportCenter) {
+    const source = geometry.importSourceName;
+    if (!source) throw new Error(`${name} is missing #importSourceName`);
+    if (!source.text) throw new Error(`${name} import source name is empty`);
+    if (!source.visible) throw new Error(`${name} import source name is not visible`);
+    if (source.width < 80) throw new Error(`${name} import source name is too narrow: ${source.width}px`);
+    if (viewport.width < 720 && source.clipped) throw new Error(`${name} import source name text is clipped on mobile`);
+  }
   if (!openWorkspace && viewport.width >= 768 && geometry.maxTaskHeight > 72) {
     throw new Error(`${name} task row exceeds 72px: ${geometry.maxTaskHeight}px`);
   }
