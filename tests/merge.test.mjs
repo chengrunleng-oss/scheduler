@@ -100,6 +100,70 @@ test("worklog conflicts can keep both records with an imported conflict identity
   assert.equal(result.workspace.workLogs.find((entry) => entry.id !== "task-1::2026-08-14").conflictOrigin, "imported");
 });
 
+test("repeated keep-both for a worklog conflict is idempotent (TEST-V08-009)", () => {
+  const base = task("task-1", "Task");
+  const worklog = (content) => ({ id: "task-1::2026-08-14", taskId: "task-1", workDate: "2026-08-14", contentMarkdown: content, progressPercent: 50, createdAt: 100, updatedAt: 200 });
+  const incoming = snapshot({ tasks: [base], workLogs: [worklog("incoming")] });
+  const first = applyMergePlan(analyzeMerge(snapshot({ tasks: [base], workLogs: [worklog("current")] }), incoming), { "worklog:task-1::2026-08-14": "keep-both" });
+  assert.equal(first.workspace.workLogs.length, 2);
+  const second = applyMergePlan(analyzeMerge(first.workspace, incoming), { "worklog:task-1::2026-08-14": "keep-both" });
+  assert.equal(second.applied, 0);
+  assert.equal(second.workspace.workLogs.length, 2);
+  assert.equal(new Set(second.workspace.workLogs.map((entry) => entry.id)).size, 2);
+});
+
+test("repeated keep-both for a task conflict is idempotent (TEST-V08-009)", () => {
+  const incoming = snapshot({ tasks: [task("task-1", "Incoming")] });
+  const first = applyMergePlan(analyzeMerge(snapshot({ tasks: [task("task-1", "Current")] }), incoming), { "task:task-1": "keep-both" });
+  assert.equal(first.workspace.state.tasks.length, 2);
+  const second = applyMergePlan(analyzeMerge(first.workspace, incoming), { "task:task-1": "keep-both" });
+  assert.equal(second.applied, 0);
+  assert.equal(second.workspace.state.tasks.length, 2);
+  assert.equal(new Set(second.workspace.state.tasks.map((entry) => entry.id)).size, 2);
+});
+
+test("repeated keep-both for a folder conflict is idempotent (TEST-V08-009)", () => {
+  const folder = (name) => ({ id: "folder-1", name, parentId: null, order: 0, collapsed: false, createdAt: 100, updatedAt: 100 });
+  const incoming = snapshot({ folders: [folder("Incoming")] });
+  const first = applyMergePlan(analyzeMerge(snapshot({ folders: [folder("Current")] }), incoming), { "folder:folder-1": "keep-both" });
+  assert.equal(first.workspace.state.folders.length, 2);
+  const second = applyMergePlan(analyzeMerge(first.workspace, incoming), { "folder:folder-1": "keep-both" });
+  assert.equal(second.applied, 0);
+  assert.equal(second.workspace.state.folders.length, 2);
+  assert.equal(new Set(second.workspace.state.folders.map((entry) => entry.id)).size, 2);
+});
+
+test("repeated keep-both for an attachment conflict is idempotent (TEST-V08-009)", () => {
+  const base = task("task-1", "Task");
+  const attachment = (hash) => ({ id: "a-1", taskId: "task-1", name: "notes.txt", type: "text/plain", size: 3, lastModified: 100, kind: "text", createdAt: 100, contentHash: hash });
+  const incoming = snapshot({ tasks: [base], attachments: [attachment("sha256:incoming")], blobs: new Map([["a-1", new Blob(["incoming"])]]) });
+  const first = applyMergePlan(analyzeMerge(snapshot({ tasks: [base], attachments: [attachment("sha256:current")], blobs: new Map([["a-1", new Blob(["current"])]]) }), incoming), { "attachment:a-1": "keep-both" });
+  assert.equal(first.workspace.attachments.length, 2);
+  const second = applyMergePlan(analyzeMerge(first.workspace, incoming), { "attachment:a-1": "keep-both" });
+  assert.equal(second.applied, 0);
+  assert.equal(second.workspace.attachments.length, 2);
+  assert.equal(second.workspace.attachmentBlobs.size, 2);
+  assert.equal(new Set(second.workspace.attachments.map((entry) => entry.id)).size, 2);
+});
+
+test("keep-both with changed content under the same id gets a distinct conflict id (TEST-V08-009)", () => {
+  const base = task("task-1", "Task");
+  const worklog = (content) => ({ id: "task-1::2026-08-14", taskId: "task-1", workDate: "2026-08-14", contentMarkdown: content, progressPercent: 50, createdAt: 100, updatedAt: 200 });
+  const importA = snapshot({ tasks: [base], workLogs: [worklog("incoming-a")] });
+  const first = applyMergePlan(analyzeMerge(snapshot({ tasks: [base], workLogs: [worklog("current")] }), importA), { "worklog:task-1::2026-08-14": "keep-both" });
+  const importB = snapshot({ tasks: [base], workLogs: [worklog("incoming-b")] });
+  const second = applyMergePlan(analyzeMerge(first.workspace, importB), { "worklog:task-1::2026-08-14": "keep-both" });
+  assert.equal(second.workspace.workLogs.length, 3);
+  const ids = second.workspace.workLogs.map((entry) => entry.id);
+  assert.equal(new Set(ids).size, 3);
+  const importedIds = ids.filter((id) => id !== "task-1::2026-08-14");
+  assert.equal(importedIds.length, 2);
+  assert.ok(importedIds.every((id) => id.startsWith("worklog-imported-")));
+  const third = applyMergePlan(analyzeMerge(second.workspace, importB), { "worklog:task-1::2026-08-14": "keep-both" });
+  assert.equal(third.applied, 0);
+  assert.equal(third.workspace.workLogs.length, 3);
+});
+
 test("task reschedule and status histories merge by stable event id", () => {
   const current = task("task-1", "Task");
   current.rescheduleHistory = [{ eventId: "event-a", fromDate: "", toDate: "2026-08-15", changedAt: 200, reason: "A", source: "quick" }];

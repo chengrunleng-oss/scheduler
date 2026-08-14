@@ -91,10 +91,10 @@ export function applyMergePlan(plan: MergePlan, decisions: Readonly<Record<strin
       folderMap.set(incoming.id, incoming.id);
       applied += item.status === "unchanged" ? 0 : 1;
     } else if (decision === "keep-both") {
-      const id = importedId("folder", incoming.id, item.key);
-      folders.push({ ...incoming, id, parentId: remapNullable(incoming.parentId, folderMap), createdAt: importedCreatedAt(incoming.updatedAt) });
-      folderMap.set(incoming.id, id);
-      applied += 1;
+      const candidate = { ...incoming, parentId: remapNullable(incoming.parentId, folderMap), createdAt: importedCreatedAt(incoming.updatedAt) };
+      const copy = keepBothCopy("folder", incoming.id, item.key, folders, candidate);
+      if (copy.alreadyApplied) skipped += 1; else { folders.push(copy.value); applied += 1; }
+      folderMap.set(incoming.id, copy.value.id);
     } else {
       folderMap.set(incoming.id, item.matchedCurrentId ?? incoming.id);
       skipped += item.status === "unchanged" ? 0 : 1;
@@ -114,10 +114,10 @@ export function applyMergePlan(plan: MergePlan, decisions: Readonly<Record<strin
       taskMap.set(incoming.id, incoming.id);
       applied += item.status === "unchanged" ? 0 : 1;
     } else if (decision === "keep-both") {
-      const id = importedId("task", incoming.id, item.key);
-      tasks.push({ ...incoming, id, folderId, createdAt: importedCreatedAt(incoming.updatedAt), updatedAt: importedCreatedAt(incoming.updatedAt) });
-      taskMap.set(incoming.id, id);
-      applied += 1;
+      const candidate = { ...incoming, folderId, createdAt: importedCreatedAt(incoming.updatedAt), updatedAt: importedCreatedAt(incoming.updatedAt) };
+      const copy = keepBothCopy("task", incoming.id, item.key, tasks, candidate);
+      if (copy.alreadyApplied) skipped += 1; else { tasks.push(copy.value); applied += 1; }
+      taskMap.set(incoming.id, copy.value.id);
     } else {
       if (current && item.entityId === current.id) tasks[currentIndex] = { ...current, ...mergeTaskEvents(current, incoming, "current") };
       taskMap.set(incoming.id, item.matchedCurrentId ?? incoming.id);
@@ -138,9 +138,9 @@ export function applyMergePlan(plan: MergePlan, decisions: Readonly<Record<strin
       if (currentIndex >= 0) workLogs[currentIndex] = next; else workLogs.push(next);
       applied += item.status === "unchanged" ? 0 : 1;
     } else if (decision === "keep-both") {
-      const id = importedId("worklog", incoming.id, item.key);
-      workLogs.push({ ...incoming, id, taskId, conflictOrigin: "imported", updatedAt: importedCreatedAt(incoming.updatedAt) });
-      applied += 1;
+      const candidate: Omit<WorkLog, "id"> = { ...incoming, taskId, conflictOrigin: "imported", updatedAt: importedCreatedAt(incoming.updatedAt) };
+      const copy = keepBothCopy("worklog", incoming.id, item.key, workLogs, candidate);
+      if (copy.alreadyApplied) skipped += 1; else { workLogs.push(copy.value); applied += 1; }
     } else {
       skipped += item.status === "unchanged" ? 0 : 1;
       if (item.status === "conflict") conflictsKept += 1;
@@ -160,10 +160,9 @@ export function applyMergePlan(plan: MergePlan, decisions: Readonly<Record<strin
       blobs.set(next.id, sourceBlob);
       applied += item.status === "unchanged" ? 0 : 1;
     } else if (decision === "keep-both" && sourceBlob) {
-      const id = importedId("attachment", incoming.id, item.key);
-      attachments.push({ ...incoming, id, taskId, createdAt: importedCreatedAt(incoming.createdAt) });
-      blobs.set(id, sourceBlob);
-      applied += 1;
+      const candidate = { ...incoming, taskId, createdAt: importedCreatedAt(incoming.createdAt) };
+      const copy = keepBothCopy("attachment", incoming.id, item.key, attachments, candidate);
+      if (copy.alreadyApplied) skipped += 1; else { attachments.push(copy.value); blobs.set(copy.value.id, sourceBlob); applied += 1; }
     } else {
       skipped += item.status === "unchanged" ? 0 : 1;
       if (item.status === "conflict") conflictsKept += 1;
@@ -463,6 +462,30 @@ function hashString(value: string): string {
 
 function importedId(kind: SnapshotEntityType, id: string, key: string): string {
   return `${kind}-imported-${hashString(`${id}:${key}`)}`;
+}
+
+// TEST-V08-009：keep-both 副本生成必须是幂等的。确定性基础 ID 已存在时：
+// 内容相同视为已应用（跳过）；内容不同则生成受内容哈希区分的新冲突 ID。
+function keepBothCopy<T extends { id: string }>(kind: SnapshotEntityType, incomingId: string, key: string, collection: ReadonlyArray<T>, candidate: Omit<T, "id">): { value: T; alreadyApplied: boolean } {
+  const base = importedId(kind, incomingId, key);
+  const byId = new Map(collection.map((entry) => [entry.id, entry]));
+  const baseValue = { ...candidate, id: base } as T;
+  const existing = byId.get(base);
+  if (!existing) return { value: baseValue, alreadyApplied: false };
+  if (copyContentHash(existing) === copyContentHash(baseValue)) return { value: baseValue, alreadyApplied: true };
+  let discriminator = copyContentHash(baseValue);
+  let nextId = `${kind}-imported-${hashString(`${incomingId}:${key}`)}-${discriminator}`;
+  while (byId.has(nextId) && copyContentHash(byId.get(nextId) as T) !== copyContentHash(baseValue)) {
+    discriminator = hashString(`${discriminator}:next`);
+    nextId = `${kind}-imported-${hashString(`${incomingId}:${key}`)}-${discriminator}`;
+  }
+  return { value: { ...baseValue, id: nextId } as T, alreadyApplied: byId.has(nextId) };
+}
+
+// 副本内容指纹不包含 id 与 order：id 由 keepBothCopy 生成，order 会在 hydrateState 中按位置重新归一化。
+function copyContentHash(value: { id: string; order?: number }): string {
+  const { id: _id, order: _order, ...withoutId } = value;
+  return contentHash(withoutId);
 }
 
 function importedCreatedAt(updatedAt: number): number {
