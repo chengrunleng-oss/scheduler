@@ -30,6 +30,7 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
+const merge = await readFile(new URL("../src/merge.ts", import.meta.url), "utf8");
 
 test("v0.6 styles are Vite-managed modules with component-local scoped rules", () => {
   for (const file of ["tokens", "base", "layout", "states", "motion", "responsive"]) {
@@ -217,6 +218,22 @@ test("v0.7 recovery separates permission renewal from directory replacement and 
   assert.match(localDirectoryBackend, /directoryHasEntries\(this\.root\)/);
   assert.match(localDirectoryBackend, /缺少 workspace\.json，已阻止写入/);
   assert.match(localDirectoryBackend, /assertSafeFileName\(name\)/);
+});
+
+test("v0.8 imports use a previewed merge plan with explicit recovery and rollback", () => {
+  assert.match(backup, /interface BackupManifestV6/);
+  for (const field of ["workspaceId", "snapshotId", "parentSnapshotId", "contentSummary", "entityRevisions", "tombstones"]) assert.match(backup + workspaceBackend, new RegExp(field));
+  for (const id of ["importCenterDialog", "importSummary", "importItemList", "importApplyMerge", "importReplaceRestore", "importResultDialog", "importDownloadReport", "importRollback"]) assert.match(dialogs, new RegExp(`id="${id}"`));
+  assert.match(board, /导入或合并备份/);
+  assert.match(events, /analyzeMerge/);
+  assert.match(events, /applyMergePlan/);
+  assert.match(events, /task-workbench-before-import/);
+  assert.match(events, /verifyImportedWorkspace/);
+  assert.match(merge, /incoming\.parentRevisionId === current\.revisionId/);
+  assert.match(merge, /preferences: plan\.current\.state\.preferences/);
+  assert.match(main, /dataset\.workspaceWritable/);
+  assert.match(renderer, /disableWithoutWorkspace/);
+  assert.match(app, /workspace-open ~ \.toast/);
 });
 
 test("sticky-note folder layers and discoverable folder management are wired", () => {

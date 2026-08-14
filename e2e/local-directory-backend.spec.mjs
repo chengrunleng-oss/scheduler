@@ -87,6 +87,74 @@ test("migration uses Windows-safe temporary names and leaves no temporary files"
   expect(result).toEqual({ hasIndex: true, hasTasks: true, hasTrash: true, temporary: [] });
 });
 
+test("same-day worklog conflicts persist as two independent local files", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => Boolean(globalThis.__localDirectoryBackendForTests));
+  const result = await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    try { await root.removeEntry("worklog-conflict-workspace", { recursive: true }); } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+    }
+    const directory = await root.getDirectoryHandle("worklog-conflict-workspace", { create: true });
+    const backend = new globalThis.__localDirectoryBackendForTests(directory);
+    const state = globalThis.__createDefaultStateForTests();
+    const base = { taskId: "task-1", workDate: "2026-08-14", progressPercent: 40, createdAt: 100, updatedAt: 200 };
+    await backend.importSnapshot({
+      state,
+      workLogs: [
+        { ...base, id: "task-1::2026-08-14", contentMarkdown: "current" },
+        { ...base, id: "worklog-imported-test", contentMarkdown: "incoming", conflictOrigin: "imported", updatedAt: 201 },
+      ],
+      attachments: [],
+      attachmentBlobs: new Map(),
+    });
+    const records = await backend.listWorkLogs("task-1");
+    const tasks = await directory.getDirectoryHandle("tasks");
+    const task = await tasks.getDirectoryHandle(encodeURIComponent("task-1"));
+    const worklogs = await task.getDirectoryHandle("worklogs");
+    const files = [];
+    for await (const [name] of worklogs.entries()) files.push(name);
+    backend.close();
+    return { records: records.map(({ id, contentMarkdown, conflictOrigin }) => ({ id, contentMarkdown, conflictOrigin: conflictOrigin ?? null })), files: files.sort() };
+  });
+
+  expect(result.records).toEqual(expect.arrayContaining([
+    { id: "task-1::2026-08-14", contentMarkdown: "current", conflictOrigin: null },
+    { id: "worklog-imported-test", contentMarkdown: "incoming", conflictOrigin: "imported" },
+  ]));
+  expect(result.files).toHaveLength(2);
+  expect(result.files).toContain("2026-08-14.md");
+  expect(result.files.some((name) => /^2026-08-14\.conflict-[a-f0-9]{8}\.md$/.test(name))).toBe(true);
+});
+
+test("latest import recovery survives reopening the local directory backend", async ({ page }) => {
+  await page.goto("/");
+  await page.waitForFunction(() => Boolean(globalThis.__localDirectoryBackendForTests));
+  const result = await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    try { await root.removeEntry("import-recovery-workspace", { recursive: true }); } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== "NotFoundError") throw error;
+    }
+    const directory = await root.getDirectoryHandle("import-recovery-workspace", { create: true });
+    const first = new globalThis.__localDirectoryBackendForTests(directory);
+    await first.saveImportRecovery({
+      createdAt: "2026-08-14T08:00:00.000Z",
+      backup: new Blob(["durable-backup"], { type: "application/zip" }),
+      report: { mode: "merge", applied: 2, affectedTaskIds: ["task-1"] },
+    });
+    first.close();
+    const reopened = new globalThis.__localDirectoryBackendForTests(directory);
+    const recovery = await reopened.loadImportRecovery();
+    reopened.close();
+    return recovery ? { createdAt: recovery.createdAt, backup: await recovery.backup.text(), report: recovery.report } : null;
+  });
+  expect(result).toEqual({
+    createdAt: "2026-08-14T08:00:00.000Z",
+    backup: "durable-backup",
+    report: { mode: "merge", applied: 2, affectedTaskIds: ["task-1"] },
+  });
+});
+
 test("directory picker creates an empty local workspace without browser fallback", async ({ page }) => {
   await page.addInitScript(() => {
     window.showDirectoryPicker = async () => {
@@ -105,6 +173,13 @@ test("directory picker creates an empty local workspace without browser fallback
   await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("#workspaceStorageStatus")).toHaveText("本地目录：picker-workspace");
   await expect(page.locator(".task-item")).toHaveCount(0);
+  const createControls = page.locator("#globalNewTask, #newFolder, .create-task-action, .create-folder-action");
+  await expect(createControls).not.toHaveCount(0);
+  for (const control of await createControls.all()) {
+    await expect(control).toBeEnabled();
+    await expect(control).toHaveAttribute("aria-disabled", "false");
+    await expect(control).not.toHaveAttribute("title", "请先选择本地工作区目录");
+  }
 
   const workspaceFormat = await page.evaluate(async () => {
     const root = await navigator.storage.getDirectory();

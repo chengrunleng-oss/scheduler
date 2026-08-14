@@ -130,7 +130,7 @@ export function createRenderer(els: Elements): Renderer {
     els.detailStatusBadge.textContent = task.pendingResolution ? `${STATUS_LABELS[task.status]} · 等待确认` : STATUS_LABELS[task.status];
     els.overviewSaveStatus.textContent = view.detailDirty ? "未保存" : "已保存";
     els.overviewSaveStatus.className = `save-status${view.detailDirty ? " dirty" : ""}`;
-    setHidden(els.timelineSection, task.rescheduleHistory.length === 0);
+    setHidden(els.timelineSection, task.rescheduleHistory.length + task.statusHistory.length === 0);
     renderTimeline(task, els.rescheduleTimeline);
     if (view.detailDirty) return;
     els.detailTitle.value = task.title;
@@ -169,10 +169,12 @@ function renderFolderTree(state: AppState, container: HTMLElement): void {
     name.append(icon("Folder", 16), document.createTextNode(folder.name), createElement("span", { className: "folder-count", text: String(count) }));
     const actions = createElement("span", { className: "folder-actions" });
     const addTask = iconButton("start-inline-task", "ListPlus", "在此文件夹新建任务", "folder-action create-task-action");
+    disableWithoutWorkspace(addTask);
     addTask.dataset.folderId = folder.id;
     const addFolder = iconButton("start-inline-folder", "FolderPlus", "新建子文件夹", "folder-action create-folder-action");
     addFolder.dataset.folderId = folder.id;
     addFolder.disabled = getFolderDepth(state.folders, folder.id) >= MAX_FOLDER_DEPTH;
+    disableWithoutWorkspace(addFolder);
     const edit = iconButton("edit-folder", "FolderPen", "编辑文件夹", "folder-action");
     edit.dataset.folderId = folder.id;
     const remove = iconButton("delete-folder", "Trash2", "删除文件夹", "folder-action danger");
@@ -253,10 +255,12 @@ function createTreeHeading(state: AppState, folder: Folder | null, count: number
   const actions = createElement("span", { className: "group-actions" });
   if (folder) {
     const addTask = iconButton("start-inline-task", "ListPlus", "在此处新建任务", "group-action create-task-action");
+    disableWithoutWorkspace(addTask);
     addTask.dataset.folderId = folder.id;
     const addFolder = iconButton("start-inline-folder", "FolderPlus", "新建子文件夹", "group-action create-folder-action");
     addFolder.dataset.folderId = folder.id;
     addFolder.disabled = getFolderDepth(state.folders, folder.id) >= MAX_FOLDER_DEPTH;
+    disableWithoutWorkspace(addFolder);
     actions.append(addTask, addFolder, createFolderMenu(folder));
   }
   if (sortableCount >= 2) {
@@ -294,13 +298,27 @@ function createFolderMenu(folder: Folder): HTMLElement {
 function createRootCreateActions(): HTMLElement {
   const row = createElement("div", { className: "root-create-actions" });
   const addTask = iconButton("start-inline-task", "ListPlus", "新建未分类任务", "root-create-button create-task-action");
+  disableWithoutWorkspace(addTask);
   addTask.dataset.folderId = "root";
   addTask.append(createElement("span", { text: "新建任务" }));
   const addFolder = iconButton("start-inline-folder", "FolderPlus", "新建根文件夹", "root-create-button create-folder-action");
+  disableWithoutWorkspace(addFolder);
   addFolder.dataset.folderId = "root";
   addFolder.append(createElement("span", { text: "新建文件夹" }));
   row.append(addTask, addFolder);
   return row;
+}
+
+function disableWithoutWorkspace(button: HTMLButtonElement): void {
+  button.dataset.workspaceAvailableTitle = button.title;
+  button.dataset.workspaceConstraintDisabled = String(button.disabled);
+  if (document.documentElement.dataset.workspaceWritable === "true") {
+    button.setAttribute("aria-disabled", String(button.disabled));
+    return;
+  }
+  button.disabled = true;
+  button.setAttribute("aria-disabled", "true");
+  button.title = "请先选择本地工作区目录";
 }
 
 function createInlineForm(state: AppState, inline: InlineCreateState): HTMLElement {
@@ -520,8 +538,22 @@ function groupFoldersByParent(folders: Folder[]): Map<string | null, Folder[]> {
 
 function renderTimeline(task: Task, container: HTMLOListElement): void {
   container.replaceChildren();
-  for (const record of [...task.rescheduleHistory].reverse()) {
+  const records = [
+    ...task.rescheduleHistory.map((record) => ({ kind: "reschedule" as const, changedAt: record.changedAt, record })),
+    ...task.statusHistory.map((record) => ({ kind: "status" as const, changedAt: record.changedAt, record })),
+  ].sort((a, b) => b.changedAt - a.changedAt || a.record.eventId.localeCompare(b.record.eventId));
+  for (const entry of records) {
     const item = createElement("li");
+    if (entry.kind === "status") {
+      const labels = { active: "待办", completed: "已完成", discarded: "不再需要" };
+      item.append(
+        createElement("strong", { text: `${labels[entry.record.fromStatus]} → ${labels[entry.record.toStatus]}` }),
+        createElement("span", { text: `${formatDateTime(entry.record.changedAt)} · ${entry.record.source === "restore" ? "恢复任务" : entry.record.source === "migration" ? "旧数据迁移" : "状态变更"}` }),
+      );
+      container.append(item);
+      continue;
+    }
+    const record = entry.record;
     const change = createElement("strong", { text: `${record.fromDate || "未设置"} → ${record.toDate}` });
     const meta = createElement("span", { text: `${formatDateTime(record.changedAt)} · ${record.source === "quick" ? "快捷改期" : "详情修改"}` });
     item.append(change, meta);

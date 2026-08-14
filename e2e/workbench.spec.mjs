@@ -61,7 +61,8 @@ async function persistDefaultState(page) {
 async function waitForWorkspaceSave(page) {
   await expect.poll(() => page.evaluate(async () => {
     const backend = globalThis.__workspaceBackendForTests;
-    return backend?.available ? (await backend.loadWorkspace()).state.tasks.length : -1;
+    if (!backend?.available || document.documentElement.dataset.workspaceSaveState !== "saved") return -1;
+    return (await backend.loadWorkspace()).state.tasks.length;
   })).toBeGreaterThan(0);
 }
 
@@ -397,7 +398,7 @@ test("task drag previews the insertion and sibling motion before one atomic drop
   const titles = await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents();
   expect(titles).toEqual(["实时预排列目标", primaryTask]);
   await page.getByRole("button", { name: "撤销" }).click();
-  expect(await page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong').allTextContents()).toEqual([primaryTask, "实时预排列目标"]);
+  await expect(page.locator('.task-item[data-folder-id="folder-work"][data-priority="high"] strong')).toHaveText([primaryTask, "实时预排列目标"]);
 });
 
 test("invalid drop restores preview immediately and reduced motion skips FLIP animation", async ({ page }) => {
@@ -438,9 +439,18 @@ test("priority divider changes crossed priorities atomically and persists", asyn
   await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.title === "分界线低优先级")?.priority)).toBe("high");
   await page.getByRole("button", { name: "撤销" }).click();
   await expect(low).toHaveAttribute("data-priority", "low");
+  await waitForWorkspaceSave(page);
   await page.getByRole("button", { name: "重做" }).click();
   await expect(low).toHaveAttribute("data-priority", "high");
+  await waitForWorkspaceSave(page);
   await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.title === "分界线低优先级")?.priority)).toBe("high");
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    await page.getByRole("button", { name: "撤销" }).click();
+    await expect(low).toHaveAttribute("data-priority", "low");
+    await page.getByRole("button", { name: "重做" }).click();
+    await expect(low).toHaveAttribute("data-priority", "high");
+  }
+  await waitForWorkspaceSave(page);
   await page.reload();
   await expect(low).toHaveAttribute("data-priority", "high");
 });
@@ -642,20 +652,151 @@ test("attachments persist blobs, preview text, and insert image references into 
   const downloadPath = await download.path();
   const archive = await JSZip.loadAsync(await readFile(downloadPath));
   const manifest = JSON.parse(await archive.file("manifest.json").async("text"));
-  expect(manifest.schemaVersion).toBe(5);
+  expect(manifest.schemaVersion).toBe(6);
+  expect(manifest.workspaceId).toBeTruthy();
+  expect(manifest.snapshotId).toBeTruthy();
+  expect(manifest.contentSummary.attachments).toBe(2);
   expect(manifest.attachments).toHaveLength(2);
-  for (const item of manifest.attachments) expect(archive.file(item.path)).not.toBeNull();
+  for (const item of manifest.attachments) {
+    expect(item.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(archive.file(item.path)).not.toBeNull();
+  }
 
   await page.locator("#resetDemo").click();
   await page.locator("#confirmOk").click();
   await page.locator("#importFile").setInputFiles(downloadPath);
-  await page.locator("#confirmOk").click();
+  await expect(page.locator("#importCenterDialog")).toBeVisible();
+  await expect(page.locator("#importSourceMeta")).toContainText("v6");
+  await expect(page.locator("#importItemList .import-item")).not.toHaveCount(0);
+  const safetyDownloadPromise = page.waitForEvent("download");
+  await page.locator("#importApplyMerge").click();
+  const safetyDownload = await safetyDownloadPromise;
+  expect(safetyDownload.suggestedFilename()).toMatch(/task-workbench-before-import-/);
+  await expect(page.locator("#importResultDialog")).toBeVisible({ timeout: 20_000 });
+  const reportDownloadPromise = page.waitForEvent("download");
+  await page.locator("#importDownloadReport").click();
+  expect((await reportDownloadPromise).suggestedFilename()).toMatch(/task-workbench-import-report-/);
+  await page.locator("#importRollback").click();
+  await expect(page.locator("#importResultDialog")).not.toBeVisible();
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length), { timeout: 20_000 }).toBe(0);
+
+  await page.locator("#importFile").setInputFiles(downloadPath);
+  await expect(page.locator("#importCenterDialog")).toBeVisible();
+  const secondSafetyDownloadPromise = page.waitForEvent("download");
+  await page.locator("#importApplyMerge").click();
+  await secondSafetyDownloadPromise;
+  await expect(page.locator("#importResultDialog")).toBeVisible({ timeout: 20_000 });
+  await page.locator("#importResultDone").click();
   await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length), { timeout: 20_000, intervals: [100, 250, 500] }).toBe(2);
   await expect(page.getByRole("option", { name: new RegExp(primaryTask) })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   await expect(page.locator("#taskDetail.is-open")).toBeVisible({ timeout: 20_000 });
   await page.locator("#attachmentsTab").evaluate((button) => button.click());
   await expect(page.locator(".attachment-row")).toHaveCount(2, { timeout: 20_000 });
+
+  await page.reload();
+  await page.locator("#importHistory").click();
+  await expect(page.locator("#importResultDialog")).toBeVisible();
+  await expect(page.locator("#importResultText")).toContainText("恢复点保存在工作区目录中");
+  await expect(page.locator("#importRollback")).toBeEnabled();
+  await page.locator("#importRollback").click();
+  await expect(page.locator("#confirmDialog")).toBeVisible();
+  await page.locator("#confirmOk").click();
+  await expect(page.locator("#importResultDialog")).not.toBeVisible({ timeout: 20_000 });
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length), { timeout: 20_000 }).toBe(0);
+  await page.locator("#importHistory").click();
+  await expect(page.locator("#importResultText")).toContainText("已于");
+  await expect(page.locator("#importRollback")).toBeDisabled();
+  await page.locator("#importResultDone").click();
+});
+
+test("import preview focuses conflicts and updates impact for individual and batch decisions", async ({ page }) => {
+  const exportPromise = page.waitForEvent("download");
+  await page.locator("#exportData").click();
+  const exported = await exportPromise;
+  const archive = await JSZip.loadAsync(await readFile(await exported.path()));
+  const manifestFile = archive.file("manifest.json");
+  expect(manifestFile).not.toBeNull();
+  const manifest = JSON.parse(await manifestFile.async("text"));
+  for (const [index, task] of manifest.appState.tasks.slice(0, 2).entries()) {
+    task.title = `${task.title}（导入版本 ${index + 1}）`;
+    task.updatedAt += 1;
+  }
+  archive.file("manifest.json", JSON.stringify(manifest, null, 2));
+  const conflictBackup = await archive.generateAsync({ type: "nodebuffer" });
+
+  await page.locator("#importFile").setInputFiles({ name: "双任务冲突.zip", mimeType: "application/zip", buffer: conflictBackup });
+  const dialog = page.locator("#importCenterDialog");
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#importFilters [data-merge-filter="attention"]')).toHaveClass(/active/);
+  await expect(page.locator("#importSourceMeta")).toContainText("导出于");
+  await expect(page.locator("#importSourceMeta")).toContainText("来源");
+  await expect(page.locator("#importVisibleCount")).toContainText("显示 2 /");
+  await expect(page.locator("#importItemList .import-item:visible")).toHaveCount(2);
+
+  const firstDifference = page.locator("#importItemList .import-item:visible .import-diff").first();
+  await firstDifference.locator("summary").click();
+  await expect(firstDifference).toContainText("当前：");
+  await expect(firstDifference).toContainText("导入：");
+  const impactValue = (label) => page.locator("#importSummary .import-stat", { hasText: label }).locator("strong");
+  await expect(impactValue("将更新")).toHaveText("0");
+  await expect(impactValue("跳过")).toHaveText("2");
+
+  await page.locator("#importItemList .import-item:visible .import-decision").first().selectOption("use-imported");
+  await expect(impactValue("将更新")).toHaveText("1");
+  await expect(impactValue("跳过")).toHaveText("1");
+  await page.locator("#importBatchGroup").selectOption("task:conflict");
+  await page.locator("#importBatchDecision").selectOption("use-imported");
+  await page.locator("#importBatchApply").click();
+  await expect(impactValue("将更新")).toHaveText("2");
+  await expect(impactValue("跳过")).toHaveText("0");
+  await page.locator("#importCenterCancel").click();
+  await expect(dialog).not.toBeVisible();
+});
+
+test("import content verification mismatch automatically restores the previous workspace", async ({ page }) => {
+  const originalTitle = await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks[0].title);
+  const exportPromise = page.waitForEvent("download");
+  await page.locator("#exportData").click();
+  const exported = await exportPromise;
+  const archive = await JSZip.loadAsync(await readFile(await exported.path()));
+  const manifestFile = archive.file("manifest.json");
+  const manifest = JSON.parse(await manifestFile.async("text"));
+  manifest.appState.tasks[0].title = "写后校验故障注入版本";
+  manifest.appState.tasks[0].updatedAt += 1;
+  archive.file("manifest.json", JSON.stringify(manifest, null, 2));
+  const backup = await archive.generateAsync({ type: "nodebuffer" });
+  await page.locator("#importFile").setInputFiles({ name: "校验故障.zip", mimeType: "application/zip", buffer: backup });
+  await expect(page.locator("#importCenterDialog")).toBeVisible();
+  await page.locator('#importItemList .import-item[data-merge-status="conflict"] .import-decision').first().selectOption("use-imported");
+
+  await page.evaluate(() => {
+    const backend = globalThis.__workspaceBackendForTests;
+    const importSnapshot = backend.importSnapshot.bind(backend);
+    const exportSnapshot = backend.exportSnapshot.bind(backend);
+    let importCount = 0;
+    let firstImportCompleted = false;
+    let injected = false;
+    backend.importSnapshot = async (snapshot) => {
+      importCount += 1;
+      await importSnapshot(snapshot);
+      if (importCount === 1) firstImportCompleted = true;
+    };
+    backend.exportSnapshot = async () => {
+      const snapshot = await exportSnapshot();
+      if (firstImportCompleted && !injected) {
+        injected = true;
+        return { ...snapshot, state: { ...snapshot.state, tasks: snapshot.state.tasks.map((task, index) => index === 0 ? { ...task, title: "被截断的错误内容" } : task) } };
+      }
+      return snapshot;
+    };
+  });
+  const safetyDownload = page.waitForEvent("download");
+  await page.locator("#importApplyMerge").click();
+  await safetyDownload;
+  await expect(page.locator("#importProgressDialog")).not.toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#toast")).toContainText("导入失败，已自动回滚", { timeout: 20_000 });
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks[0].title), { timeout: 20_000 }).toBe(originalTitle);
 });
 
 test("text attachments can be edited and saved through the active backend", async ({ page }) => {
@@ -668,6 +809,19 @@ test("text attachments can be edited and saved through the active backend", asyn
   await page.locator(".attachment-text-editor").fill("after\nupdated");
   await page.locator("#attachmentPreview").getByRole("button", { name: "保存" }).click();
   await expect(page.locator("#toast")).toContainText("文本附件已保存");
+  await page.locator("#overviewTab").click();
+  const [toastBox, detailActionBox] = await Promise.all([page.locator("#toast").boundingBox(), page.locator("#cancelDetail").boundingBox()]);
+  expect(toastBox).not.toBeNull();
+  expect(detailActionBox).not.toBeNull();
+  expect(toastBox.y + toastBox.height).toBeLessThan(detailActionBox.y);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#toast").evaluate((toast) => { toast.hidden = false; toast.textContent = "移动端提示位置验证"; });
+  const [mobileToastBox, mobileSaveBox] = await Promise.all([page.locator("#toast").boundingBox(), page.locator("#detailForm button[type='submit']").boundingBox()]);
+  expect(mobileToastBox).not.toBeNull();
+  expect(mobileSaveBox).not.toBeNull();
+  expect(mobileToastBox.y + mobileToastBox.height).toBeLessThan(mobileSaveBox.y);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator("#attachmentsTab").click();
   await row.getByRole("button", { name: "预览附件" }).click();
   await expect(page.locator("#attachmentPreview")).toContainText("after");
   await expect(page.locator("#attachmentPreview")).toContainText("updated");

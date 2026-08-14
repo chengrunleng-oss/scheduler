@@ -81,7 +81,8 @@ updateWorkspaceStorageStatus();
 let lastStorageFailureMessage = "";
 let lastScheduledState: AppState | null = store.getState();
 let currentSave = Promise.resolve(true);
-let writeQueue = Promise.resolve();
+let pendingSaveState: AppState | null = null;
+let saveLoop: Promise<boolean> | null = null;
 document.documentElement.dataset.workspaceSaveState = backend.available ? "saved" : "unavailable";
 
 function persistState(): Promise<boolean> {
@@ -90,24 +91,36 @@ function persistState(): Promise<boolean> {
   if (!backend.available) return Promise.resolve(true);
   if (state === lastScheduledState) return currentSave;
   lastScheduledState = state;
+  pendingSaveState = state;
   document.documentElement.dataset.workspaceSaveState = "saving";
-  const write = writeQueue.then(() => backend.saveWorkspaceIndex(state));
-  writeQueue = write.catch(() => undefined);
-  currentSave = write.then(() => {
-    lastStorageFailureMessage = "";
-    document.documentElement.dataset.workspaceSaveState = "saved";
-    return true;
-  }, (error: unknown) => {
-    if (lastScheduledState === state) lastScheduledState = null;
-    document.documentElement.dataset.workspaceSaveState = "error";
-    const message = error instanceof Error ? error.message : "本地任务存储不可用。";
-    if (message !== lastStorageFailureMessage) {
-      lastStorageFailureMessage = message;
-      dialogs.toast(message);
-    }
-    return false;
-  });
+  if (!saveLoop) {
+    saveLoop = drainWorkspaceSaves().finally(() => { saveLoop = null; });
+    currentSave = saveLoop;
+  }
   return currentSave;
+}
+
+async function drainWorkspaceSaves(): Promise<boolean> {
+  let latestSucceeded = true;
+  while (pendingSaveState) {
+    const state = pendingSaveState;
+    pendingSaveState = null;
+    try {
+      await backend.saveWorkspaceIndex(state);
+      latestSucceeded = true;
+      lastStorageFailureMessage = "";
+    } catch (error) {
+      latestSucceeded = false;
+      if (lastScheduledState === state) lastScheduledState = null;
+      const message = error instanceof Error ? error.message : "本地任务存储不可用。";
+      if (message !== lastStorageFailureMessage) {
+        lastStorageFailureMessage = message;
+        dialogs.toast(message);
+      }
+    }
+  }
+  document.documentElement.dataset.workspaceSaveState = latestSucceeded ? "saved" : "error";
+  return latestSucceeded;
 }
 
 const workspace = createWorkspaceController(els, store, backend, dialogs, persistState);
@@ -135,7 +148,7 @@ document.documentElement.dataset.appReady = "true";
 window.setInterval(() => {
   if (store.getState().tasks.some((task) => task.pendingResolution)) render();
 }, 1_000);
-window.addEventListener("pagehide", () => backend.close(), { once: true });
+window.addEventListener("pagehide", () => { void currentSave.finally(() => backend.close()); }, { once: true });
 
 els.chooseWorkspaceDirectory.addEventListener("click", () => {
   void switchWorkspaceDirectory(false);
@@ -232,15 +245,27 @@ function updateWorkspaceStorageStatus(): void {
       : backend.errorMessage || "尚未选择本地工作区";
   els.workspaceStorageIndicator.classList.toggle("local", local);
   els.workspaceStorageIndicator.classList.toggle("attention", directoryRecovery !== "none");
+  document.documentElement.dataset.workspaceWritable = String(local);
   const directoryAction = directoryRecovery === "replace" ? "改选本地目录" : local ? "切换本地目录" : "选择本地目录";
   els.chooseWorkspaceDirectory.querySelector("span")!.textContent = directoryAction;
   els.chooseWorkspaceDirectory.title = directoryAction;
   els.chooseWorkspaceDirectory.setAttribute("aria-label", directoryAction);
   els.reauthorizeWorkspaceDirectory.hidden = directoryRecovery !== "permission" || !storedDirectoryHandle;
-  for (const control of [els.globalNewTask, els.newFolder, els.exportData, els.importData, els.resetDemo, els.undoAction, els.redoAction]) {
+  for (const control of [els.exportData, els.importData, els.importHistory, els.resetDemo, els.undoAction, els.redoAction]) {
     control.disabled = !local;
     control.setAttribute("aria-disabled", String(!local));
   }
+  [els.globalNewTask, els.newFolder, ...document.querySelectorAll<HTMLButtonElement>(".create-task-action, .create-folder-action")]
+    .forEach((control) => updateWorkspaceRequiredControl(control, local));
+}
+
+function updateWorkspaceRequiredControl(control: HTMLButtonElement, workspaceWritable: boolean): void {
+  control.dataset.workspaceAvailableTitle ??= control.title;
+  const constrained = control.dataset.workspaceConstraintDisabled === "true";
+  const disabled = !workspaceWritable || constrained;
+  control.disabled = disabled;
+  control.setAttribute("aria-disabled", String(disabled));
+  control.title = workspaceWritable ? control.dataset.workspaceAvailableTitle : "请先选择本地工作区目录";
 }
 
 async function flushBeforeBackendSwitch(): Promise<boolean> {

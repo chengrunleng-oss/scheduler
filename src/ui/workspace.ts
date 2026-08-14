@@ -28,6 +28,8 @@ export function createWorkspaceController(
   let activeTaskId: string | null = null;
   let activeTab: WorkspaceTab = "overview";
   let activeWorkDate = toISODate();
+  let activeWorkLogId: string | null = null;
+  let activeWorkLogConflictOrigin: WorkLog["conflictOrigin"];
   let descriptionEditor: MarkdownEditorHandle | null = null;
   let worklogEditor: MarkdownEditorHandle | null = null;
   let descriptionDirty = false;
@@ -40,6 +42,7 @@ export function createWorkspaceController(
   let renameAttachmentId: string | null = null;
   let editorGeneration = 0;
   let deletedWorklog: WorkLog | null = null;
+  let deletedWorklogWasActive = false;
   let worklogUndoTimer = 0;
 
   els.worklogDate.max = toISODate();
@@ -131,10 +134,12 @@ export function createWorkspaceController(
     try {
       const progress = els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value);
       await backend.saveWorkLog({
+        id: activeWorkLogId ?? undefined,
         taskId: activeTaskId,
         workDate: activeWorkDate,
         contentMarkdown: markdown,
         progressPercent: progress,
+        conflictOrigin: activeWorkLogConflictOrigin,
       });
       worklogDirty = false;
       savedWorklogMarkdown = markdown;
@@ -163,13 +168,15 @@ export function createWorkspaceController(
     if (!task || activeTab !== "worklog" || descriptionEditor || worklogEditor) return;
     const generation = ++editorGeneration;
     const readOnly = task.status !== "active" || !backend.available;
-    const log = backend.available ? await backend.getWorkLog(task.id, activeWorkDate) : null;
+    const log = backend.available ? await backend.getWorkLog(task.id, activeWorkDate, activeWorkLogId ?? undefined) : null;
     if (generation !== editorGeneration) return;
     els.worklogProgress.value = log?.progressPercent === null || log?.progressPercent === undefined ? "" : String(log.progressPercent);
     descriptionDirty = false;
     worklogDirty = false;
     savedDescriptionMarkdown = task.descriptionMarkdown;
     savedWorklogMarkdown = log?.contentMarkdown ?? "";
+    activeWorkLogId = log?.id ?? null;
+    activeWorkLogConflictOrigin = log?.conflictOrigin;
     descriptionEditor = await createMarkdownEditor({
       host: els.descriptionEditor,
       value: task.descriptionMarkdown,
@@ -193,28 +200,31 @@ export function createWorkspaceController(
     await renderWorklogHistory();
   }
 
-  async function changeWorkDate(date: string, forceReload = false): Promise<void> {
+  async function changeWorkDate(date: string, forceReload = false, recordId?: string): Promise<void> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > toISODate()) {
       els.worklogDate.value = activeWorkDate;
       dialogs.toast("工作记录不能选择未来日期。");
       return;
     }
     if (!(await saveWorklog())) { els.worklogDate.value = activeWorkDate; return; }
-    if (!forceReload && date === activeWorkDate && worklogEditor) {
+    if (!forceReload && date === activeWorkDate && (recordId ?? activeWorkLogId) === activeWorkLogId && worklogEditor) {
       await renderWorklogHistory();
       worklogEditor.focus();
       return;
     }
     activeWorkDate = date;
+    activeWorkLogId = recordId ?? null;
     els.worklogDate.value = date;
     await worklogEditor?.destroy();
     worklogEditor = null;
     const task = currentTask();
     if (!task || activeTab !== "worklog") return;
-    const log = backend.available ? await backend.getWorkLog(task.id, date) : null;
+    const log = backend.available ? await backend.getWorkLog(task.id, date, recordId) : null;
     els.worklogProgress.value = log?.progressPercent === null || log?.progressPercent === undefined ? "" : String(log.progressPercent);
     worklogDirty = false;
     savedWorklogMarkdown = log?.contentMarkdown ?? "";
+    activeWorkLogId = log?.id ?? null;
+    activeWorkLogConflictOrigin = log?.conflictOrigin;
     worklogEditor = await createMarkdownEditor({
       host: els.worklogEditor,
       value: log?.contentMarkdown ?? "",
@@ -245,10 +255,11 @@ export function createWorkspaceController(
     const item = createElement("article", { className: "worklog-history-item" });
     item.dataset.worklogId = record.id;
     const header = createElement("div", { className: "worklog-history-head" });
-    const dateButton = createElement("button", { className: "history-date", text: formatDate(record.workDate) });
+    const dateButton = createElement("button", { className: "history-date", text: `${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? " · 导入冲突副本" : ""}` });
     dateButton.type = "button";
     dateButton.dataset.worklogAction = "open";
     dateButton.dataset.workDate = record.workDate;
+    dateButton.dataset.worklogId = record.id;
     header.append(dateButton);
     if (record.progressPercent !== null) header.append(createElement("span", { className: "history-progress", text: `${record.progressPercent}%` }));
     else header.append(createElement("span"));
@@ -258,7 +269,8 @@ export function createWorkspaceController(
     edit.type = "button";
     edit.dataset.worklogAction = "open";
     edit.dataset.workDate = record.workDate;
-    edit.setAttribute("aria-label", `编辑 ${formatDate(record.workDate)} 的记录`);
+    edit.dataset.worklogId = record.id;
+    edit.setAttribute("aria-label", `编辑 ${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? "的导入冲突副本" : "的记录"}`);
     edit.append(icon("Pencil", 16));
     const remove = createElement("button", { className: "icon-button danger", title: "删除记录" });
     remove.type = "button";
@@ -268,7 +280,7 @@ export function createWorkspaceController(
     actions.append(edit, remove);
     header.append(actions);
     const content = createElement("pre", { className: "history-content", text: record.contentMarkdown || "（空记录）" });
-    content.hidden = record.workDate !== activeWorkDate;
+    content.hidden = record.id !== activeWorkLogId;
     item.append(header, content);
     return item;
   }
@@ -277,12 +289,14 @@ export function createWorkspaceController(
     window.clearTimeout(worklogUndoTimer);
     worklogUndoTimer = 0;
     deletedWorklog = null;
+    deletedWorklogWasActive = false;
     els.worklogUndo.hidden = true;
   }
 
-  function offerWorklogUndo(record: WorkLog): void {
+  function offerWorklogUndo(record: WorkLog, wasActive: boolean): void {
     window.clearTimeout(worklogUndoTimer);
     deletedWorklog = record;
+    deletedWorklogWasActive = wasActive;
     els.worklogUndoText.textContent = `已删除 ${formatDate(record.workDate)} 的记录`;
     els.worklogUndo.hidden = false;
     worklogUndoTimer = window.setTimeout(hideWorklogUndo, 8_000);
@@ -292,9 +306,10 @@ export function createWorkspaceController(
     if (!(await dialogs.confirm("删除工作记录", `确认删除 ${formatDate(record.workDate)} 的工作记录吗？删除后 8 秒内可以撤销。`))) return;
     window.clearTimeout(worklogTimer);
     worklogDirty = false;
+    const wasActive = record.id === activeWorkLogId;
     await backend.deleteWorkLog(record.id);
-    offerWorklogUndo(record);
-    if (record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true);
+    offerWorklogUndo(record, wasActive);
+    if (wasActive) await changeWorkDate(activeWorkDate, true);
     else await renderWorklogHistory();
   }
 
@@ -303,11 +318,10 @@ export function createWorkspaceController(
     if (!task || task.status !== "active" || !backend.available || !(await saveWorklog())) return;
     const today = toISODate();
     const existing = await backend.getWorkLog(task.id, today);
-    if (!existing) await backend.saveWorkLog({ taskId: task.id, workDate: today, contentMarkdown: "", progressPercent: null });
+    const record = existing ?? await backend.saveWorkLog({ taskId: task.id, workDate: today, contentMarkdown: "", progressPercent: null });
     if (today === activeWorkDate) {
-      await renderWorklogHistory();
-      worklogEditor?.focus();
-    } else await changeWorkDate(today);
+      await changeWorkDate(today, true, record.id);
+    } else await changeWorkDate(today, false, record.id);
     worklogEditor?.focus();
   }
 
@@ -328,11 +342,11 @@ export function createWorkspaceController(
     const task = currentTask();
     if (!task || task.status !== "active" || !backend.available) return;
     if (activeTab === "worklog") await mountEditors();
-    const existing = await backend.getWorkLog(task.id, activeWorkDate);
+    const existing = await backend.getWorkLog(task.id, activeWorkDate, activeWorkLogId ?? undefined);
     const current = worklogEditor?.getMarkdown() ?? existing?.contentMarkdown ?? "";
     const text = await file.text();
     if (worklogEditor) { await worklogEditor.destroy(); worklogEditor = null; }
-    await backend.saveWorkLog({ taskId: task.id, workDate: activeWorkDate, contentMarkdown: appendMarkdown(current, text), progressPercent: els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value) });
+    await backend.saveWorkLog({ id: activeWorkLogId ?? undefined, taskId: task.id, workDate: activeWorkDate, contentMarkdown: appendMarkdown(current, text), progressPercent: els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value), conflictOrigin: activeWorkLogConflictOrigin });
     worklogDirty = false;
     if (activeTab === "worklog") await changeWorkDate(activeWorkDate);
   }
@@ -507,11 +521,12 @@ export function createWorkspaceController(
   els.undoWorklogDelete.addEventListener("click", async () => {
     const record = deletedWorklog;
     if (!record) return;
+    const wasActive = deletedWorklogWasActive;
     window.clearTimeout(worklogTimer);
     worklogDirty = false;
     await backend.restoreWorkLog(record);
     hideWorklogUndo();
-    if (record.taskId === activeTaskId && record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true);
+    if (wasActive && record.taskId === activeTaskId && record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true, record.id);
     else await renderWorklogHistory();
     dialogs.toast("工作记录已恢复。");
   });
@@ -519,7 +534,7 @@ export function createWorkspaceController(
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-worklog-action]");
     const item = button?.closest<HTMLElement>("[data-worklog-id]");
     if (!button || !item || !activeTaskId) return;
-    if (button.dataset.worklogAction === "open" && button.dataset.workDate) await changeWorkDate(button.dataset.workDate);
+    if (button.dataset.worklogAction === "open" && button.dataset.workDate) await changeWorkDate(button.dataset.workDate, false, button.dataset.worklogId);
     if (button.dataset.worklogAction === "delete") {
       const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
       if (record) await deleteWorklog(record);
@@ -580,6 +595,8 @@ export function createWorkspaceController(
       activeTaskId = taskId;
       activeTab = tab;
       activeWorkDate = toISODate();
+      activeWorkLogId = null;
+      activeWorkLogConflictOrigin = undefined;
       els.worklogDate.value = activeWorkDate;
       clearAttachmentPreview();
       if (taskId && tab === "worklog") await mountEditors();

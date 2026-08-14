@@ -8,5 +8,11 @@ test("browser business data is not loaded as the runtime workspace", async ({ pa
   await page.waitForFunction(() => Boolean(globalThis.__workspaceBackendForTests));
   expect(await page.evaluate(() => globalThis.__workspaceBackendForTests.available)).toBe(false);
   await expect(page.getByText("Legacy browser task")).toHaveCount(0);
-  await expect(page.locator("#globalNewTask")).toBeDisabled();
+  const createControls = page.locator("#globalNewTask, #newFolder, .create-task-action, .create-folder-action");
+  await expect(createControls).not.toHaveCount(0);
+  for (const control of await createControls.all()) {
+    await expect(control).toBeDisabled();
+    await expect(control).toHaveAttribute("aria-disabled", "true");
+    await expect(control).toHaveAttribute("title", "请先选择本地工作区目录");
+  }
 });

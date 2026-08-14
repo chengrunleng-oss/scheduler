@@ -23,6 +23,7 @@ export interface Elements {
   metricDue: HTMLElement;
   exportData: HTMLButtonElement;
   importData: HTMLButtonElement;
+  importHistory: HTMLButtonElement;
   importFile: HTMLInputElement;
   resetDemo: HTMLButtonElement;
   workspaceStorageStatus: HTMLElement;
@@ -113,6 +114,33 @@ export interface Elements {
   conflictReload: HTMLButtonElement;
   conflictCopy: HTMLButtonElement;
   conflictCancel: HTMLButtonElement;
+  importCenterDialog: HTMLDialogElement;
+  importCenterClose: HTMLButtonElement;
+  importCenterCancel: HTMLButtonElement;
+  importSourceName: HTMLElement;
+  importSourceMeta: HTMLElement;
+  importCompatibilityNote: HTMLElement;
+  importSummary: HTMLElement;
+  importFilters: HTMLElement;
+  importBatchActions: HTMLElement;
+  importBatchGroup: HTMLSelectElement;
+  importBatchDecision: HTMLSelectElement;
+  importBatchApply: HTMLButtonElement;
+  importVisibleCount: HTMLElement;
+  importItemList: HTMLElement;
+  importReplaceRestore: HTMLButtonElement;
+  importApplyMerge: HTMLButtonElement;
+  importProgressDialog: HTMLDialogElement;
+  importProgressStages: HTMLOListElement;
+  importProgressText: HTMLElement;
+  importProgressCancel: HTMLButtonElement;
+  importResultDialog: HTMLDialogElement;
+  importResultClose: HTMLButtonElement;
+  importResultText: HTMLElement;
+  importDownloadReport: HTMLButtonElement;
+  importLocateChanges: HTMLButtonElement;
+  importRollback: HTMLButtonElement;
+  importResultDone: HTMLButtonElement;
   moveDialog: HTMLDialogElement;
   moveDialogForm: HTMLFormElement;
   moveFolder: HTMLSelectElement;
@@ -139,7 +167,7 @@ export function queryElements(): Elements {
     taskList: requiredElement("#taskList"), emptyState: requiredElement("#emptyState"), dragHint: requiredElement("#dragHint"), searchInput: requiredElement("#searchInput"),
     statusFilters: document.querySelectorAll(".status-segment"), viewModes: document.querySelectorAll(".view-segment"),
     metricActive: requiredElement("#metricActive"), metricCompleted: requiredElement("#metricCompleted"), metricDiscarded: requiredElement("#metricDiscarded"), metricDue: requiredElement("#metricDue"),
-    exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
+    exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importHistory: requiredElement("#importHistory"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
     workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
     taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
@@ -159,7 +187,9 @@ export function queryElements(): Elements {
     folderDeleteCancel: requiredElement("#folderDeleteCancel"), folderDeleteClose: requiredElement("#folderDeleteClose"), confirmDialog: requiredElement("#confirmDialog"),
     confirmTitle: requiredElement("#confirmTitle"), confirmText: requiredElement("#confirmText"), confirmClose: requiredElement("#confirmClose"),
     confirmCancel: requiredElement("#confirmCancel"), confirmOk: requiredElement("#confirmOk"), workspaceSetupDialog: requiredElement("#workspaceSetupDialog"), workspaceSetupImport: requiredElement("#workspaceSetupImport"), workspaceSetupEmpty: requiredElement("#workspaceSetupEmpty"), workspaceSetupCancel: requiredElement("#workspaceSetupCancel"), conflictDialog: requiredElement("#conflictDialog"), conflictText: requiredElement("#conflictText"),
-    conflictClose: requiredElement("#conflictClose"), conflictReload: requiredElement("#conflictReload"), conflictCopy: requiredElement("#conflictCopy"), conflictCancel: requiredElement("#conflictCancel"), moveDialog: requiredElement("#moveDialog"),
+    conflictClose: requiredElement("#conflictClose"), conflictReload: requiredElement("#conflictReload"), conflictCopy: requiredElement("#conflictCopy"), conflictCancel: requiredElement("#conflictCancel"),
+    importCenterDialog: requiredElement("#importCenterDialog"), importCenterClose: requiredElement("#importCenterClose"), importCenterCancel: requiredElement("#importCenterCancel"), importSourceName: requiredElement("#importSourceName"), importSourceMeta: requiredElement("#importSourceMeta"), importCompatibilityNote: requiredElement("#importCompatibilityNote"), importSummary: requiredElement("#importSummary"), importFilters: requiredElement("#importFilters"), importBatchActions: requiredElement("#importBatchActions"), importBatchGroup: requiredElement("#importBatchGroup"), importBatchDecision: requiredElement("#importBatchDecision"), importBatchApply: requiredElement("#importBatchApply"), importVisibleCount: requiredElement("#importVisibleCount"), importItemList: requiredElement("#importItemList"), importReplaceRestore: requiredElement("#importReplaceRestore"), importApplyMerge: requiredElement("#importApplyMerge"),
+    importProgressDialog: requiredElement("#importProgressDialog"), importProgressStages: requiredElement("#importProgressStages"), importProgressText: requiredElement("#importProgressText"), importProgressCancel: requiredElement("#importProgressCancel"), importResultDialog: requiredElement("#importResultDialog"), importResultClose: requiredElement("#importResultClose"), importResultText: requiredElement("#importResultText"), importDownloadReport: requiredElement("#importDownloadReport"), importLocateChanges: requiredElement("#importLocateChanges"), importRollback: requiredElement("#importRollback"), importResultDone: requiredElement("#importResultDone"), moveDialog: requiredElement("#moveDialog"),
     moveDialogForm: requiredElement("#moveDialogForm"), moveFolder: requiredElement("#moveFolder"), movePriority: requiredElement("#movePriority"),
     movePrevious: requiredElement("#movePrevious"), moveNext: requiredElement("#moveNext"), moveRestriction: requiredElement("#moveRestriction"),
     moveSubmit: requiredElement("#moveSubmit"), moveDelete: requiredElement("#moveDelete"), rescheduleDialog: requiredElement("#rescheduleDialog"),

@@ -9,6 +9,8 @@ import type {
   Priority,
   RescheduleRecord,
   RescheduleSource,
+  StatusEvent,
+  StatusEventSource,
   Task,
   TaskDraft,
   TaskFilter,
@@ -125,6 +127,7 @@ export function createTask(draft: TaskDraft, now = Date.now(), id = createId("ta
     resolvedAt: status === "active" ? null : now,
     pendingResolution: null,
     rescheduleHistory: [],
+    statusHistory: status === "active" ? [] : [createStatusEvent("active", status, now, "resolution")],
     createdAt: now,
     updatedAt: now,
   };
@@ -485,6 +488,7 @@ function hydrateTask(value: unknown, now: number, fallbackOrder: number, folderI
   const folderId = normalizeNullableId(value.folderId);
   const status = isTaskStatus(value.status) ? value.status : Boolean(value.done) ? "completed" : "active";
   const pendingResolution = hydratePendingResolution(value.pendingResolution, status);
+  const statusHistory = hydrateStatusHistory(value.statusHistory);
   return {
     id: normalizeText(value.id) || createId("task", now),
     title,
@@ -499,6 +503,9 @@ function hydrateTask(value: unknown, now: number, fallbackOrder: number, folderI
     resolvedAt: status === "active" || pendingResolution ? null : toTimestamp(value.resolvedAt, updatedAt),
     pendingResolution,
     rescheduleHistory: hydrateRescheduleHistory(value.rescheduleHistory),
+    statusHistory: statusHistory.length || status === "active" || pendingResolution
+      ? statusHistory
+      : [createStatusEvent("active", status, toTimestamp(value.resolvedAt, updatedAt), "migration")],
     createdAt,
     updatedAt,
   };
@@ -523,6 +530,7 @@ function migrateLegacyTask(value: unknown, now: number, order: number): Task | n
     resolvedAt: status === "active" ? null : updatedAt,
     pendingResolution: null,
     rescheduleHistory: [],
+    statusHistory: status === "active" ? [] : [createStatusEvent("active", status, updatedAt, "migration")],
     createdAt,
     updatedAt,
   };
@@ -549,8 +557,34 @@ function hydrateRescheduleHistory(value: unknown): RescheduleRecord[] {
     const toDate = normalizeDate(item.toDate);
     if (!toDate || typeof item.changedAt !== "number" || !Number.isFinite(item.changedAt)) return [];
     const source: RescheduleSource = item.source === "detail" ? "detail" : "quick";
-    return [{ fromDate, toDate, changedAt: item.changedAt, reason: normalizeText(item.reason), source }];
+    const eventId = normalizeText(item.eventId) || `event-${item.changedAt}-${legacyEventSuffix(fromDate, toDate, source)}`;
+    return [{ eventId, fromDate, toDate, changedAt: item.changedAt, reason: normalizeText(item.reason), source }];
   });
+}
+
+function hydrateStatusHistory(value: unknown): StatusEvent[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): StatusEvent[] => {
+    if (!isRecord(item) || !isTaskStatus(item.fromStatus) || !isTaskStatus(item.toStatus)) return [];
+    if (typeof item.changedAt !== "number" || !Number.isFinite(item.changedAt)) return [];
+    const source: StatusEventSource = item.source === "restore" ? "restore" : item.source === "migration" ? "migration" : "resolution";
+    const eventId = normalizeText(item.eventId) || `status-event-${item.changedAt}-${item.fromStatus}-${item.toStatus}`;
+    return [{ eventId, fromStatus: item.fromStatus, toStatus: item.toStatus, changedAt: item.changedAt, source }];
+  });
+}
+
+function createStatusEvent(fromStatus: TaskStatus, toStatus: TaskStatus, changedAt: number, source: StatusEventSource): StatusEvent {
+  const eventId = source === "migration"
+    ? `status-event-${changedAt}-${fromStatus}-${toStatus}-migration`
+    : createId("status-event", changedAt);
+  return { eventId, fromStatus, toStatus, changedAt, source };
+}
+
+function legacyEventSuffix(fromDate: string, toDate: string, source: RescheduleSource): string {
+  const value = `${fromDate}:${toDate}:${source}`;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return (hash >>> 0).toString(16);
 }
 
 function hydrateFolder(value: unknown, now: number): Folder | null {
@@ -643,7 +677,10 @@ function isValidV4Task(value: unknown): boolean {
 }
 
 function isValidV5Task(value: unknown): boolean {
-  return isValidV4Task(value) && isRecord(value) && typeof value.descriptionMarkdown === "string";
+  return isValidV4Task(value)
+    && isRecord(value)
+    && typeof value.descriptionMarkdown === "string"
+    && (value.statusHistory === undefined || Array.isArray(value.statusHistory) && hydrateStatusHistory(value.statusHistory).length === value.statusHistory.length);
 }
 
 function isValidV3Task(value: unknown): boolean {

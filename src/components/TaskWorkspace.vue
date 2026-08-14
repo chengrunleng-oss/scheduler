@@ -25,7 +25,7 @@
             </div>
             <label class="field"><span>改期原因</span><input id="detailRescheduleReason" type="text" maxlength="120" placeholder="延期时可选填" /></label>
             <dl class="timestamps"><div><dt>创建时间</dt><dd id="detailCreatedAt">-</dd></div><div><dt>更新时间</dt><dd id="detailUpdatedAt">-</dd></div></dl>
-            <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden><h3 id="timelineTitle">改期记录</h3><ol id="rescheduleTimeline" class="timeline"></ol></section>
+            <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden><h3 id="timelineTitle">变更记录</h3><ol id="rescheduleTimeline" class="timeline"></ol></section>
           </div>
           <div class="detail-actions"><button class="button ghost" id="cancelDetail" type="button">取消</button><button class="button primary" type="submit">保存更改</button></div>
         </form>

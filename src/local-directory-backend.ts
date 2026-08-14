@@ -1,13 +1,17 @@
-import { createEmptyState, createId, hydrateState, normalizeDate } from "./domain.js";
+import { createEmptyState, createId, getFolderDepth, hydrateState, normalizeDate } from "./domain.js";
 import type { AppState, AttachmentMeta, Folder, Preferences, Task, WorkLog } from "./types.js";
 import {
   MAX_ATTACHMENT_BYTES,
   type StorageEstimate,
+  type DeletionTombstone,
+  type EntityRevisionMetadata,
+  type ImportRecoveryPoint,
   type WorkspaceBackend,
   WorkspaceConflictError,
   type WorkspaceConflictTarget,
   type WorkspaceLoadResult,
   type WorkspaceSnapshot,
+  type WorkspaceSnapshotMetadata,
   type WorkLogInput,
 } from "./workspace-backend.js";
 import { detectAttachmentKind } from "./workspace-db.js";
@@ -20,6 +24,9 @@ const DESCRIPTION_FILE = "description.md";
 const WORKLOGS_DIRECTORY = "worklogs";
 const ATTACHMENTS_DIRECTORY = "attachments";
 const MIGRATION_MARKER = ".task-workbench-migration.json";
+const IMPORT_RECOVERY_DIRECTORY = ".task-workbench-import";
+const IMPORT_RECOVERY_FILE = "latest-before-import.zip";
+const IMPORT_REPORT_FILE = "latest-report.json";
 
 type PermissionMode = "read" | "readwrite";
 
@@ -40,6 +47,11 @@ interface WorkspaceIndexFile {
   preferences: Preferences;
   folders: Folder[];
   taskIds: string[];
+  workspaceId?: string;
+  snapshotId?: string;
+  parentSnapshotId?: string | null;
+  entityRevisions?: Record<string, EntityRevisionMetadata>;
+  tombstones?: DeletionTombstone[];
 }
 
 interface TaskFile {
@@ -55,6 +67,13 @@ interface TaskFile {
     workLogs: Record<string, string>;
     attachments: Record<string, string>;
   };
+}
+
+interface ImportRecoveryIndex {
+  format: "task-workbench-import-recovery";
+  schemaVersion: 1;
+  createdAt: string;
+  report: Record<string, unknown>;
 }
 
 export class LocalDirectoryBackend implements WorkspaceBackend {
@@ -117,8 +136,8 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       ensureContentHashes(taskFile);
       const worklogsDirectory = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
       for (const worklog of taskFile.workLogs) {
-        const markdown = await readTextIfExists(worklogsDirectory, `${worklog.workDate}.md`) ?? "";
-        this.expectedContentHashes.set(workLogHashKey(taskId, worklog.workDate), await hashText(markdown));
+        const markdown = await readTextIfExists(worklogsDirectory, workLogFileName(worklog)) ?? "";
+        this.expectedContentHashes.set(workLogHashKey(taskId, worklog.id), await hashText(markdown));
       }
       const attachmentsDirectory = await taskDirectory.getDirectoryHandle(ATTACHMENTS_DIRECTORY, { create: true });
       for (const attachment of taskFile.attachments) {
@@ -168,14 +187,23 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       }
 
       const revision = (current?.revision ?? 0) + 1;
+      const updatedAt = Date.now();
+      const snapshotId = crypto.randomUUID();
+      const entityRevisions = await updateStateRevisions(state, current?.entityRevisions ?? {});
+      const tombstones = updateTombstones(current, state, updatedAt);
       const index: WorkspaceIndexFile = {
         format: "task-workbench-workspace",
         schemaVersion: 5,
         revision,
-        updatedAt: Date.now(),
+        updatedAt,
         preferences: state.preferences,
         folders: state.folders,
         taskIds: state.tasks.map((task) => task.id),
+        workspaceId: current?.workspaceId ?? crypto.randomUUID(),
+        snapshotId,
+        parentSnapshotId: current?.snapshotId ?? null,
+        entityRevisions,
+        tombstones,
       };
       await writeVerifiedText(this.root, WORKSPACE_FILE, JSON.stringify(index, null, 2));
       this.lastRevision = revision;
@@ -226,24 +254,26 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     });
   }
 
-  async getWorkLog(taskId: string, workDate: string): Promise<WorkLog | null> {
+  async getWorkLog(taskId: string, workDate: string, recordId?: string): Promise<WorkLog | null> {
     const date = normalizeDate(workDate);
     if (!date) return null;
     const taskDirectory = await this.getTaskDirectory(taskId);
     const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
-    const meta = taskFile.workLogs.find((item) => item.workDate === date);
+    const meta = recordId
+      ? taskFile.workLogs.find((item) => item.id === recordId)
+      : taskFile.workLogs.find((item) => item.id === workLogId(taskId, date)) ?? taskFile.workLogs.find((item) => item.workDate === date);
     if (!meta) return null;
     const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
-    const markdown = await readTextIfExists(worklogs, `${date}.md`);
+    const markdown = await readTextIfExists(worklogs, workLogFileName(meta));
     if (markdown === null) return null;
-    this.expectedContentHashes.set(workLogHashKey(taskId, date), await hashText(markdown));
+    this.expectedContentHashes.set(workLogHashKey(taskId, meta.id), await hashText(markdown));
     return parseWorkLog(markdown, meta);
   }
 
   async listWorkLogs(taskId: string): Promise<WorkLog[]> {
     const taskDirectory = await this.getTaskDirectory(taskId);
     const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
-    const records = await Promise.all(taskFile.workLogs.map((meta) => this.getWorkLog(taskId, meta.workDate)));
+    const records = await Promise.all(taskFile.workLogs.map((meta) => this.getWorkLog(taskId, meta.workDate, meta.id)));
     return records.filter((record): record is WorkLog => Boolean(record)).sort((a, b) => b.workDate.localeCompare(a.workDate) || b.updatedAt - a.updatedAt);
   }
 
@@ -253,31 +283,33 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     return this.enqueueWrite(async () => {
       const taskDirectory = await this.getTaskDirectory(input.taskId);
       const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
-      const existing = taskFile.workLogs.find((item) => item.workDate === workDate);
+      const recordId = input.id ?? workLogId(input.taskId, workDate);
+      const existing = taskFile.workLogs.find((item) => item.id === recordId);
       const record: WorkLog = {
-        id: workLogId(input.taskId, workDate),
+        id: recordId,
         taskId: input.taskId,
         workDate,
         contentMarkdown: normalizeMarkdown(input.contentMarkdown),
         progressPercent: input.progressPercent === null ? null : Math.max(0, Math.min(100, Math.round(input.progressPercent))),
+        conflictOrigin: input.conflictOrigin,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       };
       this.assertTaskRevision(taskFile);
       const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
-      const key = workLogHashKey(input.taskId, workDate);
+      const key = workLogHashKey(input.taskId, record.id);
       const hashes = ensureContentHashes(taskFile);
       await this.assertTextContentUnchanged(
         worklogs,
-        `${workDate}.md`,
+        workLogFileName(record),
         key,
-        hashes.workLogs[workDate],
+        hashes.workLogs[record.id] ?? hashes.workLogs[workDate],
         { kind: "worklog", taskId: input.taskId, workDate },
       );
       const serialized = serializeWorkLog(record);
-      await writeVerifiedText(worklogs, `${workDate}.md`, serialized);
-      hashes.workLogs[workDate] = await hashText(serialized);
-      this.expectedContentHashes.set(key, hashes.workLogs[workDate]!);
+      await writeVerifiedText(worklogs, workLogFileName(record), serialized);
+      hashes.workLogs[record.id] = await hashText(serialized);
+      this.expectedContentHashes.set(key, hashes.workLogs[record.id]!);
       taskFile.workLogs = [...taskFile.workLogs.filter((item) => item.id !== record.id), workLogMeta(record)];
       await this.writeTaskFile(taskDirectory, taskFile);
       return record;
@@ -285,25 +317,29 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
   }
 
   async deleteWorkLog(id: string): Promise<void> {
-    const { taskId, workDate } = parseWorkLogId(id);
+    const located = await this.findWorkLog(id);
+    if (!located) return;
+    const { taskId, workDate } = located.meta;
     const taskDirectory = await this.getTaskDirectory(taskId);
     await this.enqueueWrite(async () => {
       const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
       this.assertTaskRevision(taskFile);
       const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
-      const key = workLogHashKey(taskId, workDate);
+      const key = workLogHashKey(taskId, id);
       await this.assertTextContentUnchanged(
         worklogs,
-        `${workDate}.md`,
+        workLogFileName(located.meta),
         key,
-        taskFile.contentHashes?.workLogs[workDate],
+        taskFile.contentHashes?.workLogs[id] ?? taskFile.contentHashes?.workLogs[workDate],
         { kind: "worklog", taskId, workDate },
       );
-      await removeIfExists(worklogs, `${workDate}.md`);
-      delete ensureContentHashes(taskFile).workLogs[workDate];
+      await removeIfExists(worklogs, workLogFileName(located.meta));
+      delete ensureContentHashes(taskFile).workLogs[id];
+      if (id === workLogId(taskId, workDate)) delete ensureContentHashes(taskFile).workLogs[workDate];
       this.expectedContentHashes.delete(key);
       taskFile.workLogs = taskFile.workLogs.filter((item) => item.id !== id);
       await this.writeTaskFile(taskDirectory, taskFile);
+      await this.updateDeletionTombstone("worklog", id, true);
     });
   }
 
@@ -313,21 +349,22 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
       this.assertTaskRevision(taskFile);
       const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
-      const key = workLogHashKey(record.taskId, record.workDate);
+      const key = workLogHashKey(record.taskId, record.id);
       const hashes = ensureContentHashes(taskFile);
       await this.assertTextContentUnchanged(
         worklogs,
-        `${record.workDate}.md`,
+        workLogFileName(record),
         key,
-        hashes.workLogs[record.workDate],
+        hashes.workLogs[record.id] ?? hashes.workLogs[record.workDate],
         { kind: "worklog", taskId: record.taskId, workDate: record.workDate },
       );
       const serialized = serializeWorkLog(record);
-      await writeVerifiedText(worklogs, `${record.workDate}.md`, serialized);
-      hashes.workLogs[record.workDate] = await hashText(serialized);
-      this.expectedContentHashes.set(key, hashes.workLogs[record.workDate]!);
+      await writeVerifiedText(worklogs, workLogFileName(record), serialized);
+      hashes.workLogs[record.id] = await hashText(serialized);
+      this.expectedContentHashes.set(key, hashes.workLogs[record.id]!);
       taskFile.workLogs = [...taskFile.workLogs.filter((item) => item.id !== record.id), workLogMeta(record)];
       await this.writeTaskFile(taskDirectory, taskFile);
+      await this.updateDeletionTombstone("worklog", record.id, false);
     });
   }
 
@@ -357,6 +394,7 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       const attachments = await taskDirectory.getDirectoryHandle(ATTACHMENTS_DIRECTORY, { create: true });
       await writeVerifiedBlob(attachments, attachmentFileName(meta), file);
       const hash = await hashBlob(file);
+      meta.contentHash = hash;
       ensureContentHashes(taskFile).attachments[meta.id] = hash;
       this.expectedContentHashes.set(attachmentHashKey(meta.id), hash);
       taskFile.attachments = [...taskFile.attachments, meta];
@@ -388,8 +426,8 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       const attachments = await located.taskDirectory.getDirectoryHandle(ATTACHMENTS_DIRECTORY, { create: true });
       await this.assertAttachmentUnchanged(attachments, located.meta, located.taskFile);
       await writeVerifiedBlob(attachments, attachmentFileName(located.meta), content);
-      const nextMeta = { ...located.meta, size: content.size, type: content.type || located.meta.type };
       const hash = await hashBlob(content);
+      const nextMeta = { ...located.meta, size: content.size, type: content.type || located.meta.type, contentHash: hash };
       ensureContentHashes(located.taskFile).attachments[id] = hash;
       this.expectedContentHashes.set(attachmentHashKey(id), hash);
       located.taskFile.attachments = located.taskFile.attachments.map((item) => item.id === id ? nextMeta : item);
@@ -428,6 +466,7 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
       this.expectedContentHashes.delete(attachmentHashKey(id));
       located.taskFile.attachments = located.taskFile.attachments.filter((item) => item.id !== id);
       await this.writeTaskFile(located.taskDirectory, located.taskFile);
+      await this.updateDeletionTombstone("attachment", id, true);
     });
   }
 
@@ -460,16 +499,46 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     return { usage, quota: 0 };
   }
 
+  async saveImportRecovery(recovery: ImportRecoveryPoint): Promise<void> {
+    await this.enqueueWrite(async () => {
+      const directory = await this.root.getDirectoryHandle(IMPORT_RECOVERY_DIRECTORY, { create: true });
+      await writeVerifiedBlob(directory, IMPORT_RECOVERY_FILE, recovery.backup);
+      const index: ImportRecoveryIndex = {
+        format: "task-workbench-import-recovery",
+        schemaVersion: 1,
+        createdAt: recovery.createdAt,
+        report: recovery.report,
+      };
+      await writeVerifiedText(directory, IMPORT_REPORT_FILE, JSON.stringify(index, null, 2));
+    });
+  }
+
+  async loadImportRecovery(): Promise<ImportRecoveryPoint | null> {
+    let directory: FileSystemDirectoryHandle;
+    try { directory = await this.root.getDirectoryHandle(IMPORT_RECOVERY_DIRECTORY); }
+    catch (error) { if (isNotFound(error)) return null; throw error; }
+    const index = await readJsonIfExists<ImportRecoveryIndex>(directory, IMPORT_REPORT_FILE);
+    const backup = await readBlobIfExists(directory, IMPORT_RECOVERY_FILE);
+    if (!index || !backup || index.format !== "task-workbench-import-recovery" || index.schemaVersion !== 1 || typeof index.createdAt !== "string" || !index.report || typeof index.report !== "object" || Array.isArray(index.report)) return null;
+    return { createdAt: index.createdAt, backup, report: index.report };
+  }
+
   async exportSnapshot(): Promise<WorkspaceSnapshot> {
     const state = (await this.loadWorkspace()).state;
+    const index = await readJsonIfExists<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
     const workLogs = (await Promise.all(state.tasks.map((task) => this.listWorkLogs(task.id)))).flat();
     const attachments = (await Promise.all(state.tasks.map((task) => this.listAttachments(task.id)))).flat();
     const attachmentBlobs = new Map<string, Blob>();
     for (const meta of attachments) {
       const blob = await this.readAttachment(meta.id);
-      if (blob) attachmentBlobs.set(meta.id, new Blob([await blob.arrayBuffer()], { type: blob.type }));
+      if (blob) {
+        attachmentBlobs.set(meta.id, new Blob([await blob.arrayBuffer()], { type: blob.type }));
+        meta.contentHash = await hashBlob(blob);
+      }
     }
-    return { state, workLogs, attachments, attachmentBlobs };
+    const snapshot: WorkspaceSnapshot = { state, workLogs, attachments, attachmentBlobs };
+    if (index) snapshot.metadata = snapshotMetadata(index, state, workLogs, attachments);
+    return snapshot;
   }
 
   async importSnapshot(snapshot: WorkspaceSnapshot): Promise<void> {
@@ -566,6 +635,11 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
         preferences: snapshot.state.preferences,
         folders: snapshot.state.folders,
         taskIds: snapshot.state.tasks.map((task) => task.id),
+        workspaceId: snapshot.metadata?.workspaceId ?? crypto.randomUUID(),
+        snapshotId: snapshot.metadata?.snapshotId ?? crypto.randomUUID(),
+        parentSnapshotId: snapshot.metadata?.parentSnapshotId ?? null,
+        entityRevisions: snapshot.metadata?.entityRevisions ?? {},
+        tombstones: snapshot.metadata?.tombstones ?? [],
       };
       await writeVerifiedText(this.root, WORKSPACE_FILE, JSON.stringify(index, null, 2));
       this.lastRevision = index.revision;
@@ -624,10 +698,40 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     this.taskRevisions.set(taskFile.task.id, taskFile.revision);
   }
 
+  private async updateDeletionTombstone(entityType: "worklog" | "attachment", entityId: string, deleted: boolean): Promise<void> {
+    const index = await readJsonIfExists<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
+    if (!index) return;
+    const existing = index.tombstones ?? [];
+    const retained = existing.filter((item) => item.entityType !== entityType || item.entityId !== entityId);
+    if (!deleted && retained.length === existing.length) return;
+    if (deleted) retained.push({ deletionId: crypto.randomUUID(), entityType, entityId, deletedAt: Date.now() });
+    this.assertRevision(index.revision);
+    index.tombstones = retained;
+    if (index.entityRevisions) delete index.entityRevisions[`${entityType}:${entityId}`];
+    index.parentSnapshotId = index.snapshotId ?? null;
+    index.snapshotId = crypto.randomUUID();
+    index.revision += 1;
+    index.updatedAt = Date.now();
+    await writeVerifiedText(this.root, WORKSPACE_FILE, JSON.stringify(index, null, 2));
+    this.lastRevision = index.revision;
+  }
+
   private async getTaskDirectory(taskId: string): Promise<FileSystemDirectoryHandle> {
     await this.assertPermission();
     const tasks = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });
     return tasks.getDirectoryHandle(safeId(taskId));
+  }
+
+  private async findWorkLog(id: string): Promise<{ meta: Omit<WorkLog, "contentMarkdown">; taskDirectory: FileSystemDirectoryHandle } | null> {
+    const index = await readRequiredJson<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
+    const tasks = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });
+    for (const taskId of index.taskIds) {
+      const taskDirectory = await tasks.getDirectoryHandle(safeId(taskId));
+      const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
+      const meta = taskFile.workLogs.find((item) => item.id === id);
+      if (meta) return { meta, taskDirectory };
+    }
+    return null;
   }
 
   private async findAttachment(id: string): Promise<{ meta: AttachmentMeta; taskFile: TaskFile; taskDirectory: FileSystemDirectoryHandle } | null> {
@@ -691,7 +795,7 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     for (const record of snapshot.workLogs) {
       const taskDirectory = await tasksDirectory.getDirectoryHandle(safeId(record.taskId));
       const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY);
-      const markdown = await readTextIfExists(worklogs, `${record.workDate}.md`);
+      const markdown = await readTextIfExists(worklogs, workLogFileName(record));
       if (markdown === null || await hashText(markdown) !== await hashText(serializeWorkLog(record))) {
         throw new Error(`工作记录 ${record.id} 校验失败。`);
       }
@@ -800,8 +904,18 @@ function validateTaskFile(value: TaskFile, taskId: string): void {
 
 function validateSnapshot(snapshot: WorkspaceSnapshot): void {
   const taskIds = new Set(snapshot.state.tasks.map((task) => task.id));
+  const folderIds = new Set(snapshot.state.folders.map((folder) => folder.id));
+  const workLogIds = new Set(snapshot.workLogs.map((item) => item.id));
   const attachmentIds = new Set(snapshot.attachments.map((item) => item.id));
   if (snapshot.state.tasks.length !== taskIds.size) throw new Error("迁移快照包含重复任务标识。");
+  if (snapshot.state.folders.length !== folderIds.size) throw new Error("迁移快照包含重复文件夹标识。");
+  if (snapshot.workLogs.length !== workLogIds.size) throw new Error("迁移快照包含重复工作记录标识。");
+  if (snapshot.attachments.length !== attachmentIds.size) throw new Error("迁移快照包含重复附件标识。");
+  for (const folder of snapshot.state.folders) {
+    if (folder.parentId !== null && !folderIds.has(folder.parentId)) throw new Error(`文件夹 ${folder.name} 引用了不存在的上级。`);
+    if (!Number.isFinite(getFolderDepth(snapshot.state.folders, folder.id)) || getFolderDepth(snapshot.state.folders, folder.id) > 4) throw new Error(`文件夹 ${folder.name} 的层级结构无效。`);
+  }
+  for (const task of snapshot.state.tasks) if (task.folderId !== null && !folderIds.has(task.folderId)) throw new Error(`任务 ${task.title} 引用了不存在的文件夹。`);
   for (const record of snapshot.workLogs) {
     if (!taskIds.has(record.taskId)) throw new Error(`工作记录 ${record.id} 引用了不存在的任务。`);
   }
@@ -812,6 +926,69 @@ function validateSnapshot(snapshot: WorkspaceSnapshot): void {
   for (const id of snapshot.attachmentBlobs.keys()) {
     if (!attachmentIds.has(id)) throw new Error(`附件内容 ${id} 缺少元数据。`);
   }
+}
+
+async function updateStateRevisions(state: AppState, previous: Record<string, EntityRevisionMetadata>): Promise<Record<string, EntityRevisionMetadata>> {
+  const next: Record<string, EntityRevisionMetadata> = {};
+  for (const [kind, entity] of [
+    ...state.tasks.map((value) => ["task", value] as const),
+    ...state.folders.map((value) => ["folder", value] as const),
+  ]) {
+    const key = `${kind}:${entity.id}`;
+    const contentHash = await hashText(stableJson(entity));
+    const prior = previous[key];
+    next[key] = prior?.contentHash === contentHash
+      ? prior
+      : {
+          revisionId: crypto.randomUUID(),
+          parentRevisionId: prior?.revisionId ?? null,
+          createdAt: entity.createdAt,
+          updatedAt: entity.updatedAt,
+          contentHash,
+        };
+  }
+  for (const [key, revision] of Object.entries(previous)) {
+    if ((key.startsWith("worklog:") || key.startsWith("attachment:")) && !next[key]) next[key] = revision;
+  }
+  return next;
+}
+
+function updateTombstones(current: WorkspaceIndexFile | null, state: AppState, deletedAt: number): DeletionTombstone[] {
+  const tombstones = [...(current?.tombstones ?? [])];
+  const nextTaskIds = new Set(state.tasks.map((task) => task.id));
+  const nextFolderIds = new Set(state.folders.map((folder) => folder.id));
+  for (const id of current?.taskIds ?? []) if (!nextTaskIds.has(id)) tombstones.push(createTombstone("task", id, deletedAt));
+  for (const folder of current?.folders ?? []) if (!nextFolderIds.has(folder.id)) tombstones.push(createTombstone("folder", folder.id, deletedAt));
+  return tombstones.filter((item, index, all) => all.findIndex((candidate) => candidate.entityType === item.entityType && candidate.entityId === item.entityId) === index);
+}
+
+function createTombstone(entityType: "task" | "folder", entityId: string, deletedAt: number): DeletionTombstone {
+  return { deletionId: crypto.randomUUID(), entityType, entityId, deletedAt };
+}
+
+function snapshotMetadata(index: WorkspaceIndexFile, state: AppState, workLogs: WorkLog[], attachments: AttachmentMeta[]): WorkspaceSnapshotMetadata {
+  return {
+    schemaVersion: 6,
+    workspaceId: index.workspaceId ?? `workspace-${index.revision}`,
+    snapshotId: index.snapshotId ?? `snapshot-${index.revision}`,
+    parentSnapshotId: index.parentSnapshotId ?? null,
+    exportedAt: new Date(index.updatedAt).toISOString(),
+    contentSummary: {
+      tasks: state.tasks.length,
+      folders: state.folders.length,
+      workLogs: workLogs.length,
+      attachments: attachments.length,
+      attachmentBytes: attachments.reduce((total, item) => total + item.size, 0),
+    },
+    entityRevisions: index.entityRevisions ?? {},
+    tombstones: index.tombstones ?? [],
+  };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${stableJson(entry)}`).join(",")}}`;
+  return JSON.stringify(value) ?? "null";
 }
 
 function ensureContentHashes(taskFile: TaskFile | null | undefined): NonNullable<TaskFile["contentHashes"]> {
@@ -826,8 +1003,8 @@ function descriptionHashKey(taskId: string): string {
   return `description:${taskId}`;
 }
 
-function workLogHashKey(taskId: string, workDate: string): string {
-  return `worklog:${taskId}:${workDate}`;
+function workLogHashKey(taskId: string, recordId: string): string {
+  return `worklog:${taskId}:${recordId}`;
 }
 
 function attachmentHashKey(attachmentId: string): string {
@@ -861,6 +1038,7 @@ function serializeWorkLog(record: WorkLog): string {
     `taskId: ${JSON.stringify(record.taskId)}`,
     `workDate: ${JSON.stringify(record.workDate)}`,
     `progressPercent: ${record.progressPercent === null ? "null" : record.progressPercent}`,
+    `conflictOrigin: ${record.conflictOrigin ? JSON.stringify(record.conflictOrigin) : "null"}`,
     `createdAt: ${record.createdAt}`,
     `updatedAt: ${record.updatedAt}`,
     "---",
@@ -884,6 +1062,7 @@ function parseWorkLog(markdown: string, fallback: Omit<WorkLog, "contentMarkdown
     taskId: typeof values.get("taskId") === "string" ? String(values.get("taskId")) : fallback.taskId,
     workDate: typeof values.get("workDate") === "string" ? String(values.get("workDate")) : fallback.workDate,
     progressPercent: typeof values.get("progressPercent") === "number" ? Number(values.get("progressPercent")) : null,
+    conflictOrigin: values.get("conflictOrigin") === "imported" ? "imported" : fallback.conflictOrigin,
     createdAt: typeof values.get("createdAt") === "number" ? Number(values.get("createdAt")) : fallback.createdAt,
     updatedAt: typeof values.get("updatedAt") === "number" ? Number(values.get("updatedAt")) : fallback.updatedAt,
     contentMarkdown: match[2] ?? "",
@@ -899,10 +1078,15 @@ function workLogId(taskId: string, workDate: string): string {
   return `${taskId}::${workDate}`;
 }
 
-function parseWorkLogId(id: string): { taskId: string; workDate: string } {
-  const separator = id.lastIndexOf("::");
-  if (separator < 1) throw new Error("工作记录标识无效。");
-  return { taskId: id.slice(0, separator), workDate: id.slice(separator + 2) };
+function workLogFileName(record: Pick<WorkLog, "id" | "taskId" | "workDate">): string {
+  if (record.id === workLogId(record.taskId, record.workDate)) return `${record.workDate}.md`;
+  return `${record.workDate}.conflict-${shortStableHash(record.id)}.md`;
+}
+
+function shortStableHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) { hash ^= value.charCodeAt(index); hash = Math.imul(hash, 16777619); }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 function attachmentFileName(meta: AttachmentMeta): string {
@@ -956,6 +1140,11 @@ async function readTextIfExists(directory: FileSystemDirectoryHandle, name: stri
     if (isNotFound(error)) return null;
     throw error;
   }
+}
+
+async function readBlobIfExists(directory: FileSystemDirectoryHandle, name: string): Promise<Blob | null> {
+  try { return await (await directory.getFileHandle(name)).getFile(); }
+  catch (error) { if (isNotFound(error)) return null; throw error; }
 }
 
 async function directoryHasEntries(directory: FileSystemDirectoryHandle): Promise<boolean> {

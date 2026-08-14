@@ -39,7 +39,7 @@ await mkdir(output, { recursive: true });
 const server = await preview({ root, logLevel: "silent", preview: { host, port, strictPort: true } });
 const browser = await chromium.launch();
 
-async function capture(name, viewport, { openWorkspace = false, theme = "light", seedWorkspace = true } = {}) {
+async function capture(name, viewport, { openWorkspace = false, openImportCenter = false, theme = "light", seedWorkspace = true } = {}) {
   const page = await browser.newPage({ viewport });
   const directoryName = `visual-${name}`;
   await page.addInitScript((workspaceName) => {
@@ -68,23 +68,36 @@ async function capture(name, viewport, { openWorkspace = false, theme = "light",
     await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   }
   await page.locator(seedWorkspace && openWorkspace ? "#taskDetail.is-open" : seedWorkspace ? ".task-item" : "#emptyState:not([hidden])").first().waitFor();
+  if (openImportCenter) {
+    const downloadPromise = page.waitForEvent("download");
+    await page.locator("#exportData").click();
+    const download = await downloadPromise;
+    await page.locator("#importFile").setInputFiles(await download.path());
+    await page.locator("#importCenterDialog").waitFor({ state: "visible" });
+  }
 
-  const geometry = await page.evaluate(() => ({
+  const geometry = await page.evaluate(() => {
+    const importDialog = document.querySelector("#importCenterDialog");
+    const importRect = importDialog?.open ? importDialog.getBoundingClientRect() : null;
+    return ({
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
     rowOverflow: Math.max(0, ...Array.from(document.querySelectorAll(".task-item"), (row) => row.scrollWidth - row.clientWidth)),
     maxTaskHeight: Math.max(0, ...Array.from(document.querySelectorAll(".task-item"), (row) => row.getBoundingClientRect().height)),
     sidebarWidth: document.querySelector("#sidebar").getBoundingClientRect().width,
     workspaceOpen: document.querySelector("#appShell").classList.contains("workspace-open"),
+    importDialogOverflow: importRect ? Math.max(0, -importRect.left, importRect.right - window.innerWidth) : 0,
     storageButtonSizes: Array.from(document.querySelectorAll(".workspace-storage-actions .button:not([hidden])"), (button) => ({
       width: button.getBoundingClientRect().width,
       height: button.getBoundingClientRect().height,
     })),
     storageTextVisible: Array.from(document.querySelectorAll(".workspace-storage-status, .workspace-storage-actions .button span"), (node) => getComputedStyle(node).display !== "none"),
-  }));
+  });
+  });
   if (geometry.documentOverflow > 1 || geometry.bodyOverflow > 1 || geometry.rowOverflow > 1) {
     throw new Error(`${name} has horizontal overflow: ${JSON.stringify(geometry)}`);
   }
+  if (geometry.importDialogOverflow > 1) throw new Error(`${name} import dialog overflows horizontally: ${geometry.importDialogOverflow}px`);
   if (!openWorkspace && viewport.width >= 768 && geometry.maxTaskHeight > 72) {
     throw new Error(`${name} task row exceeds 72px: ${geometry.maxTaskHeight}px`);
   }
@@ -109,6 +122,8 @@ try {
   results.push(await capture("workspace-standard", { width: 1024, height: 768 }));
   results.push(await capture("workspace-tablet", { width: 768, height: 1024 }));
   results.push(await capture("workspace-mobile", { width: 390, height: 844 }, { openWorkspace: true }));
+  results.push(await capture("import-center", { width: 1440, height: 900 }, { openImportCenter: true }));
+  results.push(await capture("import-center-mobile", { width: 390, height: 844 }, { openImportCenter: true }));
   console.table(results);
 } finally {
   await browser.close();

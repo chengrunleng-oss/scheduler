@@ -14,6 +14,49 @@ export interface WorkspaceSnapshot {
   workLogs: WorkLog[];
   attachments: AttachmentMeta[];
   attachmentBlobs: Map<string, Blob>;
+  metadata?: WorkspaceSnapshotMetadata;
+}
+
+export type SnapshotEntityType = "task" | "folder" | "worklog" | "attachment";
+
+export interface EntityRevisionMetadata {
+  revisionId: string;
+  parentRevisionId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  contentHash: string;
+}
+
+export interface DeletionTombstone {
+  deletionId: string;
+  entityType: SnapshotEntityType;
+  entityId: string;
+  deletedAt: number;
+}
+
+export interface SnapshotContentSummary {
+  tasks: number;
+  folders: number;
+  workLogs: number;
+  attachments: number;
+  attachmentBytes: number;
+}
+
+export interface WorkspaceSnapshotMetadata {
+  schemaVersion: 6;
+  workspaceId: string;
+  snapshotId: string;
+  parentSnapshotId: string | null;
+  exportedAt: string;
+  contentSummary: SnapshotContentSummary;
+  entityRevisions: Record<string, EntityRevisionMetadata>;
+  tombstones: DeletionTombstone[];
+}
+
+export interface ImportRecoveryPoint {
+  createdAt: string;
+  backup: Blob;
+  report: Record<string, unknown>;
 }
 
 export interface StorageEstimate {
@@ -21,7 +64,7 @@ export interface StorageEstimate {
   quota: number;
 }
 
-export type WorkLogInput = Omit<WorkLog, "id" | "createdAt" | "updatedAt">;
+export type WorkLogInput = Omit<WorkLog, "id" | "createdAt" | "updatedAt"> & { id?: string | undefined };
 
 export type WorkspaceConflictTarget =
   | { kind: "description"; taskId: string }
@@ -47,7 +90,7 @@ export interface WorkspaceBackend {
   restoreTask(task: Task): Promise<void>;
   saveDescription(taskId: string, descriptionMarkdown: string): Promise<void>;
 
-  getWorkLog(taskId: string, workDate: string): Promise<WorkLog | null>;
+  getWorkLog(taskId: string, workDate: string, recordId?: string): Promise<WorkLog | null>;
   listWorkLogs(taskId: string): Promise<WorkLog[]>;
   saveWorkLog(input: WorkLogInput, now?: number): Promise<WorkLog>;
   deleteWorkLog(id: string): Promise<void>;
@@ -64,6 +107,8 @@ export interface WorkspaceBackend {
 
   exportSnapshot(): Promise<WorkspaceSnapshot>;
   importSnapshot(snapshot: WorkspaceSnapshot): Promise<void>;
+  saveImportRecovery?(recovery: ImportRecoveryPoint): Promise<void>;
+  loadImportRecovery?(): Promise<ImportRecoveryPoint | null>;
   clear(): Promise<void>;
   close(): void;
 }

@@ -86,9 +86,29 @@ test("resolution status changes immediately, can be cancelled, and finalizes aft
   assert.equal(finalized.tasks[0].status, "completed");
   assert.equal(finalized.tasks[0].resolvedAt, now + 8_000);
   assert.equal(finalized.tasks[0].pendingResolution, null);
+  assert.deepEqual(finalized.tasks[0].statusHistory.map(({ fromStatus, toStatus, changedAt, source }) => ({ fromStatus, toStatus, changedAt, source })), [
+    { fromStatus: "active", toStatus: "completed", changedAt: now + 8_000, source: "resolution" },
+  ]);
   const restored = reduceState(finalized, { type: "restore-task", id: "task-1", now: now + 10_000 });
   assert.equal(restored.tasks[0].status, "active");
   assert.equal(restored.tasks[0].resolvedAt, null);
+  assert.equal(restored.tasks[0].statusHistory.length, 2);
+  assert.deepEqual({ ...restored.tasks[0].statusHistory[1], eventId: undefined }, {
+    eventId: undefined, fromStatus: "completed", toStatus: "active", changedAt: now + 10_000, source: "restore",
+  });
+});
+
+test("hydration gives legacy resolved tasks a deterministic migration status event", () => {
+  const legacy = createDefaultState(now);
+  legacy.tasks[0] = { ...legacy.tasks[0], status: "completed", resolvedAt: now + 1_000, updatedAt: now + 1_000 };
+  delete legacy.tasks[0].statusHistory;
+  const first = hydrateState(JSON.parse(JSON.stringify(legacy)), now + 2_000).tasks[0].statusHistory;
+  const second = hydrateState(JSON.parse(JSON.stringify(legacy)), now + 3_000).tasks[0].statusHistory;
+  assert.equal(first.length, 1);
+  assert.deepEqual(first, second);
+  assert.deepEqual({ ...first[0], eventId: undefined }, {
+    eventId: undefined, fromStatus: "active", toStatus: "completed", changedAt: now + 1_000, source: "migration",
+  });
 });
 
 test("independent pending timers finalize only tasks whose executeAt has elapsed", () => {
@@ -107,7 +127,8 @@ test("quick reschedule requires a future date for overdue tasks and records hist
   assert.equal(rejected, state);
   const moved = reduceState(state, { type: "reschedule-task", id: "task-1", dueDate: "2026-08-13", reason: "等待依赖", source: "quick", now });
   assert.equal(moved.tasks[0].dueDate, "2026-08-13");
-  assert.deepEqual(moved.tasks[0].rescheduleHistory[0], { fromDate: "2026-08-01", toDate: "2026-08-13", changedAt: now, reason: "等待依赖", source: "quick" });
+  assert.match(moved.tasks[0].rescheduleHistory[0].eventId, /^event-/);
+  assert.deepEqual({ ...moved.tasks[0].rescheduleHistory[0], eventId: undefined }, { eventId: undefined, fromDate: "2026-08-01", toDate: "2026-08-13", changedAt: now, reason: "等待依赖", source: "quick" });
 });
 
 test("detail postponement records history and undo restores date and timeline together", () => {

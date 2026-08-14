@@ -3,6 +3,7 @@ import {
   canMoveFolder,
   createDefaultState,
   createFolder,
+  createId,
   createTask,
   getFolderDescendantIds,
   isOverdue,
@@ -12,7 +13,7 @@ import {
   toISODate,
   updateTask,
 } from "./domain.js";
-import type { AppState, Folder, Priority, RescheduleRecord, StateAction, Task } from "./types.js";
+import type { AppState, Folder, Priority, RescheduleRecord, StateAction, StatusEvent, StatusEventSource, Task, TaskStatus } from "./types.js";
 
 type Listener = (state: AppState, previous: AppState | null) => void;
 
@@ -189,12 +190,14 @@ export function reduceState(state: AppState, action: StateAction): AppState {
     case "finalize-task-resolution": {
       const target = state.tasks.find((task) => task.id === action.id);
       if (!target?.pendingResolution) return state;
+      const changedAt = action.now ?? target.pendingResolution.executeAt;
       return updateOneTask(state, target.id, {
         ...target,
         status: target.pendingResolution.targetStatus,
-        resolvedAt: action.now ?? target.pendingResolution.executeAt,
+        resolvedAt: changedAt,
         pendingResolution: null,
-        updatedAt: action.now ?? target.pendingResolution.executeAt,
+        statusHistory: [...target.statusHistory, createStatusEvent("active", target.pendingResolution.targetStatus, changedAt, "resolution")],
+        updatedAt: changedAt,
       });
     }
 
@@ -209,6 +212,7 @@ export function reduceState(state: AppState, action: StateAction): AppState {
           status: task.pendingResolution.targetStatus,
           resolvedAt: task.pendingResolution.executeAt,
           pendingResolution: null,
+          statusHistory: [...task.statusHistory, createStatusEvent("active", task.pendingResolution.targetStatus, task.pendingResolution.executeAt, "resolution")],
           updatedAt: task.pendingResolution.executeAt,
         };
       });
@@ -218,12 +222,14 @@ export function reduceState(state: AppState, action: StateAction): AppState {
     case "restore-task": {
       const target = state.tasks.find((task) => task.id === action.id);
       if (!target || target.status === "active") return state;
+      const changedAt = action.now ?? Date.now();
       return normalizeActiveOrders(updateOneTask(state, target.id, {
         ...target,
         status: "active",
         resolvedAt: null,
         pendingResolution: null,
-        updatedAt: action.now ?? Date.now(),
+        statusHistory: [...target.statusHistory, createStatusEvent(target.status, "active", changedAt, "restore")],
+        updatedAt: changedAt,
       }));
     }
 
@@ -425,7 +431,11 @@ function deleteFolder(state: AppState, id: string, strategy: "move-contents" | "
 }
 
 function createRescheduleRecord(fromDate: string, toDate: string, reason: string | undefined, source: "quick" | "detail", changedAt: number): RescheduleRecord {
-  return { fromDate, toDate, changedAt, reason: normalizeText(reason), source };
+  return { eventId: createId("event", changedAt), fromDate, toDate, changedAt, reason: normalizeText(reason), source };
+}
+
+function createStatusEvent(fromStatus: TaskStatus, toStatus: TaskStatus, changedAt: number, source: StatusEventSource): StatusEvent {
+  return { eventId: createId("status-event", changedAt), fromStatus, toStatus, changedAt, source };
 }
 
 function nextTaskOrder(tasks: Task[], folderId: string | null): number {

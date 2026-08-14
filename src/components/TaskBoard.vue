@@ -10,7 +10,8 @@
         <button class="icon-button" id="redoAction" type="button" title="重做" aria-label="重做"><i data-lucide="redo-2"></i></button>
         <label class="theme-control" title="主题"><span class="sr-only">主题</span><select id="themeSelect" aria-label="主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
         <input id="importFile" class="file-input" type="file" accept="application/zip,application/json,.zip,.json" />
-        <button class="icon-button" id="importData" type="button" title="导入备份" aria-label="导入备份"><i data-lucide="upload"></i></button>
+        <button class="icon-button" id="importData" type="button" title="导入或合并备份" aria-label="导入或合并备份"><i data-lucide="upload"></i></button>
+        <button class="icon-button" id="importHistory" type="button" title="最近一次导入" aria-label="最近一次导入"><i data-lucide="history"></i></button>
         <button class="icon-button" id="exportData" type="button" title="导出备份" aria-label="导出备份"><i data-lucide="download"></i></button>
       </div>
     </header>

@@ -24,4 +24,16 @@ import TaskWorkspace from "./components/TaskWorkspace.vue";
   bottom: 20px;
   max-width: min(380px, calc(100vw - 40px));
 }
+
+.app-shell.workspace-open ~ .toast {
+  bottom: 88px;
+}
+
+@media (max-width: 880px) {
+  .app-shell.workspace-open ~ .toast {
+    right: 12px;
+    bottom: calc(140px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+}
 </style>

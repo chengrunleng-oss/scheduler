@@ -72,8 +72,8 @@ export class LegacyBrowserImportReader implements WorkspaceBackend {
     });
   }
 
-  async getWorkLog(taskId: string, workDate: string): Promise<WorkLog | null> {
-    const id = workLogId(taskId, workDate);
+  async getWorkLog(taskId: string, workDate: string, recordId?: string): Promise<WorkLog | null> {
+    const id = recordId ?? workLogId(taskId, workDate);
     return (await this.get<WorkLog>(WORK_LOGS, id)) ?? null;
   }
 
@@ -86,13 +86,14 @@ export class LegacyBrowserImportReader implements WorkspaceBackend {
     this.assertAvailable();
     const workDate = normalizeDate(input.workDate);
     if (!workDate) throw new Error("工作日期无效。");
-    const existing = await this.getWorkLog(input.taskId, workDate);
+    const existing = await this.getWorkLog(input.taskId, workDate, input.id);
     const record: WorkLog = {
-      id: workLogId(input.taskId, workDate),
+      id: input.id ?? workLogId(input.taskId, workDate),
       taskId: input.taskId,
       workDate,
       contentMarkdown: input.contentMarkdown.replace(/\r\n?/g, "\n"),
       progressPercent: input.progressPercent === null ? null : Math.max(0, Math.min(100, Math.round(input.progressPercent))),
+      conflictOrigin: input.conflictOrigin,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };

@@ -7,15 +7,25 @@ export type ViewMode = "tree_manual" | "global_priority" | "global_due_date" | "
 export type DefaultTaskDueDate = "today" | "tomorrow" | "next_workday" | "none";
 export type FolderScope = "all" | "root" | string;
 export type RescheduleSource = "quick" | "detail";
+export type StatusEventSource = "resolution" | "restore" | "migration";
 export type WorkspaceTab = "overview" | "worklog" | "attachments";
 export type AttachmentKind = "image" | "pdf" | "text" | "office" | "binary";
 
 export interface RescheduleRecord {
+  eventId: string;
   fromDate: string;
   toDate: string;
   changedAt: number;
   reason: string;
   source: RescheduleSource;
+}
+
+export interface StatusEvent {
+  eventId: string;
+  fromStatus: TaskStatus;
+  toStatus: TaskStatus;
+  changedAt: number;
+  source: StatusEventSource;
 }
 
 export interface PendingResolution {
@@ -40,6 +50,7 @@ export interface Task {
   resolvedAt: number | null;
   pendingResolution: PendingResolution | null;
   rescheduleHistory: RescheduleRecord[];
+  statusHistory: StatusEvent[];
   createdAt: number;
   updatedAt: number;
 }
@@ -94,6 +105,7 @@ export interface WorkLog {
   workDate: string;
   contentMarkdown: string;
   progressPercent: number | null;
+  conflictOrigin?: "imported" | undefined;
   createdAt: number;
   updatedAt: number;
 }
@@ -107,6 +119,7 @@ export interface AttachmentMeta {
   lastModified: number;
   kind: AttachmentKind;
   createdAt: number;
+  contentHash?: string;
 }
 
 export type FolderDeleteStrategy = "move-contents" | "delete-branch";
