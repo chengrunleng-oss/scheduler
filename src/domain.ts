@@ -138,7 +138,7 @@ export function updateTask(task: Task, draft: TaskDraft, now = Date.now(), order
   return {
     ...task,
     title: normalizeText(draft.title),
-    notes: normalizeMultiline(draft.notes),
+    notes: normalizeMultilineKeep(draft.notes),
     priority: coercePriority(draft.priority),
     dueDate: normalizeDate(draft.dueDate),
     tag: normalizeText(draft.tag),
@@ -154,7 +154,7 @@ export function updateTask(task: Task, draft: TaskDraft, now = Date.now(), order
 export function taskMatchesDraft(task: Task, draft: TaskDraft): boolean {
   return (
     task.title === normalizeText(draft.title) &&
-    task.notes === normalizeMultiline(draft.notes) &&
+    task.notes === normalizeMultilineKeep(draft.notes) &&
     task.priority === coercePriority(draft.priority) &&
     task.dueDate === normalizeDate(draft.dueDate) &&
     task.tag === normalizeText(draft.tag) &&
@@ -185,6 +185,12 @@ export function normalizeText(value: unknown): string {
 
 export function normalizeMultiline(value: unknown): string {
   return typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : "";
+}
+
+// TEST-V08-018：编辑任务时保留用户输入的多行空白（仅统一换行符），
+// 避免自动保存后的重绘把刚敲入的行尾空格/回车抹掉。
+export function normalizeMultilineKeep(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\r\n?/g, "\n") : "";
 }
 
 export function normalizeDate(value: unknown): string {
@@ -492,7 +498,7 @@ function hydrateTask(value: unknown, now: number, fallbackOrder: number, folderI
   return {
     id: normalizeText(value.id) || createId("task", now),
     title,
-    notes: normalizeMultiline(value.notes),
+    notes: normalizeMultilineKeep(value.notes),
     descriptionMarkdown: normalizeMarkdown(value.descriptionMarkdown),
     priority: coercePriority(value.priority),
     dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),
@@ -519,7 +525,7 @@ function migrateLegacyTask(value: unknown, now: number, order: number): Task | n
   return {
     id: normalizeText(value.id) || createId("task", now),
     title: normalizeText(value.title),
-    notes: normalizeMultiline(value.notes),
+    notes: normalizeMultilineKeep(value.notes),
     descriptionMarkdown: "",
     priority: coercePriority(value.priority),
     dueDate: normalizeDate(value.dueDate) || normalizeDate(value.date),

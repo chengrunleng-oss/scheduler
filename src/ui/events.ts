@@ -5,7 +5,7 @@ import {
   getFolderDescendantIds,
   getFolderDepth,
   isOverdue,
-  normalizeMultiline,
+  normalizeMultilineKeep,
   normalizeText,
   selectVisibleTasks,
   toISODate,
@@ -68,7 +68,7 @@ export function bindEvents(
 
   function readDetailDraft(task: Task): TaskDraft {
     return {
-      title: normalizeText(els.detailTitle.value), notes: normalizeMultiline(els.detailNotes.value), priority: coercePriority(els.detailPriority.value),
+      title: normalizeText(els.detailTitle.value), notes: normalizeMultilineKeep(els.detailNotes.value), priority: coercePriority(els.detailPriority.value),
       dueDate: els.detailDueDate.value, tag: normalizeText(els.detailTag.value), status: task.status, folderId: els.detailFolder.value || null,
     };
   }

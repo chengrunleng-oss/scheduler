@@ -855,6 +855,23 @@ test("workspace panel resizes at 1280px desktop width (TEST-V08-017d)", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
+test("overview fields keep user whitespace through autosave and re-renders (TEST-V08-018)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#taskDetail.is-open")).toBeVisible();
+  const notes = page.locator("#detailNotes");
+  await notes.fill("第一行\n第二行 \n");
+  await expect(page.locator("#overviewSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  // 保存后触发界面重绘（窗口尺寸变化）：聚焦中的字段不被规范化值覆盖。
+  await page.setViewportSize({ width: 1440, height: 880 });
+  await expect(notes).toHaveValue("第一行\n第二行 \n");
+  // 失焦后再重绘：保存值同样保留用户空白。
+  await page.locator("#workspaceTitle").click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(notes).toHaveValue("第一行\n第二行 \n");
+  const savedNotes = await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.loadWorkspace()).state.tasks.find((task) => task.id === "task-1")?.notes ?? "");
+  expect(savedNotes).toBe("第一行\n第二行 \n");
+});
+
 test("attachments persist blobs, preview text, and insert image references into Markdown", async ({ page }) => {
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
   await page.locator("#attachmentsTab").click();
@@ -1192,6 +1209,8 @@ test("workspace and task list never overlap across target desktop and mobile vie
     { width: 390, height: 844, split: false },
   ]) {
     await page.setViewportSize(viewport);
+    // 等待网格轨道过渡（190ms）结束，避免测量到过渡中的旧位置。
+    await page.waitForTimeout(250);
     const geometry = await page.evaluate(() => {
       const list = document.querySelector("#taskList");
       const main = document.querySelector("main.workspace");

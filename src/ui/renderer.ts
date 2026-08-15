@@ -131,13 +131,18 @@ export function createRenderer(els: Elements): Renderer {
     setHidden(els.timelineSection, task.rescheduleHistory.length + task.statusHistory.length === 0);
     renderTimeline(task, els.rescheduleTimeline);
     if (view.detailDirty) return;
-    els.detailTitle.value = task.title;
-    els.detailNotes.value = task.notes;
-    els.detailPriority.value = task.priority;
-    els.detailFolder.value = task.folderId ?? "";
-    els.detailDueDate.value = task.dueDate;
-    els.detailTag.value = task.tag;
-    els.detailRescheduleReason.value = "";
+    // TEST-V08-018：正在编辑（聚焦中）的字段不被重绘覆盖，避免保存规范化后
+    // 的值把用户刚敲入的空格/回车抹掉。
+    const writeIfNotEditing = (field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) => {
+      if (document.activeElement !== field) field.value = value;
+    };
+    writeIfNotEditing(els.detailTitle, task.title);
+    writeIfNotEditing(els.detailNotes, task.notes);
+    writeIfNotEditing(els.detailPriority, task.priority);
+    writeIfNotEditing(els.detailFolder, task.folderId ?? "");
+    writeIfNotEditing(els.detailDueDate, task.dueDate);
+    writeIfNotEditing(els.detailTag, task.tag);
+    writeIfNotEditing(els.detailRescheduleReason, "");
     els.detailCreatedAt.textContent = formatDateTime(task.createdAt);
     els.detailUpdatedAt.textContent = formatDateTime(task.updatedAt);
   }

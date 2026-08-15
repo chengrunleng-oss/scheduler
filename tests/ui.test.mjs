@@ -213,6 +213,9 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);
+  // TEST-V08-018：概览字段保留用户空白，重绘不覆盖聚焦字段。
+  assert.match(events, /normalizeMultilineKeep/);
+  assert.match(renderer, /writeIfNotEditing/);
   // attachment: 引用解析层：消毒渲染、占位改写、对象 URL 解析与失效占位。
   assert.match(markdownRender, /DOMPurify\.sanitize/);
   assert.match(markdownRender, /marked\.parse/);
