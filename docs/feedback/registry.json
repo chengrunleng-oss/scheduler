@@ -67,6 +67,13 @@
         "description": "在编辑器任意区域（含预览区）拖入或粘贴文件均能入库为附件并插入引用，且拖拽过程有明确的高亮反馈。",
         "status": "met",
         "evidence": "e2e 014b 改为在预览区执行完整 dragenter/dragover/drop 序列，断言 drag-active 高亮态出现与消除、attachment: 引用插入并刷新后仍显示。"
+      },
+      {
+        "id": "gate-10",
+        "finding_ids": ["TEST-V08-016"],
+        "description": "已处理折叠区收起时完全隐藏条目，展开时显示全部，点击折叠有明确可见效果。",
+        "status": "met",
+        "evidence": "e2e 016：折叠态不渲染任何已处理条目、展开后 4 条全部可见、再次折叠后再次全部收起；完成流程用例先展开再恢复。"
       }
     ]
   },
@@ -130,6 +137,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-015 登记并修复：编辑器拖放监听扩展到整个宿主并补 dragover 文件交付；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "cc141b8",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-016 登记并修复：已处理折叠区收起时完全隐藏条目；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -404,6 +421,28 @@
       "history": [
         { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 77fd0ec；69 项 Node 测试与 63 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-016",
+      "severity": "P2",
+      "category": "handled-section-collapse",
+      "kind": "defect",
+      "title": "已处理折叠区收起时仍显示条目，折叠按钮显得无效",
+      "status": "fixed",
+      "fix_commit": "cc141b8",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：折叠态不渲染条目、展开显示全部、再次折叠收起（TEST-V08-016）",
+        "e2e/workbench.spec.mjs：完成流程先展开已处理区再恢复为待办"
+      ],
+      "evidence": [
+        "用户直接体验反馈：在绝对频率测量的文件夹下，已完成条目的子分组内条目没有办法折叠，点击了折叠按钮没用。",
+        "renderHandledSection 在折叠态仍渲染最新 3 条预览；条目少于等于 3 条时点击折叠没有任何可见变化。"
+      ],
+      "resolution": "折叠态完全收起全部已处理条目（标题仍显示数量），展开态显示全部；移除“另有 N 项”提示；更新折叠区与完成流程 e2e 用例。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cc141b8；69 项 Node 测试与 63 项 Playwright 测试通过（拖拽用例单独复跑通过）。" }
       ]
     }
   ]
