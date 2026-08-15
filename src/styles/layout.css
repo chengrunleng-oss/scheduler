@@ -116,7 +116,6 @@
 .folder-menu-item.danger { color: var(--danger); }
 .handled-heading { display: flex; width: calc(100% - 16px); min-height: 40px; align-items: center; gap: 7px; margin: 8px; border: 0; border-top: 1px dashed var(--line-strong); background: transparent; color: var(--muted); padding: 8px; text-align: left; }
 .handled-heading span { margin-left: auto; font-size: 12px; }
-.handled-more { margin: 2px 16px 8px; color: var(--muted); font-size: 12px; }
 .root-create-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 12px 8px 4px; padding-top: 12px; border-top: 1px solid var(--line); }
 .root-create-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border: 1px solid currentColor; border-radius: 6px; background: var(--surface); padding: 8px 13px; font-weight: 650; }
 .root-create-button:hover { background: var(--surface-muted); }

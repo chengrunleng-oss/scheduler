@@ -402,8 +402,9 @@ function renderHandledSection(state: AppState, tasks: Task[], view: ViewState, f
   heading.setAttribute("aria-expanded", String(expanded));
   heading.append(icon(expanded ? "ChevronDown" : "ChevronRight", 16), document.createTextNode("已处理"), createElement("span", { text: String(handled.length) }));
   container.append(heading);
-  for (const task of (expanded ? handled : handled.slice(0, 3))) container.append(createTaskNode(task, state, view, depth, false));
-  if (!expanded && handled.length > 3) container.append(createElement("p", { className: "handled-more", text: `另有 ${handled.length - 3} 项` }));
+  // TEST-V08-016：折叠态完全收起全部已处理条目（不再保留“最新 3 条”预览），
+  // 少量已完成条目时点击折叠才有明确可见效果；展开态显示全部。
+  if (expanded) for (const task of handled) container.append(createTaskNode(task, state, view, depth, false));
 }
 
 function renderGlobalView(state: AppState, tasks: Task[], view: ViewState, container: HTMLElement): void {

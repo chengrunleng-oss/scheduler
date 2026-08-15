@@ -189,13 +189,16 @@ test("completion remains undoable across refresh and finalizes into handled sect
   await expect(page.getByRole("button", { name: /已处理/ })).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: /已处理 1/ })).toBeVisible({ timeout: 10_000 });
+  // 折叠态完全收起条目，先展开“已处理”区再操作恢复按钮。
+  await expect(page.getByRole("option", { name: new RegExp(`${primaryTask}，已完成`) })).toHaveCount(0);
+  await page.getByRole("button", { name: /已处理 1/ }).click();
   const completed = page.getByRole("option", { name: new RegExp(`${primaryTask}，已完成`) });
   await expect(completed.getByRole("button", { name: "恢复为待办" })).toBeVisible();
   await completed.getByRole("button", { name: "恢复为待办" }).click();
   await expect(page.getByRole("option", { name: new RegExp(`${primaryTask}，待办`) })).toBeVisible();
 });
 
-test("handled tasks render after child folders and show the latest three by resolved time", async ({ page }) => {
+test("handled tasks render after child folders and collapse entirely until expanded (TEST-V08-016)", async ({ page }) => {
   await persistDefaultState(page);
   await page.evaluate(async () => {
     const state = (await globalThis.__workspaceBackendForTests.loadWorkspace()).state;
@@ -216,12 +219,15 @@ test("handled tasks render after child folders and show the latest three by reso
   await expect(childHeading).toBeVisible();
   await expect(handledHeading).toBeVisible();
   expect((await childHeading.boundingBox()).y).toBeLessThan((await handledHeading.boundingBox()).y);
-  await expect(page.getByRole("option", { name: /已处理-0/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: /已处理-1/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: /已处理-2/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: /已处理-3/ })).toHaveCount(0);
+  // 折叠态完全收起：标题可见但不渲染任何已处理条目。
+  await expect(handledHeading).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("option", { name: /已处理-/ })).toHaveCount(0);
   await handledHeading.click();
-  await expect(page.getByRole("option", { name: /已处理-3/ })).toBeVisible();
+  await expect(handledHeading).toHaveAttribute("aria-expanded", "true");
+  for (const index of [0, 1, 2, 3]) await expect(page.getByRole("option", { name: new RegExp(`已处理-${index}`) })).toBeVisible();
+  await handledHeading.click();
+  await expect(handledHeading).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("option", { name: /已处理-/ })).toHaveCount(0);
 });
 
 test("pending resolution can be cancelled immediately", async ({ page }) => {
