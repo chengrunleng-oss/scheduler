@@ -182,6 +182,8 @@
 .markdown-editor { min-height: 220px; margin-top: 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-raised); overflow: hidden; }
 .markdown-editor[data-editor-state="loading"] { display: grid; place-items: center; color: var(--muted); }
 .markdown-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 218px; background: var(--surface-raised); }
+.markdown-shell.drag-active { outline: 2px dashed var(--teal); outline-offset: -2px; }
+.markdown-shell.drag-active .markdown-source, .markdown-shell.drag-active .markdown-preview { background: var(--teal-soft); }
 .markdown-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .markdown-tool { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
 .markdown-tool:hover { background: var(--surface-muted); color: var(--text); }

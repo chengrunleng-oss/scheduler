@@ -187,12 +187,35 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
       options.onSave();
     }
   };
-  const onDrop = (event: DragEvent) => {
-    if (!options.uploadFiles || readonly) return;
-    const files = [...(event.dataTransfer?.files ?? [])];
-    if (!files.length) return;
+  // 拖放/粘贴文件入库：监听绑定在编辑器宿主上，覆盖工具栏、源码与预览整块区域，
+  // 而不是只覆盖 textarea；dragover 必须 preventDefault，浏览器才会把从资源管理器
+  // 拖入的文件交给页面处理。
+  const acceptsFiles = (transfer: DataTransfer | null | undefined): boolean => {
+    if (!options.uploadFiles || readonly || !transfer) return false;
+    return [...transfer.items].some((item) => item.kind === "file");
+  };
+  let dragDepth = 0;
+  const onDragEnter = (event: DragEvent) => {
+    if (!acceptsFiles(event.dataTransfer)) return;
     event.preventDefault();
-    void ingestFiles(files);
+    dragDepth += 1;
+    shell.classList.add("drag-active");
+  };
+  const onDragOver = (event: DragEvent) => {
+    if (!acceptsFiles(event.dataTransfer)) return;
+    event.preventDefault();
+  };
+  const onDragLeave = () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) shell.classList.remove("drag-active");
+  };
+  const onDrop = (event: DragEvent) => {
+    dragDepth = 0;
+    shell.classList.remove("drag-active");
+    if (!acceptsFiles(event.dataTransfer)) return;
+    event.preventDefault();
+    const files = [...(event.dataTransfer?.files ?? [])];
+    if (files.length) void ingestFiles(files);
   };
   const onPaste = (event: ClipboardEvent) => {
     if (!options.uploadFiles || readonly) return;
@@ -203,8 +226,11 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
   };
   textarea.addEventListener("input", onInput);
   textarea.addEventListener("keydown", onKeyDown);
-  textarea.addEventListener("drop", onDrop);
-  textarea.addEventListener("paste", onPaste);
+  options.host.addEventListener("dragenter", onDragEnter);
+  options.host.addEventListener("dragover", onDragOver);
+  options.host.addEventListener("dragleave", onDragLeave);
+  options.host.addEventListener("drop", onDrop);
+  options.host.addEventListener("paste", onPaste);
 
   void renderPreview();
 
@@ -221,8 +247,11 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
       window.clearTimeout(previewTimer);
       textarea.removeEventListener("input", onInput);
       textarea.removeEventListener("keydown", onKeyDown);
-      textarea.removeEventListener("drop", onDrop);
-      textarea.removeEventListener("paste", onPaste);
+      options.host.removeEventListener("dragenter", onDragEnter);
+      options.host.removeEventListener("dragover", onDragOver);
+      options.host.removeEventListener("dragleave", onDragLeave);
+      options.host.removeEventListener("drop", onDrop);
+      options.host.removeEventListener("paste", onPaste);
       options.host.replaceChildren();
     },
   };

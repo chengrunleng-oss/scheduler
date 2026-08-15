@@ -689,14 +689,22 @@ test("image dropped into daily record is stored as an attachment reference and s
   await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
 
   const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-  await page.evaluate((base64) => {
+  const dragFile = (targetSelector, eventTypes) => page.evaluate(({ base64, selector, types }) => {
     const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
     const file = new File([bytes], "photo.png", { type: "image/png" });
     const transfer = new DataTransfer();
     transfer.items.add(file);
-    const target = document.querySelector("#worklogEditor textarea");
-    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: transfer }));
-  }, pngBase64);
+    const target = document.querySelector(selector);
+    const options = { bubbles: true, cancelable: true, dataTransfer: transfer };
+    for (const type of types) target.dispatchEvent(new DragEvent(type, options));
+  }, { base64: pngBase64, selector: targetSelector, types: eventTypes });
+
+  // 真实拖放序列：dragenter/dragover（浏览器要求 preventDefault 才会交付文件），
+  // 且落在预览区——监听只在 textarea 上时这里完全不生效。
+  await dragFile("#worklogEditor .markdown-preview", ["dragenter", "dragover"]);
+  await expect(page.locator("#worklogEditor .markdown-shell")).toHaveClass(/drag-active/);
+  await dragFile("#worklogEditor .markdown-preview", ["drop"]);
+  await expect(page.locator("#worklogEditor .markdown-shell")).not.toHaveClass(/drag-active/);
 
   // 编辑器源码出现 attachment: 引用，预览渲染为真实图片。
   await expect(page.locator("#worklogEditor textarea")).toHaveValue(/!\[photo\.png\]\(attachment:[^)]+\)/, { timeout: 20_000 });
