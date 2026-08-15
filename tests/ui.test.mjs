@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender, lightbox] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
@@ -28,6 +28,7 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
   readFile(new URL("../src/backup.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-render.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/ui/lightbox.ts", import.meta.url), "utf8"),
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
@@ -166,7 +167,9 @@ test("task workspace has tabs, resizable desktop width, and full-screen mobile l
   assert.doesNotMatch(renderer, /style\.gridTemplateColumns/);
   assert.match(renderer, /Math\.min\(680, Math\.max\(480, preferredWorkspaceWidth\)/);
   assert.match(css, /@media \(min-width:\s*1340px\)[^]*\.app-shell\.workspace-open/s);
-  assert.match(css, /@media \(min-width:\s*881px\) and \(max-width:\s*1339px\)[^]*\.workspace\s*\{\s*display:\s*none/s);
+  assert.match(css, /@media \(min-width:\s*881px\) and \(max-width:\s*1179px\)[^]*\.workspace\s*\{\s*display:\s*none/s);
+  // TEST-V08-017：1180-1339 同样提供三轨布局与可拖拽的工作区分界。
+  assert.match(css, /@media \(min-width:\s*1180px\) and \(max-width:\s*1339px\)[^]*minmax\(420px,\s*1fr\)[^]*clamp\(560px,\s*var\(--workspace-width, 620px\),\s*680px\)/s);
 });
 
 test("folder headings toggle on the whole row while inner actions stay independent", () => {
@@ -197,6 +200,19 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(markdownEditor, /markdown-fallback/);
   assert.match(markdownEditor, /renderPlainMarkdown/);
   assert.doesNotMatch(markdownEditor, /@milkdown|prosemirror|Crepe/);
+  // TEST-V08-017：输入法合成保护、保存守卫、预览手动开关与默认纯源码。
+  assert.match(markdownEditor, /compositionstart/);
+  assert.match(markdownEditor, /compositionend/);
+  assert.match(markdownEditor, /isComposing/);
+  assert.match(markdownEditor, /preview-mode/);
+  assert.match(workspace, /isComposing\(\)/);
+  assert.match(main, /installImageLightbox/);
+  assert.match(lightbox, /markdown-lightbox/);
+  assert.match(lightbox, /Escape/);
+  assert.match(layoutCss, /cursor: zoom-in/);
+  // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
+  assert.match(responsiveCss, /min-width: 1180px/);
+  assert.match(events, /window\.innerWidth < 1180/);
   // attachment: 引用解析层：消毒渲染、占位改写、对象 URL 解析与失效占位。
   assert.match(markdownRender, /DOMPurify\.sanitize/);
   assert.match(markdownRender, /marked\.parse/);

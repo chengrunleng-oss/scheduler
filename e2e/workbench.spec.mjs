@@ -628,7 +628,7 @@ test("task workspace autosaves Markdown description and dated work log before sw
 
   await page.getByRole("option", { name: /安排一段不被打扰的专注时间/ }).locator(".task-main").click();
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
-  await expect(page.locator("#descriptionEditor")).toContainText("长期目标", { timeout: 20_000 });
+  await expect(page.locator("#descriptionEditor textarea")).toHaveValue(/长期目标/, { timeout: 20_000 });
   await expect(page.locator("#worklogDate")).toHaveAttribute("max", /^\d{4}-\d{2}-\d{2}$/);
   const currentDate = await page.locator("#worklogDate").inputValue();
   await page.locator("#worklogDate").evaluate((input) => { input.value = "2999-01-01"; input.dispatchEvent(new Event("change", { bubbles: true })); });
@@ -712,8 +712,10 @@ test("image dropped into daily record is stored as an attachment reference and s
   await dragFile("#worklogEditor .markdown-preview", ["drop"]);
   await expect(page.locator("#worklogEditor .markdown-shell")).not.toHaveClass(/drag-active/);
 
-  // 编辑器源码出现 attachment: 引用，预览渲染为真实图片。
+  // 编辑器源码出现 attachment: 引用；预览默认收起，手动打开后渲染为真实图片。
   await expect(page.locator("#worklogEditor textarea")).toHaveValue(/!\[photo\.png\]\(attachment:[^)]+\)/, { timeout: 20_000 });
+  await expect(page.locator("#worklogEditor .markdown-preview")).toBeHidden();
+  await page.locator("#worklogEditor .markdown-preview-toggle").click();
   await expect(page.locator("#worklogEditor .markdown-preview img")).toHaveAttribute("src", /^blob:/, { timeout: 20_000 });
   await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
 
@@ -755,6 +757,102 @@ test("embedded data-uri images migrate into attachments (TEST-V08-014c)", async 
   expect(result.attachments).toEqual([{ name: "内嵌截图.png", kind: "image" }]);
   expect(result.content).not.toContain("data:image");
   expect(result.content).toContain("attachment:");
+});
+
+test("IME composition is not persisted mid-pinyin and commits the final text (TEST-V08-017a)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  const editor = page.locator("#worklogEditor textarea");
+  await editor.click();
+
+  const cdp = await page.context().newCDPSession(page);
+  // 输入拼音（合成中）：停顿超过自动保存窗口也不得把拼音存盘。
+  await cdp.send("Input.imeSetComposition", { text: "nihao", selectionStart: 5, selectionEnd: 5 });
+  await page.waitForTimeout(1000);
+  expect(await editor.inputValue()).toBe("nihao");
+  const midCompositionSaved = await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1"))[0]?.contentMarkdown ?? "");
+  expect(midCompositionSaved).toBe("");
+
+  // 提交候选汉字：真实浏览器在提交后还会派发 input 与 compositionend。
+  await cdp.send("Input.imeSetComposition", { text: "你好", selectionStart: 2, selectionEnd: 2 });
+  await page.evaluate(() => {
+    const textarea = document.querySelector("#worklogEditor textarea");
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "你好" }));
+  });
+  await expect(editor).toHaveValue("你好");
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listWorkLogs("task-1"))[0]?.contentMarkdown ?? ""), { timeout: 5_000 }).toBe("你好");
+
+  // 连续数字输入保持完整。
+  await editor.fill("");
+  await page.keyboard.type("1");
+  await page.keyboard.type("2");
+  await expect(editor).toHaveValue("12");
+});
+
+test("worklog editor defaults to source-only with an explicit preview toggle (TEST-V08-017b)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  const editor = page.locator("#worklogEditor textarea");
+  const preview = page.locator("#worklogEditor .markdown-preview");
+  await editor.fill("**加粗** 内容");
+  // 默认只显示源码，不显示渲染预览。
+  await expect(editor).toBeVisible();
+  await expect(preview).toBeHidden();
+  await page.locator("#worklogEditor .markdown-preview-toggle").click();
+  await expect(preview).toBeVisible();
+  await expect(preview.locator("strong")).toHaveText("加粗");
+  await expect(editor).toHaveValue("**加粗** 内容");
+  await page.locator("#worklogEditor .markdown-preview-toggle").click();
+  await expect(preview).toBeHidden();
+});
+
+test("clicking a rendered image opens a zoom lightbox closable with Escape (TEST-V08-017c)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  await page.evaluate((base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const file = new File([bytes], "photo.png", { type: "image/png" });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const target = document.querySelector("#worklogEditor .markdown-preview");
+    const options = { bubbles: true, cancelable: true, dataTransfer: transfer };
+    target.dispatchEvent(new DragEvent("dragenter", options));
+    target.dispatchEvent(new DragEvent("dragover", options));
+    target.dispatchEvent(new DragEvent("drop", options));
+  }, pngBase64);
+  await expect(page.locator("#worklogEditor textarea")).toHaveValue(/attachment:/, { timeout: 20_000 });
+  await page.locator("#worklogEditor .markdown-preview-toggle").click();
+  const renderedImage = page.locator("#worklogEditor .markdown-preview img");
+  await expect(renderedImage).toBeVisible({ timeout: 20_000 });
+  await renderedImage.click();
+  const lightbox = page.locator(".markdown-lightbox");
+  await expect(lightbox).toBeVisible();
+  await expect(lightbox.locator("img")).toHaveAttribute("src", /^blob:/);
+  await page.keyboard.press("Escape");
+  await expect(lightbox).toHaveCount(0);
+});
+
+test("workspace panel resizes at 1280px desktop width (TEST-V08-017d)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await expect(page.locator("#taskDetail.is-open")).toBeVisible();
+  const widthBefore = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--workspace-width").trim());
+  const resizer = page.locator("#detailResizer");
+  await expect(resizer).toBeVisible();
+  const box = await resizer.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 80, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const widthAfter = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--workspace-width").trim());
+  expect(widthAfter).not.toBe(widthBefore);
+  expect(Number.parseInt(widthAfter, 10)).toBeGreaterThanOrEqual(560);
+  await page.setViewportSize({ width: 1440, height: 900 });
 });
 
 test("attachments persist blobs, preview text, and insert image references into Markdown", async ({ page }) => {
@@ -1087,7 +1185,8 @@ test("workspace and task list never overlap across target desktop and mobile vie
   for (const viewport of [
     { width: 1440, height: 900, split: true },
     { width: 1366, height: 768, split: true },
-    { width: 1180, height: 800, split: false },
+    { width: 1280, height: 800, split: true },
+    { width: 1180, height: 800, split: true },
     { width: 1024, height: 768, split: false },
     { width: 768, height: 1024, split: false },
     { width: 390, height: 844, split: false },
@@ -1116,7 +1215,7 @@ test("workspace and task list never overlap across target desktop and mobile vie
     });
     expect(geometry.overlapArea).toBe(0);
     expect(geometry.listVisible).toBe(viewport.split);
-    if (viewport.split) expect(geometry.mainWidth).toBeGreaterThanOrEqual(500);
+    if (viewport.split) expect(geometry.mainWidth).toBeGreaterThanOrEqual(viewport.width >= 1340 ? 500 : 420);
     expect(geometry.panelLeft).toBeGreaterThanOrEqual(0);
     expect(geometry.panelRight).toBeLessThanOrEqual(viewport.width + 1);
   }

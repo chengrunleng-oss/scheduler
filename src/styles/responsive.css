@@ -26,13 +26,21 @@
   to { opacity: 1; }
 }
 
-@media (min-width: 881px) and (max-width: 1339px) {
+@media (min-width: 881px) and (max-width: 1179px) {
   .app-shell.workspace-open .workspace { display: none; }
   .app-shell.workspace-open .detail-panel { position: static; z-index: auto; grid-column: 2; width: 100%; height: 100dvh; border-top: 0; box-shadow: none; transform: none; transition: none; }
   .app-shell.workspace-open .detail-resizer { display: none; }
 }
 
-@media (max-width: 1180px) {
+/* TEST-V08-017：1180-1339 同样使用三轨布局并允许拖拽分界调节工作区宽度（图标导航留出空间）。 */
+@media (min-width: 1180px) and (max-width: 1339px) {
+  .app-shell { grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 0px; transition: grid-template-columns 190ms ease; }
+  .app-shell.workspace-open { grid-template-columns: var(--sidebar-width) minmax(420px, 1fr) clamp(560px, var(--workspace-width, 620px), 680px); }
+  .app-shell.workspace-open .sidebar { width: var(--sidebar-width); }
+  .app-shell.workspace-open .detail-panel { position: static; z-index: auto; grid-column: 3; width: 100%; height: 100dvh; border-top: 0; box-shadow: none; transform: none; transition: none; overflow: hidden; animation: workspace-panel-in 190ms ease; }
+}
+
+@media (max-width: 1339px) {
   :root { --sidebar-width: 72px; --task-columns: minmax(0, 1fr) 64px 112px minmax(176px, max-content); }
   .app-shell { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
   .sidebar { width: var(--sidebar-width); overflow-x: hidden; }
@@ -102,11 +110,10 @@
   .root-create-actions { align-items: stretch; flex-direction: column; }
   .root-create-button { width: 100%; }
   .worklog-panel, .attachments-panel { padding-inline: 12px; }
-  .markdown-fallback { grid-template-columns: 1fr; }
+  .markdown-fallback, .markdown-fallback.preview-mode { grid-template-columns: 1fr; }
   .markdown-fallback .markdown-preview { display: none; }
-  .markdown-fallback.preview-mode .markdown-source { display: none; }
+  .markdown-fallback.preview-mode .markdown-source { display: none; border-right: 0; }
   .markdown-fallback.preview-mode .markdown-preview { display: block; }
-  .markdown-preview-toggle { display: inline-flex; }
   .markdown-source { border-right: 0; border-bottom: 1px solid var(--line); }
   .attachment-toolbar { align-items: stretch; flex-direction: column; }
   .attachment-row { grid-template-columns: 1fr; }

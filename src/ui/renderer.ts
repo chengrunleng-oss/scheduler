@@ -65,9 +65,10 @@ export function createRenderer(els: Elements): Renderer {
     els.defaultDueDate.value = state.preferences.defaultTaskDueDate;
     els.defaultPriority.value = state.preferences.defaultTaskPriority;
     const preferredWorkspaceWidth = Number.isFinite(state.preferences.workspaceWidth) ? state.preferences.workspaceWidth : 620;
-    const workspaceWidth = window.innerWidth >= 1340
-      ? Math.min(680, Math.max(480, preferredWorkspaceWidth), Math.max(480, window.innerWidth - 732))
-      : preferredWorkspaceWidth;
+    // TEST-V08-017：1180px 起即可拖拽调节工作区宽度；1180-1339 使用图标导航（72px）与更窄的任务列表。
+    let workspaceWidth = preferredWorkspaceWidth;
+    if (window.innerWidth >= 1340) workspaceWidth = Math.min(680, Math.max(480, preferredWorkspaceWidth), Math.max(480, window.innerWidth - 732));
+    else if (window.innerWidth >= 1180) workspaceWidth = Math.min(680, Math.max(560, preferredWorkspaceWidth), Math.max(560, window.innerWidth - 492));
     document.documentElement.style.setProperty("--workspace-width", `${workspaceWidth}px`);
     const workspaceOpen = view.detailPanelOpen && Boolean(view.selectedTaskId);
     els.appShell.classList.toggle("workspace-open", workspaceOpen);

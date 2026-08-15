@@ -11,6 +11,7 @@ import { hasLegacyStateInStorage, loadPreferencesFromStorage, savePreferencesToS
 import { UnavailableWorkspaceBackend } from "./unavailable-workspace-backend.js";
 import { clearWorkspaceDirectoryHandle, loadWorkspaceDirectoryHandle, saveWorkspaceDirectoryHandle } from "./workspace-handle-store.js";
 import { createDialogs } from "./ui/dialogs.js";
+import { installImageLightbox } from "./ui/lightbox.js";
 import { createDragAndDrop } from "./ui/drag-drop.js";
 import { bindEvents } from "./ui/events.js";
 import { refreshStaticIcons } from "./ui/icons.js";
@@ -125,6 +126,7 @@ async function drainWorkspaceSaves(): Promise<boolean> {
 
 const workspace = createWorkspaceController(els, store, backend, dialogs, persistState);
 const bindings = bindEvents(els, store, dialogs, workspace, backend, persistState, render);
+installImageLightbox();
 const dragAndDrop = createDragAndDrop(els.taskList, store, bindings.getViewState, (message) => {
   els.liveRegion.textContent = message;
 });

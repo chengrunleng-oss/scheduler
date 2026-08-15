@@ -723,7 +723,7 @@ test("description conflicts offer cancel, conflict copy, and external reload", a
   await expect(page.locator("#conflictDialog")).toBeVisible();
   await page.locator("#conflictCopy").click();
   await expect(page.locator("#toast")).toContainText("已保存为 description.conflict-");
-  await expect(page.locator("#descriptionEditor")).toContainText("external-one", { timeout: 20_000 });
+  await expect(page.locator("#descriptionEditor textarea")).toHaveValue("external-one", { timeout: 20_000 });
   const copy = await page.evaluate(async () => {
     const root = await navigator.storage.getDirectory();
     const workspace = await root.getDirectoryHandle("conflict-ui-workspace");
@@ -740,7 +740,7 @@ test("description conflicts offer cancel, conflict copy, and external reload", a
   await refreshedEditor.fill("browser-draft-two");
   await expect(page.locator("#conflictDialog")).toBeVisible({ timeout: 5_000 });
   await page.locator("#conflictReload").click();
-  await expect(page.locator("#descriptionEditor")).toContainText("external-two", { timeout: 20_000 });
+  await expect(page.locator("#descriptionEditor textarea")).toHaveValue("external-two", { timeout: 20_000 });
 });
 
 test("task delete, UI undo, and reload restore all local task files", async ({ page }) => {

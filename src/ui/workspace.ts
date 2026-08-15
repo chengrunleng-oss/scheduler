@@ -102,6 +102,8 @@ export function createWorkspaceController(
   async function saveDescription(): Promise<boolean> {
     window.clearTimeout(descriptionTimer);
     if (!activeTaskId || !descriptionEditor) return true;
+    // TEST-V08-017：输入法合成中跳过保存并稍后重试，避免拼音中间态被持久化。
+    if (descriptionEditor.isComposing()) { descriptionTimer = window.setTimeout(() => { void saveDescription(); }, 400); return true; }
     const markdown = descriptionEditor.getMarkdown();
     if (!descriptionDirty && normalizeMarkdown(markdown) === normalizeMarkdown(savedDescriptionMarkdown)) return true;
     setSaveStatus("description", "saving");
@@ -126,6 +128,8 @@ export function createWorkspaceController(
   async function saveWorklog(): Promise<boolean> {
     window.clearTimeout(worklogTimer);
     if (!activeTaskId || !worklogEditor) return true;
+    // TEST-V08-017：输入法合成中跳过保存并稍后重试，避免拼音中间态被持久化。
+    if (worklogEditor.isComposing()) { worklogTimer = window.setTimeout(() => { void saveWorklog(); }, 400); return true; }
     const markdown = worklogEditor.getMarkdown();
     if (!worklogDirty && normalizeMarkdown(markdown) === normalizeMarkdown(savedWorklogMarkdown)) return true;
     if (!backend.available) {

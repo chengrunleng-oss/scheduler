@@ -18,6 +18,8 @@ export interface MarkdownEditorHandle {
   getMarkdown(): string;
   focus(): void;
   setReadonly(value: boolean): void;
+  // 输入法合成中（拼音未提交为汉字）时为 true；保存方应跳过并稍后重试。
+  isComposing(): boolean;
   destroy(): Promise<void>;
 }
 
@@ -44,6 +46,7 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
   let destroyed = false;
   let previewVersion = 0;
   let previewTimer = 0;
+  let composing = false;
 
   const shell = document.createElement("div");
   shell.className = "markdown-shell";
@@ -180,7 +183,17 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
   });
 
   // ---- 事件 ----
-  const onInput = () => emitChange();
+  const onInput = () => {
+    // TEST-V08-017：输入法合成中不触发保存/预览，避免拼音中间态被持久化，
+    // 也不打断候选词选择；compositionend 时统一提交最终值。
+    if (composing) return;
+    emitChange();
+  };
+  const onCompositionStart = () => { composing = true; };
+  const onCompositionEnd = () => {
+    composing = false;
+    emitChange();
+  };
   const onKeyDown = (event: KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
@@ -225,6 +238,8 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
     void ingestFiles(files);
   };
   textarea.addEventListener("input", onInput);
+  textarea.addEventListener("compositionstart", onCompositionStart);
+  textarea.addEventListener("compositionend", onCompositionEnd);
   textarea.addEventListener("keydown", onKeyDown);
   options.host.addEventListener("dragenter", onDragEnter);
   options.host.addEventListener("dragover", onDragOver);
@@ -237,6 +252,7 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
   return {
     getMarkdown: () => textarea.value,
     focus: () => textarea.focus(),
+    isComposing: () => composing,
     setReadonly(value: boolean) {
       readonly = value;
       textarea.readOnly = value;
@@ -246,6 +262,8 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
       destroyed = true;
       window.clearTimeout(previewTimer);
       textarea.removeEventListener("input", onInput);
+      textarea.removeEventListener("compositionstart", onCompositionStart);
+      textarea.removeEventListener("compositionend", onCompositionEnd);
       textarea.removeEventListener("keydown", onKeyDown);
       options.host.removeEventListener("dragenter", onDragEnter);
       options.host.removeEventListener("dragover", onDragOver);

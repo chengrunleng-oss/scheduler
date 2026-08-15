@@ -518,12 +518,12 @@ export function bindEvents(
   els.undoAction.addEventListener("click", () => { void runHistoryOperation("undo"); });
   els.redoAction.addEventListener("click", () => { void runHistoryOperation("redo"); });
   els.detailResizer.addEventListener("pointerdown", (event) => {
-    if (window.innerWidth < 1340) return;
+    if (window.innerWidth < 1180) return;
     event.preventDefault();
     els.detailResizer.setPointerCapture(event.pointerId);
     const move = (moveEvent: PointerEvent) => {
       const sidebarWidth = els.sidebar.getBoundingClientRect().width || 220;
-      const maximum = Math.max(560, Math.min(680, window.innerWidth - sidebarWidth - 500));
+      const maximum = Math.max(560, Math.min(680, window.innerWidth - sidebarWidth - 420));
       const width = Math.max(560, Math.min(maximum, window.innerWidth - moveEvent.clientX));
       document.documentElement.style.setProperty("--workspace-width", `${width}px`);
     };
@@ -538,7 +538,7 @@ export function bindEvents(
     els.detailResizer.addEventListener("pointerup", end);
   });
   els.detailResizer.addEventListener("keydown", (event) => {
-    if (window.innerWidth < 1340) return;
+    if (window.innerWidth < 1180) return;
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     const delta = event.key === "ArrowLeft" ? 16 : -16;

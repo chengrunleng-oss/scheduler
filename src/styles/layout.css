@@ -187,13 +187,17 @@
 .markdown-tool { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; }
 .markdown-tool:hover { background: var(--surface-muted); color: var(--text); }
 .markdown-tool:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
-.markdown-preview-toggle { display: none; margin-left: auto; }
-.markdown-fallback { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 280px; }
-.markdown-source { min-width: 0; min-height: 280px; padding: 12px; border: 0; border-right: 1px solid var(--line); border-radius: 0; resize: vertical; background: var(--surface-raised); color: var(--text); font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace); font-size: 13px; line-height: 1.6; }
+.markdown-preview-toggle { display: inline-flex; margin-left: auto; }
+.markdown-fallback { display: grid; grid-template-columns: 1fr; min-height: 280px; }
+.markdown-fallback .markdown-preview { display: none; }
+.markdown-fallback.preview-mode { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.markdown-fallback.preview-mode .markdown-preview { display: block; }
+.markdown-source { min-width: 0; min-height: 280px; padding: 12px; border: 0; border-radius: 0; resize: vertical; background: var(--surface-raised); color: var(--text); font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace); font-size: 13px; line-height: 1.6; }
+.markdown-fallback.preview-mode .markdown-source { border-right: 1px solid var(--line); }
 .markdown-source[readonly] { color: var(--muted); background: var(--surface-muted); }
 .markdown-preview { min-width: 0; overflow: auto; padding: 12px; line-height: 1.6; }
 .markdown-preview > :first-child { margin-top: 0; }
-.rendered-markdown img { max-width: 100%; height: auto; border-radius: 5px; }
+.rendered-markdown img { max-width: 100%; height: auto; border-radius: 5px; cursor: zoom-in; }
 .rendered-markdown pre { overflow: auto; padding: 10px; border-radius: 6px; background: var(--surface-muted); }
 .rendered-markdown code { font-family: var(--font-mono, ui-monospace, Consolas, monospace); }
 .rendered-markdown table { border-collapse: collapse; }
@@ -202,6 +206,10 @@
 .rendered-markdown a { color: var(--teal); }
 .attachment-missing { display: inline-block; padding: 2px 8px; border: 1px dashed var(--line-strong); border-radius: 6px; color: var(--muted); font-size: 12px; }
 .history-content { margin: 0; padding: 2px 2px 12px; line-height: 1.6; }
+.markdown-lightbox { position: fixed; z-index: 90; inset: 0; display: grid; place-items: center; gap: 10px; align-content: center; padding: 24px; background: rgb(10 14 20 / 82%); opacity: 0; cursor: zoom-out; transition: opacity 140ms ease; }
+.markdown-lightbox.visible { opacity: 1; }
+.markdown-lightbox img { max-width: min(92vw, 1600px); max-height: 82vh; border-radius: 8px; box-shadow: var(--shadow); background: var(--surface-raised); }
+.markdown-lightbox-caption { margin: 0; color: #f5f7fa; font-size: 13px; text-align: center; }
 .workspace-empty { margin: 0; color: var(--muted); padding: 22px 8px; text-align: center; }
 .worklog-history { display: grid; gap: 2px; margin-top: 10px; }
 .worklog-history-item { border-top: 1px solid var(--line); }
