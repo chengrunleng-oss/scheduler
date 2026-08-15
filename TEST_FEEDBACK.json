@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-15",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "d4827fc",
+  "source_revision": "77fd0ec",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。完整自动验证（69 项 Node 测试、63 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015：编辑器拖放监听只挂在源码 textarea 且未在 dragover 阶段 preventDefault，真实拖拽（尤其拖到宽屏预览区）不生效；监听现已扩展到整个编辑器宿主并新增拖拽高亮态。完整自动验证（69 项 Node 测试、63 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -59,7 +59,8 @@
     "测试反馈文档体系已建立：每轮不可变快照、问题登记表、格式契约与校验脚本均纳入 npm run verify。",
     "Playwright e2e 改用专用端口 5180 且禁止复用现有服务器，避免本地开发服务器被误当作测试目标。",
     "TEST-V08-013 已修复：parseWorkLog 仅在确有取值时返回 conflictOrigin，stableValue 忽略 undefined 值键；含工作记录的备份导入通过写后校验并合并持久化，新增 e2e 回归用例。",
-    "TEST-V08-014 已修复：编辑器改为 Markdown 源码+实时渲染预览、历史改为渲染 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层、整理内嵌图片迁移动作与三个 e2e 回归用例，并移除 Crepe 依赖。"
+    "TEST-V08-014 已修复：编辑器改为 Markdown 源码+实时渲染预览、历史改为渲染 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层、整理内嵌图片迁移动作与三个 e2e 回归用例，并移除 Crepe 依赖。",
+    "TEST-V08-015 已修复：编辑器拖放监听从仅 textarea 扩展到整个编辑器宿主并补 dragover 文件交付，拖到预览区/工具栏也能入库，新增拖拽高亮态；e2e 改为在预览区执行完整拖放序列。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -188,6 +189,24 @@
           "e2e/workbench.spec.mjs：data: URI 内嵌图片迁移为附件（TEST-V08-014c）"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-015",
+      "severity": "P1",
+      "category": "markdown-editor-host-drop",
+      "title": "每日记录编辑器拖拽上传图片不生效",
+      "evidence": [
+        "用户直接体验反馈：每日记录那里好像不支持拖拽上传图片了。",
+        "拖放监听只挂在源码 textarea 上，宽屏分栏时拖到预览区或工具栏完全没有响应。",
+        "浏览器要求 dragover 阶段 preventDefault 才会把从资源管理器拖入的文件交付给页面，原实现只处理了 drop 事件。"
+      ],
+      "required_action": "把 dragenter/dragover/dragleave/drop/paste 监听移到编辑器宿主（覆盖工具栏、源码与预览整块区域），dragover 对含文件的拖拽 preventDefault；新增拖拽高亮态；e2e 改为在预览区执行完整拖放序列。",
+      "resolution": {
+        "fix_commit": "77fd0ec",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：预览区完整 dragenter/dragover/drop 序列、drag-active 高亮态、attachment: 引用插入并刷新后仍显示（TEST-V08-014b 扩展）"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -239,6 +258,12 @@
         "status": "met",
         "finding_ids": ["TEST-V08-014"],
         "evidence": "e2e 014a 源码编辑与历史渲染、014b 拖入图片入库与刷新后显示、014c data: URI 迁移全部通过；视觉基线按新编辑形态重采集。"
+      },
+      {
+        "description": "在编辑器任意区域（含预览区）拖入或粘贴文件均能入库为附件并插入引用，且拖拽过程有明确的高亮反馈。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-015"],
+        "evidence": "e2e 014b 改为在预览区执行完整 dragenter/dragover/drop 序列，断言 drag-active 高亮态出现与消除、attachment: 引用插入并刷新后仍显示。"
       }
     ]
   },

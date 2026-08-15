@@ -9,6 +9,7 @@
 - 新增 `attachment:` 引用解析渲染层（marked + DOMPurify + 按附件 ID 缓存的对象 URL），历史记录、编辑器预览与长期描述统一显示真实图片；附件被删除时显示失效占位。
 - 附件面板新增“整理内嵌图片”维护动作：把长期描述与工作记录中内嵌的 data: URI 图片提取为附件并替换为 `attachment:` 引用。
 - 移除 @milkdown/crepe 与 ProseMirror 依赖（净减 184 个包）：正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。
+- 补充修复 TEST-V08-015：编辑器拖放监听原先只挂在源码 textarea 上且未在 dragover 阶段 preventDefault，真实拖拽（尤其拖到宽屏预览区时）不生效；现将监听扩展到整个编辑器宿主并补 dragover 文件交付，新增 drag-active 高亮态。
 
 ### 验证
 
