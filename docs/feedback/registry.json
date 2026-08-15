@@ -74,6 +74,13 @@
         "description": "已处理折叠区收起时完全隐藏条目，展开时显示全部，点击折叠有明确可见效果。",
         "status": "met",
         "evidence": "e2e 016：折叠态不渲染任何已处理条目、展开后 4 条全部可见、再次折叠后再次全部收起；完成流程用例先展开再恢复。"
+      },
+      {
+        "id": "gate-11",
+        "finding_ids": ["TEST-V08-017"],
+        "description": "编辑器输入法合成期间不持久化拼音中间态；默认纯源码编辑并提供手动预览；渲染图片可点击放大；1180px 起可拖拽调节工作区宽度。",
+        "status": "met",
+        "evidence": "e2e 017a 合成保护（CDP IME 模拟）、017b 预览手动开关、017c 图片放大遮罩与 Esc 关闭、017d 1280px 拖拽调宽全部通过。"
       }
     ]
   },
@@ -147,6 +154,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-016 登记并修复：已处理折叠区收起时完全隐藏条目；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "79bdfa5",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-017 登记并修复：输入法合成保护、纯源码编辑与手动预览、图片放大查看、1180px 起可调工作区宽度；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -443,6 +460,32 @@
       "history": [
         { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cc141b8；69 项 Node 测试与 63 项 Playwright 测试通过（拖拽用例单独复跑通过）。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-017",
+      "severity": "P1",
+      "category": "editor-ime-preview-lightbox-resize",
+      "kind": "defect",
+      "title": "编辑器输入法回退、无预览开关、图片无法放大且工作区宽度无法调节",
+      "status": "fixed",
+      "fix_commit": "79bdfa5",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：CDP IME 模拟合成期间拼音不落盘、提交汉字后保存（TEST-V08-017a）",
+        "e2e/workbench.spec.mjs：默认纯源码与预览手动开关（TEST-V08-017b）",
+        "e2e/workbench.spec.mjs：点击渲染图片打开放大遮罩并 Esc 关闭（TEST-V08-017c）",
+        "e2e/workbench.spec.mjs：1280px 视口拖拽分界调节工作区宽度（TEST-V08-017d）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：输入法选字时汉字闪现后变回拼音，多个汉字一次性输入尤为明显；有时输入数字会让上一个数字消失。",
+        "用户直接体验反馈：不希望 md 编译效果直接放在源码旁边，每日记录纯放源码即可。",
+        "用户直接体验反馈：md 中图片看不清，希望点击图片放大显示。",
+        "用户直接体验反馈：任务工作区大小没办法拖拽分界线调节。"
+      ],
+      "resolution": "编辑器在 composition 期间不触发保存与预览、合成结束统一提交，保存函数在合成中自动推迟；每日记录与长期描述默认纯源码、工具栏“预览/源码”手动切换；新增渲染图片放大遮罩（Esc/点击关闭）；三轨布局与拖拽调宽阈值从 1340px 下调到 1180px，1180-1339 使用图标导航与紧凑任务列表。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 79bdfa5；69 项 Node 测试与 67 项 Playwright 测试全部通过，视觉基线重采集。" }
       ]
     }
   ]
