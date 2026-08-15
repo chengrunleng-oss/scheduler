@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-15",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "79bdfa5",
+  "source_revision": "f949338",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）与 TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）。完整自动验证（69 项 Node 测试、67 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）、TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）与 TEST-V08-018（概览表单自动保存时 trim 掉用户刚敲入的行尾空格与回车，随后界面重绘把规范化值写回输入框；现保留用户空白且重绘不再覆盖正在编辑的字段）。完整自动验证（69 项 Node 测试、68 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 69, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 67, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 68, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。",
@@ -62,7 +62,8 @@
     "TEST-V08-014 已修复：编辑器改为 Markdown 源码+实时渲染预览、历史改为渲染 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层、整理内嵌图片迁移动作与三个 e2e 回归用例，并移除 Crepe 依赖。",
     "TEST-V08-015 已修复：编辑器拖放监听从仅 textarea 扩展到整个编辑器宿主并补 dragover 文件交付，拖到预览区/工具栏也能入库，新增拖拽高亮态；e2e 改为在预览区执行完整拖放序列。",
     "TEST-V08-016 已修复：已处理折叠区收起时完全隐藏条目（标题保留数量），展开时显示全部；移除“最新 3 条”预览与“另有 N 项”提示，更新折叠区与完成流程 e2e 用例。",
-    "TEST-V08-017 已修复：编辑器增加输入法合成保护（合成期间不保存、合成结束统一提交）；每日记录与长期描述默认纯源码、工具栏手动切换预览；渲染图片可点击放大（Esc/点击关闭）；三轨布局与拖拽调宽阈值下调至 1180px，新增四个 e2e 回归用例。"
+    "TEST-V08-017 已修复：编辑器增加输入法合成保护（合成期间不保存、合成结束统一提交）；每日记录与长期描述默认纯源码、工具栏手动切换预览；渲染图片可点击放大（Esc/点击关闭）；三轨布局与拖拽调宽阈值下调至 1180px，新增四个 e2e 回归用例。",
+    "TEST-V08-018 已修复：说明字段保存与读取水合均保留用户空白（仅统一换行符），renderDetail 不再覆盖聚焦中的字段；行尾空格与回车在自动保存和界面重绘后保持原样，新增 e2e 回归用例。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -249,6 +250,24 @@
           "e2e/workbench.spec.mjs：1280px 视口拖拽分界调节工作区宽度（TEST-V08-017d）"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-018",
+      "severity": "P2",
+      "category": "overview-form-whitespace",
+      "title": "敲入空格或回车后过一段时间消失",
+      "evidence": [
+        "用户直接体验反馈：敲入空格或回车后，等一段时间就消失了。",
+        "readDetailDraft 用 normalizeMultiline（trim）规范化说明字段，updateTask 与 hydrateTask 同样 trim，用户输入的行尾空格与回车在保存时被丢弃。",
+        "renderDetail 在 detailDirty 复位后的下一次重绘（任务完成 8 秒确认、窗口变化等）把规范化后的值写回输入框，抹掉用户刚输入的内容。"
+      ],
+      "required_action": "说明字段改为仅统一换行符（不 trim），保存与读取水合两侧均保留用户空白；renderDetail 跳过聚焦中的字段不再覆盖；新增 e2e 回归用例。",
+      "resolution": {
+        "fix_commit": "f949338",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：自动保存后缩放重绘（聚焦）与失焦重绘均保留行尾空格与回车，落盘值一致（TEST-V08-018）"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -318,6 +337,12 @@
         "status": "met",
         "finding_ids": ["TEST-V08-017"],
         "evidence": "e2e 017a 合成保护（CDP IME 模拟）、017b 预览手动开关、017c 图片放大遮罩与 Esc 关闭、017d 1280px 拖拽调宽全部通过。"
+      },
+      {
+        "description": "任务概览等表单字段保留用户输入的空格与回车，自动保存与界面重绘不得抹掉用户刚输入的内容。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-018"],
+        "evidence": "e2e 018：说明字段输入行尾空格与回车后，自动保存并触发窗口重绘（聚焦与失焦两种）内容保持原样，落盘值一致。"
       }
     ]
   },

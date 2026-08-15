@@ -81,6 +81,13 @@
         "description": "编辑器输入法合成期间不持久化拼音中间态；默认纯源码编辑并提供手动预览；渲染图片可点击放大；1180px 起可拖拽调节工作区宽度。",
         "status": "met",
         "evidence": "e2e 017a 合成保护（CDP IME 模拟）、017b 预览手动开关、017c 图片放大遮罩与 Esc 关闭、017d 1280px 拖拽调宽全部通过。"
+      },
+      {
+        "id": "gate-12",
+        "finding_ids": ["TEST-V08-018"],
+        "description": "任务概览等表单字段保留用户输入的空格与回车，自动保存与界面重绘不得抹掉用户刚输入的内容。",
+        "status": "met",
+        "evidence": "e2e 018：说明字段输入行尾空格与回车后，自动保存并触发窗口重绘（聚焦与失焦两种）内容保持原样，落盘值一致。"
       }
     ]
   },
@@ -164,6 +171,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-017 登记并修复：输入法合成保护、纯源码编辑与手动预览、图片放大查看、1180px 起可调工作区宽度；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "f949338",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-018 登记并修复：概览表单保留用户空白且重绘不再覆盖正在编辑的字段；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -486,6 +503,28 @@
       "history": [
         { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 79bdfa5；69 项 Node 测试与 67 项 Playwright 测试全部通过，视觉基线重采集。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-018",
+      "severity": "P2",
+      "category": "overview-form-whitespace",
+      "kind": "defect",
+      "title": "敲入空格或回车后过一段时间消失",
+      "status": "fixed",
+      "fix_commit": "f949338",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：自动保存后缩放重绘（聚焦）与失焦重绘均保留行尾空格与回车，落盘值一致（TEST-V08-018）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：敲入空格或回车后，等一段时间就消失了。",
+        "readDetailDraft 用 normalizeMultiline（trim）规范化说明字段，updateTask 与 hydrateTask 同样 trim，用户输入的行尾空格与回车在保存时被丢弃。",
+        "renderDetail 在 detailDirty 复位后的下一次重绘（任务完成 8 秒确认、窗口变化等）把规范化后的值写回输入框，抹掉用户刚输入的内容。"
+      ],
+      "resolution": "说明字段改为 normalizeMultilineKeep（仅统一换行符，不 trim），保存与读取水合两侧均保留用户空白；renderDetail 跳过聚焦中的字段不再覆盖；新增 e2e 回归用例。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit f949338；69 项 Node 测试与 68 项 Playwright 测试全部通过。" }
       ]
     }
   ]
