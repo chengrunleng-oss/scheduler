@@ -211,6 +211,14 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(lightbox, /markdown-lightbox/);
   assert.match(lightbox, /Escape/);
   assert.match(layoutCss, /cursor: zoom-in/);
+  // TEST-V08-025：放大视图填满可用空间、独立放大/缩小图标与关闭按钮；分区放大图标随状态切换。
+  assert.match(lightbox, /markdown-lightbox-stage/);
+  assert.match(lightbox, /ZoomIn/);
+  assert.match(lightbox, /ZoomOut/);
+  assert.match(layoutCss, /object-fit: contain/);
+  assert.match(layoutCss, /markdown-lightbox-close/);
+  assert.match(workspace, /Minimize2/);
+  assert.match(responsiveCss, /\.zoom-overlay \.worklog-history-item\.expanded \.history-content[^}]*max-height:\s*none/s);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);
@@ -329,11 +337,12 @@ test("attachments accept drag-and-drop upload and can reveal the task folder (TE
 
 test("component zoom overlays and recent-activity ribbons are wired (TEST-V08-022/023)", () => {
   for (const id of ["zoomDescription", "zoomDaily", "zoomHistory", "descriptionSection", "dailySection", "worklogHistorySection"]) assert.match(taskWorkspace, new RegExp(`id="${id}"`));
-  assert.match(taskWorkspace, /data-lucide="maximize-2"/);
   assert.doesNotMatch(taskWorkspace, /workspaceZoomToggle|reading-mode/);
   assert.match(icons, /Maximize2/);
+  assert.match(icons, /Minimize2/);
   assert.match(workspace, /setSectionZoom/);
   assert.match(workspace, /zoom-overlay/);
+  assert.match(workspace, /refreshZoomButtons/);
   assert.match(workspace, /event\.key === "Escape" && zoomedButton/);
   assert.match(responsiveCss, /\.editor-section\.zoom-overlay/);
   assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay/);

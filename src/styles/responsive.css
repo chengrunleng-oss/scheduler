@@ -36,11 +36,14 @@
   flex-direction: column;
   gap: 14px;
   background: var(--bg);
-  padding: 18px 26px 26px;
+  /* TEST-V08-025：内容居中阅读（最大约 1120px 行宽），避免全屏下超长行。 */
+  padding: 18px max(26px, calc((100vw - 1120px) / 2)) 26px;
   overflow-y: auto;
 }
 .zoom-overlay .markdown-editor { flex: 1 1 auto; min-height: 60dvh; }
-.zoom-overlay .history-content { max-height: none; }
+.zoom-overlay .worklog-history { flex: 1 1 auto; min-height: 0; }
+/* TEST-V08-025：放大视图必须完整展示历史内容，覆盖展开态 420px 上限与内滚动。 */
+.zoom-overlay .worklog-history-item.expanded .history-content { max-height: none; overflow: visible; }
 .zoom-overlay .workspace-section-heading { font-size: 16px; }
 .zoom-overlay .markdown-editor .editor,
 .zoom-overlay .markdown-source,
@@ -49,6 +52,7 @@
   line-height: 1.75;
 }
 .section-zoom[aria-pressed="true"] { color: var(--teal); border-color: var(--line-strong); background: var(--teal-soft); }
+.section-zoom-icon { display: inline-flex; }
 
 /* TEST-V08-024：历史记录展开/折叠的高度动画。 */
 .history-content-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 220ms ease; }

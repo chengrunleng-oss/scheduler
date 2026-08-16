@@ -663,25 +663,55 @@ export function createWorkspaceController(
   els.migrateEmbeddedImages.addEventListener("click", () => { void migrateEmbeddedImages(); });
 
   // TEST-V08-022：组件级放大。每个需要放大查看的组件各自提供按钮，打开后该组件全屏阅读，Esc 或按钮恢复。
+  // TEST-V08-025：按钮图标随状态切换（放大 Maximize2 ↔ 恢复 Minimize2），历史记录放大时自动展开全部条目。
   const zoomSections = new Map<HTMLButtonElement, HTMLElement>([
     [els.zoomDescription, els.descriptionSection],
     [els.zoomDaily, els.dailySection],
     [els.zoomHistory, els.worklogHistorySection],
   ]);
+  const zoomLabels = new Map<HTMLButtonElement, string>([
+    [els.zoomDescription, "长期描述"],
+    [els.zoomDaily, "每日记录"],
+    [els.zoomHistory, "历史记录"],
+  ]);
   let zoomedButton: HTMLButtonElement | null = null;
+  function refreshZoomButtons(): void {
+    for (const [button, label] of zoomLabels) {
+      const zoomed = button === zoomedButton;
+      const holder = document.createElement("span");
+      holder.className = "section-zoom-icon";
+      holder.append(icon(zoomed ? "Minimize2" : "Maximize2", 18));
+      button.querySelector(".section-zoom-icon")?.remove();
+      button.prepend(holder);
+      button.title = zoomed ? `恢复${label}` : `放大${label}`;
+      button.setAttribute("aria-label", zoomed ? `恢复${label}` : `放大${label}`);
+      button.setAttribute("aria-pressed", String(zoomed));
+    }
+  }
   function setSectionZoom(button: HTMLButtonElement | null): void {
     if (zoomedButton === button) return;
     if (zoomedButton) {
       const previous = zoomSections.get(zoomedButton);
       previous?.classList.remove("zoom-overlay");
-      zoomedButton.setAttribute("aria-pressed", "false");
     }
     zoomedButton = button;
     if (button) {
       zoomSections.get(button)?.classList.add("zoom-overlay");
-      button.setAttribute("aria-pressed", "true");
+      // 放大历史记录时展开全部条目，保证阅读视图完整；展开状态保留。
+      if (button === els.zoomHistory) {
+        for (const item of els.worklogHistory.querySelectorAll<HTMLElement>(".worklog-history-item")) {
+          item.classList.add("expanded");
+          const toggle = item.querySelector<HTMLButtonElement>("button[data-worklog-action='toggle']");
+          toggle?.setAttribute("aria-expanded", "true");
+          const labelText = toggle?.getAttribute("aria-label") ?? "";
+          toggle?.setAttribute("aria-label", labelText.replace(/^展开/, "收起"));
+          if (item.dataset.worklogId) expandedWorklogIds.add(item.dataset.worklogId);
+        }
+      }
     }
+    refreshZoomButtons();
   }
+  refreshZoomButtons();
   for (const button of zoomSections.keys()) {
     button.addEventListener("click", () => setSectionZoom(zoomedButton === button ? null : button));
   }

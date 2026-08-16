@@ -816,12 +816,51 @@ test("component zoom overlays fill the viewport and Escape restores (TEST-V08-02
   const section = page.locator("#descriptionSection");
   await expect(section).toHaveClass(/zoom-overlay/);
   await expect(zoomButton).toHaveAttribute("aria-pressed", "true");
+  // TEST-V08-025：放大状态切换为“缩小”图标与恢复语义。
+  await expect(zoomButton.locator("svg.lucide-minimize-2")).toHaveCount(1);
+  await expect(zoomButton).toHaveAttribute("aria-label", "恢复长期描述");
   const box = await section.boundingBox();
   expect(Math.round(box.width)).toBe(1440);
   expect(Math.round(box.height)).toBe(900);
   await page.keyboard.press("Escape");
   await expect(section).not.toHaveClass(/zoom-overlay/);
   await expect(zoomButton).toHaveAttribute("aria-pressed", "false");
+  await expect(zoomButton.locator("svg.lucide-maximize-2")).toHaveCount(1);
+});
+
+test("history zoom expands all records and shows complete content (TEST-V08-025)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ today, yesterday }) => {
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: today, contentMarkdown: `# 今天\n\n${"长内容 ".repeat(60)}`, progressPercent: 10 });
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: yesterday, contentMarkdown: `# 昨天\n\n${"昨日内容 ".repeat(60)}`, progressPercent: 20 });
+  }, { today: iso(0), yesterday: iso(-1) });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(2, { timeout: 20_000 });
+
+  const zoomButton = page.locator("#zoomHistory");
+  await zoomButton.click();
+  const section = page.locator("#worklogHistorySection");
+  await expect(section).toHaveClass(/zoom-overlay/);
+  // 全部条目自动展开，展开态内容不再受 420px 上限与内滚动限制。
+  for (const item of await page.locator("#worklogHistory .worklog-history-item").all()) {
+    await expect(item).toHaveClass(/expanded/);
+  }
+  const content = page.locator("#worklogHistory .worklog-history-item.expanded .history-content").first();
+  await expect(content).toHaveCSS("max-height", "none");
+  const contentMetrics = await content.evaluate((node) => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }));
+  expect(contentMetrics.scrollHeight).toBeLessThanOrEqual(contentMetrics.clientHeight + 1);
+  await expect(content).toContainText("长内容");
+  const overlayBox = await section.boundingBox();
+  expect(Math.round(overlayBox.width)).toBe(1440);
+  expect(Math.round(overlayBox.height)).toBe(900);
+  await expect(zoomButton.locator("svg.lucide-minimize-2")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(section).not.toHaveClass(/zoom-overlay/);
 });
 
 test("worklog history expands, collapses, and moves dates (TEST-V08-024)", async ({ page }) => {
@@ -997,9 +1036,30 @@ test("clicking a rendered image opens a zoom lightbox closable with Escape (TEST
   await renderedImage.click();
   const lightbox = page.locator(".markdown-lightbox");
   await expect(lightbox).toBeVisible();
-  await expect(lightbox.locator("img")).toHaveAttribute("src", /^blob:/);
-  await page.keyboard.press("Escape");
+  const lightboxImage = lightbox.locator("img.markdown-lightbox-image");
+  await expect(lightboxImage).toHaveAttribute("src", /^blob:/);
+  // TEST-V08-025：放大视图填满可用空间（小图也会放大到可读尺寸），而不是按原始像素显示。
+  const imageBox = await lightboxImage.boundingBox();
+  expect(imageBox.width).toBeGreaterThan(500);
+  expect(imageBox.height).toBeGreaterThan(500);
+  // 放大/缩小切换：图标与状态互斥，不再共用同一个放大图标。
+  const zoomToggle = lightbox.locator(".markdown-lightbox-zoom");
+  await expect(zoomToggle).toHaveText(/放大/);
+  await expect(zoomToggle.locator("svg.lucide-zoom-in")).toHaveCount(1);
+  await zoomToggle.click();
+  await expect(lightbox.locator(".markdown-lightbox-stage")).toHaveClass(/zoomed/);
+  await expect(zoomToggle).toHaveText(/缩小/);
+  await expect(zoomToggle.locator("svg.lucide-zoom-out")).toHaveCount(1);
+  await zoomToggle.click();
+  await expect(lightbox.locator(".markdown-lightbox-stage")).not.toHaveClass(/zoomed/);
+  await expect(zoomToggle).toHaveText(/放大/);
+  // 关闭按钮关闭；再次打开后 Esc 关闭。
+  await lightbox.locator(".markdown-lightbox-close").click();
   await expect(lightbox).toHaveCount(0);
+  await renderedImage.click();
+  await expect(page.locator(".markdown-lightbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".markdown-lightbox")).toHaveCount(0);
 });
 
 test("workspace panel resizes at 1280px desktop width (TEST-V08-017d)", async ({ page }) => {

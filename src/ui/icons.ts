@@ -37,6 +37,7 @@ import {
   LocateFixed,
   Maximize2,
   Menu,
+  Minimize2,
   MoreHorizontal,
   NotebookTabs,
   Paperclip,
@@ -52,6 +53,8 @@ import {
   Undo2,
   Upload,
   X,
+  ZoomIn,
+  ZoomOut,
   createElement as createIconElement,
   createIcons,
   type IconNode,
@@ -96,6 +99,7 @@ const ICONS = {
   LocateFixed,
   Maximize2,
   Menu,
+  Minimize2,
   MoreHorizontal,
   NotebookTabs,
   Paperclip,
@@ -111,6 +115,8 @@ const ICONS = {
   Undo2,
   Upload,
   X,
+  ZoomIn,
+  ZoomOut,
 } satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICONS;
@@ -124,7 +130,13 @@ export function icon(name: IconName, size = 18): SVGElement {
     focusable: "false",
   });
   svg.classList.add("lucide-icon");
+  // 与静态 createIcons 路径保持一致，携带 lucide 与 lucide-<name> 类名，便于样式与测试选择。
+  svg.classList.add("lucide", `lucide-${kebabCase(name)}`);
   return svg;
+}
+
+function kebabCase(value: string): string {
+  return value.replace(/([a-z])([A-Z])/g, "$1-$2").replace(/([A-Za-z])(\d)/g, "$1-$2").toLowerCase();
 }
 
 export function refreshStaticIcons(root: Element | Document = document): void {
