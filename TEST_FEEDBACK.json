@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "4c9e16e",
+  "source_revision": "0aaa87b",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 70, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 69, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 70, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -64,7 +64,8 @@
     "TEST-V08-017 已修复：编辑器增加输入法合成保护（合成期间不保存、合成结束统一提交）；每日记录与长期描述默认纯源码、工具栏手动切换预览；渲染图片可点击放大（Esc/点击关闭）；三轨布局与拖拽调宽阈值下调至 1180px，新增四个 e2e 回归用例。",
     "TEST-V08-018 已修复：说明字段保存与读取水合均保留用户空白（仅统一换行符），renderDetail 不再覆盖聚焦中的字段；行尾空格与回车在自动保存和界面重绘后保持原样，新增 e2e 回归用例。",
     "TEST-V08-019 已修复：附件面板支持拖拽文件上传，拖入高亮、松手入库，与文件选择器共用 20 MB 限制与错误提示流程。",
-    "TEST-V08-020 已修复：附件工具栏新增“打开任务文件夹”，本地目录后端用系统文件选择器定位任务目录（纯 Web 的可行近似）；IndexedDB 等无真实目录的后端提示不支持。"
+    "TEST-V08-020 已修复：附件工具栏新增“打开任务文件夹”，本地目录后端用系统文件选择器定位任务目录（纯 Web 的可行近似）；IndexedDB 等无真实目录的后端提示不支持。",
+    "TEST-V08-021 已修复：文件拖到应用窗口任意位置都不再由浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -305,6 +306,24 @@
           "tests/ui.test.mjs：WorkspaceBackend.revealTaskDirectory 可选能力与本地目录后端实现的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-021",
+      "severity": "P2",
+      "category": "file-drop-outside-attachments",
+      "title": "PDF 拖到浏览器窗口被浏览器直接打开而非存入附件",
+      "evidence": [
+        "用户直接体验反馈：直接把 PDF 拖动到浏览器后，浏览器直接打开了 PDF，附件没有存入项目文件夹。",
+        "此前只有附件面板与 Markdown 编辑器有拖放处理，窗口其余区域落入浏览器的默认文件拖放行为（直接导航打开文件）。"
+      ],
+      "required_action": "含文件的拖放一律阻止浏览器默认行为；选中任务时把窗口任意位置拖入的文件入库为附件，未选中时给出明确提示；附件面板与编辑器保持原有流程。",
+      "resolution": {
+        "fix_commit": "0aaa87b",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库（TEST-V08-021）",
+          "tests/ui.test.mjs：全局守卫、提示文案与 copy/none 光标逻辑的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -392,13 +411,19 @@
         "status": "met",
         "finding_ids": ["TEST-V08-020"],
         "evidence": "e2e：stub 系统选择器断言 startIn 为 tasks/task-1 且 multiple；契约测试覆盖 WorkspaceBackend.revealTaskDirectory 能力。"
+      },
+      {
+        "description": "文件拖到应用窗口任意位置都不再被浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-021"],
+        "evidence": "e2e：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库；契约测试覆盖全局守卫与 copy/none 光标逻辑。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "4c9e16e",
+    "head": "0aaa87b",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

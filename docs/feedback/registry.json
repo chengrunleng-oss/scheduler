@@ -31,7 +31,7 @@
         "finding_ids": [],
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
-        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、70 项 Node 测试、69 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、70 项 Node 测试、70 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
       },
       {
         "id": "gate-5",
@@ -102,6 +102,13 @@
         "description": "附件工具栏提供“打开任务文件夹”，用系统文件选择器定位到任务目录（纯 Web 的可行近似）。",
         "status": "met",
         "evidence": "e2e：stub 系统选择器断言 startIn 为 tasks/task-1 且 multiple；契约测试覆盖 WorkspaceBackend.revealTaskDirectory 能力。"
+      },
+      {
+        "id": "gate-15",
+        "finding_ids": ["TEST-V08-021"],
+        "description": "文件拖到应用窗口任意位置都不再被浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
+        "status": "met",
+        "evidence": "e2e：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库；契约测试覆盖全局守卫与 copy/none 光标逻辑。"
       }
     ]
   },
@@ -205,6 +212,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-019/020 登记并修复：附件面板拖拽上传与“打开任务文件夹”按钮；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "0aaa87b",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-021 登记并修复：文件拖到窗口任意位置不再被浏览器直接打开，选中任务即入库；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -587,6 +604,25 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4c9e16e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-021",
+      "severity": "P2",
+      "category": "file-drop-outside-attachments",
+      "kind": "defect",
+      "title": "PDF 拖到浏览器窗口被浏览器直接打开而非存入附件",
+      "status": "fixed",
+      "fix_commit": "0aaa87b",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库（TEST-V08-021）",
+        "tests/ui.test.mjs：全局守卫、提示文案与 copy/none 光标逻辑的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：直接把 PDF 拖动到浏览器后，浏览器直接打开了 PDF，附件没有存入项目文件夹。", "此前只有附件面板与 Markdown 编辑器有拖放处理，窗口其余区域落入浏览器的默认文件拖放行为（直接导航打开文件）。"],
+      "resolution": "新增窗口级 dragover/drop 守卫：含文件的拖放一律阻止浏览器默认行为；未选中任务时提示“先选中一个任务，再把文件拖进来上传为附件”，选中任务时落点不在附件面板/编辑器内的文件统一经 uploadAttachments 入库为附件；面板与编辑器区域保持原有流程避免重复入库。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 0aaa87b；e2e 与契约测试通过。" }
       ]
     }
   ]
