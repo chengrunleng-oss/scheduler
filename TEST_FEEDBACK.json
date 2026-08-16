@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "0aaa87b",
+  "source_revision": "b539bcc",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -35,9 +35,9 @@
         { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
         { "name": "Vue TypeScript typecheck", "result": "passed" },
         { "name": "Vite production build", "result": "passed" },
-        { "name": "Node unit and structural tests", "result": "passed", "passed": 70, "failed": 0 },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 71, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 70, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 72, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -65,7 +65,9 @@
     "TEST-V08-018 已修复：说明字段保存与读取水合均保留用户空白（仅统一换行符），renderDetail 不再覆盖聚焦中的字段；行尾空格与回车在自动保存和界面重绘后保持原样，新增 e2e 回归用例。",
     "TEST-V08-019 已修复：附件面板支持拖拽文件上传，拖入高亮、松手入库，与文件选择器共用 20 MB 限制与错误提示流程。",
     "TEST-V08-020 已修复：附件工具栏新增“打开任务文件夹”，本地目录后端用系统文件选择器定位任务目录（纯 Web 的可行近似）；IndexedDB 等无真实目录的后端提示不支持。",
-    "TEST-V08-021 已修复：文件拖到应用窗口任意位置都不再由浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。"
+    "TEST-V08-021 已修复：文件拖到应用窗口任意位置都不再由浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
+    "TEST-V08-022 已修复：任务工作区标题栏新增放大按钮，阅读模式全屏覆盖、编辑器与历史记录加大字号、历史条目不限高，Esc 或按钮恢复。",
+    "TEST-V08-023 已修复：近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -324,6 +326,40 @@
           "tests/ui.test.mjs：全局守卫、提示文案与 copy/none 光标逻辑的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-022",
+      "severity": "P2",
+      "category": "workspace-reading-mode",
+      "title": "任务工作区 Markdown 太小，阅读不方便",
+      "evidence": [
+        "用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。"
+      ],
+      "required_action": "任务工作区提供放大/阅读模式：全屏覆盖、编辑器与历史记录加大字号、历史条目不限高；Esc 或按钮恢复。",
+      "resolution": {
+        "fix_commit": "b539bcc",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
+          "tests/ui.test.mjs：按钮、reading-mode、Esc 与历史记录不限高的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-023",
+      "severity": "P2",
+      "category": "recent-worklog-ribbon",
+      "title": "近期有工作记录的任务/文件夹缺少醒目标记",
+      "evidence": [
+        "用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。"
+      ],
+      "required_action": "任务与文件夹左上角增加丝带标记；近期窗口可在侧栏设置，默认 7 天，可关闭；文件夹活跃 = 其任意后代任务活跃。",
+      "resolution": {
+        "fix_commit": "b539bcc",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复（TEST-V08-023）",
+          "tests/ui.test.mjs：偏好字段、渲染类、丝带样式与后端 listLatestWorklogDates 元数据能力的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -417,13 +453,25 @@
         "status": "met",
         "finding_ids": ["TEST-V08-021"],
         "evidence": "e2e：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库；契约测试覆盖全局守卫与 copy/none 光标逻辑。"
+      },
+      {
+        "description": "任务工作区提供放大阅读模式：全屏覆盖、加大编辑器与历史记录字号、历史条目不限高，Esc 或按钮恢复。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-022"],
+        "evidence": "e2e：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步；契约测试覆盖按钮、reading-mode 与历史不限高规则。"
+      },
+      {
+        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-023"],
+        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖偏好、渲染类与后端元数据能力。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "0aaa87b",
+    "head": "b539bcc",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",
