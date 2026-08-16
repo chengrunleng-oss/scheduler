@@ -37,8 +37,17 @@ export interface Elements {
   taskDetail: HTMLElement;
   detailResizer: HTMLElement;
   detailClose: HTMLButtonElement;
-  workspaceZoomToggle: HTMLButtonElement;
   detailEmpty: HTMLElement;
+  zoomDescription: HTMLButtonElement;
+  zoomDaily: HTMLButtonElement;
+  zoomHistory: HTMLButtonElement;
+  descriptionSection: HTMLElement;
+  dailySection: HTMLElement;
+  worklogHistorySection: HTMLElement;
+  worklogDateDialog: HTMLDialogElement;
+  worklogDateForm: HTMLFormElement;
+  worklogDatePrompt: HTMLElement;
+  worklogNewDate: HTMLInputElement;
   workspaceTabs: HTMLElement;
   workspaceTabButtons: NodeListOf<HTMLButtonElement>;
   workspaceContent: HTMLElement;
@@ -176,7 +185,10 @@ export function queryElements(): Elements {
     exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importHistory: requiredElement("#importHistory"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
     workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
-    taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), workspaceZoomToggle: requiredElement("#workspaceZoomToggle"), detailEmpty: requiredElement("#detailEmpty"),
+    taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
+    zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"),
+    descriptionSection: requiredElement("#descriptionSection"), dailySection: requiredElement("#dailySection"), worklogHistorySection: requiredElement("#worklogHistorySection"),
+    worklogDateDialog: requiredElement("#worklogDateDialog"), worklogDateForm: requiredElement("#worklogDateForm"), worklogDatePrompt: requiredElement("#worklogDatePrompt"), worklogNewDate: requiredElement("#worklogNewDate"),
     workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),
     detailStatusBadge: requiredElement("#detailStatusBadge"), detailTitle: requiredElement("#detailTitle"), detailNotes: requiredElement("#detailNotes"),
     detailPriority: requiredElement("#detailPriority"), detailFolder: requiredElement("#detailFolder"), detailDueDate: requiredElement("#detailDueDate"),

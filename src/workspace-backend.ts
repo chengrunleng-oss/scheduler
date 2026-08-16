@@ -93,6 +93,8 @@ export interface WorkspaceBackend {
   getWorkLog(taskId: string, workDate: string, recordId?: string): Promise<WorkLog | null>;
   listWorkLogs(taskId: string): Promise<WorkLog[]>;
   saveWorkLog(input: WorkLogInput, now?: number): Promise<WorkLog>;
+  // TEST-V08-024：把记录移动到另一个日期；同任务同日期已存在记录时报错。返回移动后的记录。
+  changeWorkLogDate(id: string, workDate: string, now?: number): Promise<WorkLog>;
   deleteWorkLog(id: string): Promise<void>;
   restoreWorkLog(record: WorkLog): Promise<void>;
 

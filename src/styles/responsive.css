@@ -26,30 +26,38 @@
   to { opacity: 1; }
 }
 
-/* TEST-V08-022：工作区放大/阅读模式：全屏阅读层 + 大字号 + 历史记录不限高。 */
-.app-shell.workspace-open .detail-panel.reading-mode {
+/* TEST-V08-022：组件级放大。长期描述/每日记录/历史记录各自的全屏阅读层。 */
+.editor-section.zoom-overlay,
+.worklog-history-section.zoom-overlay {
   position: fixed;
-  z-index: 60;
+  z-index: 62;
   inset: 0;
-  width: 100vw;
-  max-width: none;
-  height: 100dvh;
-  border: 0;
-  box-shadow: none;
-  transform: none;
-  transition: none;
-  animation: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg);
+  padding: 18px 26px 26px;
+  overflow-y: auto;
 }
-.detail-panel.reading-mode .detail-resizer { display: none; }
-.detail-panel.reading-mode .workspace-panel { width: 100%; max-width: 1080px; margin-inline: auto; font-size: 15.5px; }
-.detail-panel.reading-mode .markdown-editor .editor,
-.detail-panel.reading-mode .markdown-source,
-.detail-panel.reading-mode .history-content,
-.detail-panel.reading-mode .text-preview {
+.zoom-overlay .markdown-editor { flex: 1 1 auto; min-height: 60dvh; }
+.zoom-overlay .history-content { max-height: none; }
+.zoom-overlay .workspace-section-heading { font-size: 16px; }
+.zoom-overlay .markdown-editor .editor,
+.zoom-overlay .markdown-source,
+.zoom-overlay .history-content {
   font-size: 16.5px;
   line-height: 1.75;
 }
-.detail-panel.reading-mode .history-content { max-height: none; }
+.section-zoom[aria-pressed="true"] { color: var(--teal); border-color: var(--line-strong); background: var(--teal-soft); }
+
+/* TEST-V08-024：历史记录展开/折叠的高度动画。 */
+.history-content-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 220ms ease; }
+.worklog-history-item.expanded .history-content-wrap { grid-template-rows: 1fr; }
+.history-content-wrap > .history-content { min-height: 0; overflow: hidden; margin: 0; }
+.worklog-history-item.expanded .history-content { max-height: 420px; overflow-y: auto; }
+.worklog-history-item .history-date { display: flex; align-items: center; gap: 6px; }
+.worklog-history-item .history-date .lucide-icon { transition: transform 220ms ease; }
+.worklog-history-item.expanded .history-date .lucide-icon { transform: rotate(180deg); }
 
 @media (min-width: 881px) and (max-width: 1179px) {
   .app-shell.workspace-open .workspace { display: none; }

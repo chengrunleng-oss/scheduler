@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender, lightbox] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender, lightbox, icons] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
@@ -29,6 +29,7 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
   readFile(new URL("../src/ui/markdown-editor.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/markdown-render.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/lightbox.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/ui/icons.ts", import.meta.url), "utf8"),
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
@@ -326,16 +327,18 @@ test("attachments accept drag-and-drop upload and can reveal the task folder (TE
   assert.match(workspace, /dropEffect = handledElsewhere \|\| activeTaskId \? "copy" : "none"/);
 });
 
-test("workspace reading mode and recent-activity ribbons are wired (TEST-V08-022/023)", () => {
-  assert.match(taskWorkspace, /id="workspaceZoomToggle"/);
-  assert.match(taskWorkspace, /maximize-2/);
-  assert.match(taskWorkspace, /minimize-2/);
-  assert.match(taskWorkspace, /detail-header-actions/);
-  assert.match(workspace, /setReadingMode/);
-  assert.match(workspace, /reading-mode/);
-  assert.match(workspace, /event\.key === "Escape" && readingMode/);
-  assert.match(responsiveCss, /\.detail-panel\.reading-mode \.workspace-panel/);
-  assert.match(responsiveCss, /\.detail-panel\.reading-mode \.history-content \{\s*max-height:\s*none/);
+test("component zoom overlays and recent-activity ribbons are wired (TEST-V08-022/023)", () => {
+  for (const id of ["zoomDescription", "zoomDaily", "zoomHistory", "descriptionSection", "dailySection", "worklogHistorySection"]) assert.match(taskWorkspace, new RegExp(`id="${id}"`));
+  assert.match(taskWorkspace, /data-lucide="maximize-2"/);
+  assert.doesNotMatch(taskWorkspace, /workspaceZoomToggle|reading-mode/);
+  assert.match(icons, /Maximize2/);
+  assert.match(workspace, /setSectionZoom/);
+  assert.match(workspace, /zoom-overlay/);
+  assert.match(workspace, /event\.key === "Escape" && zoomedButton/);
+  assert.match(responsiveCss, /\.editor-section\.zoom-overlay/);
+  assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay/);
+  assert.match(responsiveCss, /\.section-zoom\[aria-pressed="true"\]/);
+  assert.doesNotMatch(responsiveCss, /\.detail-panel\.reading-mode/);
   assert.match(sidebar, /id="recentWorklogDays"/);
   assert.match(sidebar, /一周内（默认）/);
   assert.match(types, /recentWorklogDays: number/);
@@ -344,10 +347,30 @@ test("workspace reading mode and recent-activity ribbons are wired (TEST-V08-022
   assert.match(renderer, /activity-recent/);
   assert.match(css, /\.task-item\.activity-recent::before/);
   assert.match(css, /\.tree-group-heading\.activity-recent::before/);
+  assert.match(css, /border-color: #8b5cf6 transparent transparent transparent/);
+  assert.match(css, /drop-shadow\(1px 1px 0 rgb\(255 255 255 \/ 55%\)\)/);
   assert.match(workspaceBackend, /listLatestWorklogDates\?\(taskIds\?: string\[\]\): Promise<Map<string, string \| null>>/);
   assert.match(localDirectoryBackend, /async listLatestWorklogDates\(taskIds\?: string\[\]\)/);
   assert.match(events, /set-recent-worklog-days/);
   assert.match(workspace, /onActivityChanged/);
+});
+
+test("worklog history expands, collapses, and moves dates with animation (TEST-V08-024)", () => {
+  assert.match(dialogs, /id="worklogDateDialog"/);
+  assert.match(dialogs, /id="worklogNewDate"/);
+  assert.match(workspace, /moveWorklogDate/);
+  assert.match(workspace, /changeWorkLogDate/);
+  assert.match(workspace, /expandedWorklogIds/);
+  assert.match(workspace, /dataset\.worklogAction = "toggle"/);
+  assert.match(workspace, /dataset\.worklogAction = "move-date"/);
+  assert.match(workspace, /CalendarClock/);
+  assert.match(workspace, /history-content-wrap/);
+  assert.match(css, /\.history-content-wrap \{\s*display:\s*grid;\s*grid-template-rows:\s*0fr;\s*transition:\s*grid-template-rows 220ms ease/);
+  assert.match(css, /\.worklog-history-item\.expanded \.history-content-wrap \{\s*grid-template-rows:\s*1fr/);
+  assert.match(css, /\.worklog-history-item\.expanded \.history-date \.lucide-icon \{\s*transform:\s*rotate\(180deg\)/);
+  assert.match(workspaceBackend, /changeWorkLogDate\(id: string, workDate: string, now\?: number\): Promise<WorkLog>/);
+  assert.match(localDirectoryBackend, /async changeWorkLogDate\(id: string, workDate: string, now = Date\.now\(\)\)/);
+  assert.match(workspaceDb, /async changeWorkLogDate/);
 });
 
 test("workspace layout retains internal scrolling and a persistent overview action area", () => {

@@ -1,7 +1,7 @@
 <template>
   <aside id="taskDetail" class="detail-panel" aria-label="任务工作区">
     <div id="detailResizer" class="detail-resizer" role="separator" aria-label="调整任务工作区宽度" aria-orientation="vertical" tabindex="0"></div>
-    <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><div class="detail-header-actions"><button class="icon-button detail-zoom" id="workspaceZoomToggle" type="button" title="放大工作区" aria-label="放大工作区" aria-pressed="false"><i data-lucide="maximize-2"></i><i data-lucide="minimize-2" hidden></i></button><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></div></header>
+    <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></header>
     <div id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="任务工作区页面">
       <button id="overviewTab" class="workspace-tab active" type="button" role="tab" data-workspace-tab="overview" aria-controls="overviewPanel" aria-selected="true">概览</button>
       <button id="worklogTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="worklog" aria-controls="worklogPanel" aria-selected="false">工作记录</button>
@@ -31,16 +31,16 @@
         </form>
       </section>
       <section id="worklogPanel" class="workspace-panel worklog-panel" role="tabpanel" aria-labelledby="worklogTab" hidden>
-        <div class="editor-section">
-          <div class="workspace-section-heading"><h3>长期描述</h3><span id="descriptionSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="descriptionRetry" class="button text-button" type="button" hidden>重试</button></div>
+        <div class="editor-section" id="descriptionSection">
+          <div class="workspace-section-heading"><h3>长期描述</h3><button class="icon-button subtle section-zoom" id="zoomDescription" type="button" title="放大长期描述" aria-label="放大长期描述" aria-pressed="false"><i data-lucide="maximize-2"></i></button><span id="descriptionSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="descriptionRetry" class="button text-button" type="button" hidden>重试</button></div>
           <div id="descriptionEditor" class="markdown-editor" aria-label="长期描述编辑器"></div>
         </div>
-        <div class="editor-section daily-section">
-          <div class="workspace-section-heading daily-heading"><h3>每日记录</h3><button id="newWorklog" class="button secondary compact-button" type="button"><i data-lucide="circle-plus"></i><span>新建记录</span></button><label class="compact-field"><span class="sr-only">工作日期</span><input id="worklogDate" type="date" /></label><label class="progress-field"><span>进度</span><input id="worklogProgress" type="number" min="0" max="100" step="1" inputmode="numeric" /><span>%</span></label></div>
+        <div class="editor-section daily-section" id="dailySection">
+          <div class="workspace-section-heading daily-heading"><h3>每日记录</h3><button class="icon-button subtle section-zoom" id="zoomDaily" type="button" title="放大每日记录" aria-label="放大每日记录" aria-pressed="false"><i data-lucide="maximize-2"></i></button><button id="newWorklog" class="button secondary compact-button" type="button"><i data-lucide="circle-plus"></i><span>新建记录</span></button><label class="compact-field"><span class="sr-only">工作日期</span><input id="worklogDate" type="date" /></label><label class="progress-field"><span>进度</span><input id="worklogProgress" type="number" min="0" max="100" step="1" inputmode="numeric" /><span>%</span></label></div>
           <div class="editor-save-line"><span id="worklogSaveStatus" class="save-status" aria-live="polite">已保存</span><button id="worklogRetry" class="button text-button" type="button" hidden>重试</button></div>
           <div id="worklogEditor" class="markdown-editor" aria-label="每日工作记录编辑器"></div>
         </div>
-        <section class="worklog-history-section" aria-labelledby="worklogHistoryTitle"><h3 id="worklogHistoryTitle">历史记录</h3><div id="worklogUndo" class="worklog-undo" role="status" hidden><span id="worklogUndoText"></span><button id="undoWorklogDelete" class="button text-button" type="button">撤销删除</button></div><div id="worklogHistory" class="worklog-history"></div></section>
+        <section class="worklog-history-section" id="worklogHistorySection" aria-labelledby="worklogHistoryTitle"><div class="workspace-section-heading"><h3 id="worklogHistoryTitle">历史记录</h3><button class="icon-button subtle section-zoom" id="zoomHistory" type="button" title="放大历史记录" aria-label="放大历史记录" aria-pressed="false"><i data-lucide="maximize-2"></i></button></div><div id="worklogUndo" class="worklog-undo" role="status" hidden><span id="worklogUndoText"></span><button id="undoWorklogDelete" class="button text-button" type="button">撤销删除</button></div><div id="worklogHistory" class="worklog-history"></div></section>
       </section>
       <section id="attachmentsPanel" class="workspace-panel attachments-panel" role="tabpanel" aria-labelledby="attachmentsTab" hidden>
         <input id="attachmentFile" class="file-input" type="file" multiple />

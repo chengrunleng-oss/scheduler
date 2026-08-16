@@ -1,6 +1,7 @@
 import {
   Ban,
   Bold,
+  CalendarClock,
   CalendarPlus,
   Check,
   ChevronDown,
@@ -34,6 +35,7 @@ import {
   ListOrdered,
   ListPlus,
   LocateFixed,
+  Maximize2,
   Menu,
   MoreHorizontal,
   NotebookTabs,
@@ -58,6 +60,7 @@ import {
 const ICONS = {
   Ban,
   Bold,
+  CalendarClock,
   CalendarPlus,
   Check,
   ChevronDown,
@@ -91,6 +94,7 @@ const ICONS = {
   ListOrdered,
   ListPlus,
   LocateFixed,
+  Maximize2,
   Menu,
   MoreHorizontal,
   NotebookTabs,

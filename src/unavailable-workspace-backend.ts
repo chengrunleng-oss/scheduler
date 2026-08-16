@@ -19,6 +19,7 @@ export class UnavailableWorkspaceBackend implements WorkspaceBackend {
   async getWorkLog(_taskId: string, _workDate: string): Promise<WorkLog | null> { this.fail(); }
   async listWorkLogs(_taskId: string): Promise<WorkLog[]> { this.fail(); }
   async saveWorkLog(_input: WorkLogInput, _now?: number): Promise<WorkLog> { this.fail(); }
+  async changeWorkLogDate(_id: string, _workDate: string, _now?: number): Promise<WorkLog> { this.fail(); }
   async deleteWorkLog(_id: string): Promise<void> { this.fail(); }
   async restoreWorkLog(_record: WorkLog): Promise<void> { this.fail(); }
   async listAttachments(_taskId: string): Promise<AttachmentMeta[]> { this.fail(); }

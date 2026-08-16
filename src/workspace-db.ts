@@ -108,6 +108,28 @@ export class LegacyBrowserImportReader implements WorkspaceBackend {
     await transactionDone(transaction);
   }
 
+  // TEST-V08-024：旧浏览器数据迁移源的记录改期，供界面统一调用。
+  async changeWorkLogDate(id: string, workDate: string, now = Date.now()): Promise<WorkLog> {
+    this.assertAvailable();
+    const targetDate = normalizeDate(workDate);
+    if (!targetDate) throw new Error("工作日期无效。");
+    const current = await this.get<WorkLog>(WORK_LOGS, id);
+    if (!current) throw new Error("找不到该工作记录。");
+    const mainTargetId = workLogId(current.taskId, targetDate);
+    const isMain = current.id === workLogId(current.taskId, current.workDate);
+    const nextId = isMain ? mainTargetId : current.id;
+    const existing = await this.get<WorkLog>(WORK_LOGS, nextId);
+    if (existing) throw new Error("该任务在目标日期已有工作记录。");
+    const moved: WorkLog = { ...current, workDate: targetDate, id: nextId, updatedAt: now };
+    await this.put(WORK_LOGS, moved);
+    if (nextId !== current.id) {
+      const transaction = this.db!.transaction(WORK_LOGS, "readwrite");
+      transaction.objectStore(WORK_LOGS).delete(current.id);
+      await transactionDone(transaction);
+    }
+    return moved;
+  }
+
   async restoreWorkLog(record: WorkLog): Promise<void> {
     this.assertAvailable();
     await this.put(WORK_LOGS, record);

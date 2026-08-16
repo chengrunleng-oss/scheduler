@@ -47,7 +47,6 @@ export function createWorkspaceController(
   let deletedWorklogWasActive = false;
   let worklogUndoTimer = 0;
   let markdownRenderer: MarkdownRenderer | null = null;
-  let readingMode = false;
 
   els.worklogDate.max = toISODate();
   els.worklogDate.value = activeWorkDate;
@@ -258,6 +257,9 @@ export function createWorkspaceController(
     await renderWorklogHistory();
   }
 
+  // TEST-V08-024：历史记录的展开集合（重绘后恢复），当前打开在编辑器里的记录默认展开。
+  const expandedWorklogIds = new Set<string>();
+
   async function renderWorklogHistory(): Promise<void> {
     els.worklogHistory.replaceChildren();
     if (!activeTaskId || !backend.available) {
@@ -276,12 +278,17 @@ export function createWorkspaceController(
   async function createHistoryItem(record: WorkLog): Promise<HTMLElement> {
     const item = createElement("article", { className: "worklog-history-item" });
     item.dataset.worklogId = record.id;
+    const expanded = expandedWorklogIds.has(record.id) || record.id === activeWorkLogId;
+    item.classList.toggle("expanded", expanded);
     const header = createElement("div", { className: "worklog-history-head" });
-    const dateButton = createElement("button", { className: "history-date", text: `${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? " · 导入冲突副本" : ""}` });
+    const dateButton = createElement("button", { className: "history-date" });
     dateButton.type = "button";
-    dateButton.dataset.worklogAction = "open";
+    dateButton.dataset.worklogAction = "toggle";
     dateButton.dataset.workDate = record.workDate;
     dateButton.dataset.worklogId = record.id;
+    dateButton.setAttribute("aria-expanded", String(expanded));
+    dateButton.setAttribute("aria-label", `${expanded ? "收起" : "展开"} ${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? "的导入冲突副本" : "的记录"}`);
+    dateButton.append(icon("ChevronDown", 15), document.createTextNode(`${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? " · 导入冲突副本" : ""}`));
     header.append(dateButton);
     if (record.progressPercent !== null) header.append(createElement("span", { className: "history-progress", text: `${record.progressPercent}%` }));
     else header.append(createElement("span"));
@@ -294,20 +301,27 @@ export function createWorkspaceController(
     edit.dataset.worklogId = record.id;
     edit.setAttribute("aria-label", `编辑 ${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? "的导入冲突副本" : "的记录"}`);
     edit.append(icon("Pencil", 16));
+    const move = createElement("button", { className: "icon-button", title: "修改记录日期" });
+    move.type = "button";
+    move.dataset.worklogAction = "move-date";
+    move.dataset.worklogId = record.id;
+    move.setAttribute("aria-label", `修改 ${formatDate(record.workDate)} 的记录日期`);
+    move.append(icon("CalendarClock", 16));
     const remove = createElement("button", { className: "icon-button danger", title: "删除记录" });
     remove.type = "button";
     remove.dataset.worklogAction = "delete";
     remove.setAttribute("aria-label", `删除 ${formatDate(record.workDate)} 的记录`);
     remove.append(icon("Trash2", 16));
-    actions.append(edit, remove);
+    actions.append(edit, move, remove);
     header.append(actions);
+    const wrap = createElement("div", { className: "history-content-wrap" });
     const content = createElement("div", { className: "history-content rendered-markdown" });
     content.innerHTML = record.contentMarkdown
       ? await (markdownRenderer?.render(record.contentMarkdown) ?? Promise.resolve(renderPlainMarkdown(record.contentMarkdown)))
       : "";
     if (!record.contentMarkdown) content.textContent = "（空记录）";
-    content.hidden = record.id !== activeWorkLogId;
-    item.append(header, content);
+    wrap.append(content);
+    item.append(header, wrap);
     return item;
   }
 
@@ -648,19 +662,69 @@ export function createWorkspaceController(
 
   els.migrateEmbeddedImages.addEventListener("click", () => { void migrateEmbeddedImages(); });
 
-  // TEST-V08-022：工作区放大/阅读模式。全屏阅读层 + 加大字体与历史区域空间；Esc 或按钮退出。
-  function setReadingMode(enabled: boolean): void {
-    readingMode = enabled;
-    els.taskDetail.classList.toggle("reading-mode", enabled);
-    els.workspaceZoomToggle.setAttribute("aria-pressed", String(enabled));
-    els.workspaceZoomToggle.title = enabled ? "退出放大" : "放大工作区";
-    els.workspaceZoomToggle.setAttribute("aria-label", enabled ? "退出放大工作区" : "放大工作区");
-    els.workspaceZoomToggle.querySelector("i[data-lucide='maximize-2']")?.toggleAttribute("hidden", enabled);
-    els.workspaceZoomToggle.querySelector("i[data-lucide='minimize-2']")?.toggleAttribute("hidden", !enabled);
+  // TEST-V08-022：组件级放大。每个需要放大查看的组件各自提供按钮，打开后该组件全屏阅读，Esc 或按钮恢复。
+  const zoomSections = new Map<HTMLButtonElement, HTMLElement>([
+    [els.zoomDescription, els.descriptionSection],
+    [els.zoomDaily, els.dailySection],
+    [els.zoomHistory, els.worklogHistorySection],
+  ]);
+  let zoomedButton: HTMLButtonElement | null = null;
+  function setSectionZoom(button: HTMLButtonElement | null): void {
+    if (zoomedButton === button) return;
+    if (zoomedButton) {
+      const previous = zoomSections.get(zoomedButton);
+      previous?.classList.remove("zoom-overlay");
+      zoomedButton.setAttribute("aria-pressed", "false");
+    }
+    zoomedButton = button;
+    if (button) {
+      zoomSections.get(button)?.classList.add("zoom-overlay");
+      button.setAttribute("aria-pressed", "true");
+    }
   }
-  els.workspaceZoomToggle.addEventListener("click", () => setReadingMode(!readingMode));
+  for (const button of zoomSections.keys()) {
+    button.addEventListener("click", () => setSectionZoom(zoomedButton === button ? null : button));
+  }
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && readingMode) setReadingMode(false);
+    if (event.key === "Escape" && zoomedButton) setSectionZoom(null);
+  });
+
+  // TEST-V08-024：修改工作记录日期。
+  let moveDateRecordId: string | null = null;
+  async function moveWorklogDate(record: WorkLog): Promise<void> {
+    moveDateRecordId = record.id;
+    els.worklogDatePrompt.textContent = `将“${formatDate(record.workDate)}${record.conflictOrigin === "imported" ? " · 导入冲突副本" : ""}”的记录移动到：`;
+    els.worklogNewDate.max = toISODate();
+    els.worklogNewDate.value = record.workDate;
+    els.worklogDateDialog.showModal();
+    els.worklogNewDate.focus();
+  }
+  els.worklogDateForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = moveDateRecordId;
+    const nextDate = els.worklogNewDate.value;
+    if (!id || !nextDate || !/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || nextDate > toISODate()) {
+      dialogs.toast("工作记录不能选择未来日期。");
+      return;
+    }
+    try {
+      // 若移动的是正在编辑的记录，先落盘再移动。
+      if (id === activeWorkLogId && !(await saveWorklog())) return;
+      const moved = await backend.changeWorkLogDate(id, nextDate);
+      if (moved.id === activeWorkLogId) {
+        activeWorkLogId = moved.id;
+        activeWorkDate = moved.workDate;
+        els.worklogDate.value = moved.workDate;
+      }
+      expandedWorklogIds.delete(id);
+      expandedWorklogIds.add(moved.id);
+      els.worklogDateDialog.close();
+      await renderWorklogHistory();
+      onActivityChanged?.();
+      dialogs.toast(`记录已移动到 ${formatDate(moved.workDate)}。`);
+    } catch (error) {
+      dialogs.toast(error instanceof Error ? error.message : "修改记录日期失败。");
+    }
   });
 
   els.worklogDate.addEventListener("change", () => { void changeWorkDate(els.worklogDate.value); });
@@ -683,9 +747,23 @@ export function createWorkspaceController(
   });
   els.worklogHistory.addEventListener("click", async (event) => {
     const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-worklog-action]");
-    const item = button?.closest<HTMLElement>("[data-worklog-id]");
+    const item = button?.closest<HTMLElement>(".worklog-history-item");
     if (!button || !item || !activeTaskId) return;
+    // TEST-V08-024：点击日期行展开/折叠（带高度动画），展开不同记录时平滑切换到编辑器。
+    if (button.dataset.worklogAction === "toggle" && button.dataset.workDate) {
+      const expanded = item.classList.toggle("expanded");
+      button.setAttribute("aria-expanded", String(expanded));
+      button.setAttribute("aria-label", `${expanded ? "收起" : "展开"} ${formatDate(button.dataset.workDate)}的记录`);
+      if (expanded) expandedWorklogIds.add(item.dataset.worklogId ?? "");
+      else expandedWorklogIds.delete(item.dataset.worklogId ?? "");
+      if (expanded && button.dataset.worklogId !== activeWorkLogId) await changeWorkDate(button.dataset.workDate, false, button.dataset.worklogId);
+      return;
+    }
     if (button.dataset.worklogAction === "open" && button.dataset.workDate) await changeWorkDate(button.dataset.workDate, false, button.dataset.worklogId);
+    if (button.dataset.worklogAction === "move-date") {
+      const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
+      if (record) await moveWorklogDate(record);
+    }
     if (button.dataset.worklogAction === "delete") {
       const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
       if (record) await deleteWorklog(record);

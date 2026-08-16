@@ -87,7 +87,8 @@
 .tree-group-heading[data-toggle-folder-id]:hover { background: color-mix(in srgb, var(--surface) 66%, transparent); }
 .tree-group-heading .folder-toggle { flex: 0 0 40px; }
 .tree-group-heading .group-actions { display: flex; margin-left: auto; gap: 3px; }
-/* TEST-V08-023：近期活跃丝带标记（任务卡片与文件夹标题左上角）。 */
+/* TEST-V08-023：近期活跃丝带标记（任务卡片与文件夹标题左上角）。
+   紫罗兰 + 白色投影描边，与暖/冷优先级底色和便利签文件夹层都有明显对比。 */
 .task-item.activity-recent::before,
 .tree-group-heading.activity-recent::before {
   content: "";
@@ -97,10 +98,10 @@
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 15px 15px 0 0;
-  border-color: var(--teal) transparent transparent transparent;
+  border-width: 17px 17px 0 0;
+  border-color: #8b5cf6 transparent transparent transparent;
   border-top-left-radius: 6px;
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 24%));
+  filter: drop-shadow(1px 1px 0 rgb(255 255 255 / 55%));
   pointer-events: none;
 }
 .group-action { border-color: transparent; background: transparent; }

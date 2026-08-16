@@ -807,19 +807,72 @@ test("files dropped anywhere in the app attach to the selected task instead of o
   expect(page.url()).toBe(urlBefore);
 });
 
-test("workspace zoom fills the viewport and Escape restores (TEST-V08-022)", async ({ page }) => {
+test("component zoom overlays fill the viewport and Escape restores (TEST-V08-022)", async ({ page }) => {
   await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
-  const panel = page.locator("#taskDetail");
-  await expect(panel).toHaveClass(/is-open/);
-  await page.locator("#workspaceZoomToggle").click();
-  await expect(panel).toHaveClass(/reading-mode/);
-  await expect(page.locator("#workspaceZoomToggle")).toHaveAttribute("aria-pressed", "true");
-  const box = await panel.boundingBox();
+  await page.locator("#worklogTab").click();
+  const zoomButton = page.locator("#zoomDescription");
+  await expect(zoomButton.locator("svg.lucide-maximize-2")).toHaveCount(1);
+  await zoomButton.click();
+  const section = page.locator("#descriptionSection");
+  await expect(section).toHaveClass(/zoom-overlay/);
+  await expect(zoomButton).toHaveAttribute("aria-pressed", "true");
+  const box = await section.boundingBox();
   expect(Math.round(box.width)).toBe(1440);
   expect(Math.round(box.height)).toBe(900);
   await page.keyboard.press("Escape");
-  await expect(panel).not.toHaveClass(/reading-mode/);
-  await expect(page.locator("#workspaceZoomToggle")).toHaveAttribute("aria-pressed", "false");
+  await expect(section).not.toHaveClass(/zoom-overlay/);
+  await expect(zoomButton).toHaveAttribute("aria-pressed", "false");
+});
+
+test("worklog history expands, collapses, and moves dates (TEST-V08-024)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  const today = iso(0);
+  const yesterday = iso(-1);
+  const twoDaysAgo = iso(-2);
+
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  const editor = page.locator("#worklogEditor textarea").first();
+  await editor.fill("今天的记录");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await page.locator("#worklogDate").fill(yesterday);
+  await editor.fill("昨天的记录");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await page.locator("#worklogDate").fill(today);
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  const history = page.locator(".worklog-history-item");
+  await expect(history).toHaveCount(2);
+
+  // 展开/折叠：点击日期行切换，chevron 与 aria-expanded 同步。
+  const second = history.nth(1);
+  const toggleButton = second.locator(".history-date");
+  await expect(toggleButton.locator("svg.lucide-icon")).toHaveCount(1);
+  await toggleButton.click();
+  await expect(second).toHaveClass(/expanded/);
+  await expect(toggleButton).toHaveAttribute("aria-expanded", "true");
+  await toggleButton.click();
+  await expect(second).not.toHaveClass(/expanded/);
+  await expect(toggleButton).toHaveAttribute("aria-expanded", "false");
+
+  // 改期：把昨天的记录移动到前天。
+  await second.getByRole("button", { name: /修改 .* 的记录日期/ }).click();
+  await expect(page.locator("#worklogDateDialog")).toBeVisible();
+  await page.locator("#worklogNewDate").fill(twoDaysAgo);
+  await page.locator("#worklogDateForm").getByRole("button", { name: "确认移动" }).click();
+  await expect(page.locator("#worklogDateDialog")).toBeHidden();
+  await expect.poll(() => page.evaluate(async (target) => {
+    const records = await globalThis.__workspaceBackendForTests.listWorkLogs("task-1");
+    return records.some((record) => record.workDate === target && record.contentMarkdown === "昨天的记录");
+  }, twoDaysAgo)).toBe(true);
+  await expect.poll(() => page.evaluate(async (gone) => {
+    const records = await globalThis.__workspaceBackendForTests.listWorkLogs("task-1");
+    return records.length === 2 && records.every((record) => record.workDate !== gone);
+  }, yesterday)).toBe(true);
 });
 
 test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {

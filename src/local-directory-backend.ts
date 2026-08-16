@@ -368,6 +368,55 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     });
   }
 
+  // TEST-V08-024：把工作记录移动到另一个日期。主记录会换用新日期的 ID 与文件名；
+  // 冲突副本保留 ID，仅更新日期与文件名；目标日期已有同任务记录时报错。
+  async changeWorkLogDate(id: string, workDate: string, now = Date.now()): Promise<WorkLog> {
+    const targetDate = normalizeDate(workDate);
+    if (!targetDate) throw new Error("工作日期无效。");
+    const located = await this.findWorkLog(id);
+    if (!located) throw new Error("找不到该工作记录。");
+    const { meta, taskDirectory } = located;
+    const taskId = meta.taskId;
+    const oldDate = meta.workDate;
+    return this.enqueueWrite(async () => {
+      const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
+      this.assertTaskRevision(taskFile);
+      const worklogs = await taskDirectory.getDirectoryHandle(WORKLOGS_DIRECTORY, { create: true });
+      const mainTargetId = workLogId(taskId, targetDate);
+      const isMain = meta.id === workLogId(taskId, oldDate);
+      const nextId = isMain ? mainTargetId : meta.id;
+      if (targetDate === oldDate) {
+        const current = await this.getWorkLog(taskId, oldDate, id);
+        if (current) return current;
+      }
+      const collides = taskFile.workLogs.some((item) => item.id !== meta.id && (item.id === nextId || (!isMain && item.id === mainTargetId)));
+      if (collides) throw new Error("该任务在目标日期已有工作记录。");
+      const current = await this.getWorkLog(taskId, oldDate, id);
+      if (!current) throw new Error("工作记录内容读取失败。");
+      const key = workLogHashKey(taskId, id);
+      const hashes = ensureContentHashes(taskFile);
+      await this.assertTextContentUnchanged(
+        worklogs,
+        workLogFileName(meta),
+        key,
+        hashes.workLogs[id] ?? hashes.workLogs[oldDate],
+        { kind: "worklog", taskId, workDate: oldDate },
+      );
+      const moved: WorkLog = { ...current, workDate: targetDate, id: nextId, updatedAt: now };
+      const serialized = serializeWorkLog(moved);
+      await writeVerifiedText(worklogs, workLogFileName(moved), serialized);
+      await removeIfExists(worklogs, workLogFileName(meta));
+      delete hashes.workLogs[id];
+      if (isMain) delete hashes.workLogs[oldDate];
+      hashes.workLogs[nextId] = await hashText(serialized);
+      this.expectedContentHashes.delete(key);
+      this.expectedContentHashes.set(workLogHashKey(taskId, nextId), hashes.workLogs[nextId]!);
+      taskFile.workLogs = [...taskFile.workLogs.filter((item) => item.id !== meta.id), workLogMeta(moved)];
+      await this.writeTaskFile(taskDirectory, taskFile);
+      return moved;
+    });
+  }
+
   async listAttachments(taskId: string): Promise<AttachmentMeta[]> {
     const taskDirectory = await this.getTaskDirectory(taskId);
     const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
