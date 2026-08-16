@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "b539bcc",
+  "source_revision": "4224500",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -35,9 +35,9 @@
         { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
         { "name": "Vue TypeScript typecheck", "result": "passed" },
         { "name": "Vite production build", "result": "passed" },
-        { "name": "Node unit and structural tests", "result": "passed", "passed": 71, "failed": 0 },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 72, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 72, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 73, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -66,8 +66,9 @@
     "TEST-V08-019 已修复：附件面板支持拖拽文件上传，拖入高亮、松手入库，与文件选择器共用 20 MB 限制与错误提示流程。",
     "TEST-V08-020 已修复：附件工具栏新增“打开任务文件夹”，本地目录后端用系统文件选择器定位任务目录（纯 Web 的可行近似）；IndexedDB 等无真实目录的后端提示不支持。",
     "TEST-V08-021 已修复：文件拖到应用窗口任意位置都不再由浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
-    "TEST-V08-022 已修复：任务工作区标题栏新增放大按钮，阅读模式全屏覆盖、编辑器与历史记录加大字号、历史条目不限高，Esc 或按钮恢复。",
-    "TEST-V08-023 已修复：近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）。"
+    "TEST-V08-022 已修复：取消工作区全局放大，改为长期描述、每日记录、历史记录三个组件的独立全屏放大按钮（Esc 恢复）；修复放大按钮图标缺失（图标注册表补 Maximize2）。",
+    "TEST-V08-023 已修复：近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）；丝带配色改为紫罗兰 + 白色描边，与优先级底色和文件夹层明显区分。",
+    "TEST-V08-024 已修复：历史记录点击日期行展开/折叠并带动画，新增修改记录日期按钮与 changeWorkLogDate 后端能力。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -333,14 +334,15 @@
       "category": "workspace-reading-mode",
       "title": "任务工作区 Markdown 太小，阅读不方便",
       "evidence": [
-        "用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。"
+        "用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。",
+        "追加反馈：不要做工作区全局放大，改为每个可能需要放大查看的组件单独做放大按钮；放大按钮上没有图标。"
       ],
-      "required_action": "任务工作区提供放大/阅读模式：全屏覆盖、编辑器与历史记录加大字号、历史条目不限高；Esc 或按钮恢复。",
+      "required_action": "长期描述、每日记录、历史记录等组件各自提供全屏放大按钮，Esc 或按钮恢复；放大按钮必须有可见图标。",
       "resolution": {
-        "fix_commit": "b539bcc",
+        "fix_commit": "4224500",
         "verified_by": [
-          "e2e/workbench.spec.mjs：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
-          "tests/ui.test.mjs：按钮、reading-mode、Esc 与历史记录不限高的契约断言"
+          "e2e/workbench.spec.mjs：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
+          "tests/ui.test.mjs：zoomDescription/zoomDaily/zoomHistory 按钮、zoom-overlay 样式与 Maximize2 图标注册的契约断言"
         ]
       }
     },
@@ -350,14 +352,32 @@
       "category": "recent-worklog-ribbon",
       "title": "近期有工作记录的任务/文件夹缺少醒目标记",
       "evidence": [
-        "用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。"
+        "用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。",
+        "追加反馈：丝带颜色应该与当前背景颜色有明显差异。"
       ],
-      "required_action": "任务与文件夹左上角增加丝带标记；近期窗口可在侧栏设置，默认 7 天，可关闭；文件夹活跃 = 其任意后代任务活跃。",
+      "required_action": "任务与文件夹左上角增加丝带标记；近期窗口可在侧栏设置，默认 7 天，可关闭；文件夹活跃 = 其任意后代任务活跃；丝带配色与卡片背景高对比。",
       "resolution": {
-        "fix_commit": "b539bcc",
+        "fix_commit": "4224500",
         "verified_by": [
           "e2e/workbench.spec.mjs：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复（TEST-V08-023）",
-          "tests/ui.test.mjs：偏好字段、渲染类、丝带样式与后端 listLatestWorklogDates 元数据能力的契约断言"
+          "tests/ui.test.mjs：偏好字段、渲染类、紫罗兰 + 白色描边配色与后端 listLatestWorklogDates 元数据能力的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-024",
+      "severity": "P2",
+      "category": "worklog-history-interactions",
+      "title": "历史记录展开后无法折叠、不能改期且无动画",
+      "evidence": [
+        "用户直接体验反馈：单条历史记录展开以后没办法折叠回去，并且无法修改记录日期，展开、折叠、切换记录等动画需要丝滑。"
+      ],
+      "required_action": "历史记录支持展开/折叠与平滑动画，切换记录时旧条目平滑收起；提供修改记录日期入口；后端支持记录改期。",
+      "resolution": {
+        "fix_commit": "4224500",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新（TEST-V08-024）",
+          "tests/ui.test.mjs：toggle/move-date 动作、history-content-wrap 高度动画、changeWorkLogDate 后端能力的契约断言"
         ]
       }
     }
@@ -455,23 +475,29 @@
         "evidence": "e2e：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库；契约测试覆盖全局守卫与 copy/none 光标逻辑。"
       },
       {
-        "description": "任务工作区提供放大阅读模式：全屏覆盖、加大编辑器与历史记录字号、历史条目不限高，Esc 或按钮恢复。",
+        "description": "长期描述、每日记录、历史记录组件各自提供带图标的全屏放大按钮，Esc 或按钮恢复，不提供工作区全局放大。",
         "status": "met",
         "finding_ids": ["TEST-V08-022"],
-        "evidence": "e2e：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步；契约测试覆盖按钮、reading-mode 与历史不限高规则。"
+        "evidence": "e2e：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步、按钮含 maximize-2 图标；契约测试覆盖三个放大按钮与 Maximize2 图标注册。"
       },
       {
-        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）。",
+        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭），丝带与卡片背景高对比。",
         "status": "met",
         "finding_ids": ["TEST-V08-023"],
-        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖偏好、渲染类与后端元数据能力。"
+        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖紫罗兰 #8b5cf6 + 白色描边配色与后端元数据能力。"
+      },
+      {
+        "description": "历史记录支持展开/折叠与平滑动画、切换记录平滑过渡，并可修改记录日期。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-024"],
+        "evidence": "e2e：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新；契约测试覆盖 toggle/move-date 动作、220ms 高度动画与 changeWorkLogDate 后端能力。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "b539bcc",
+    "head": "4224500",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

@@ -31,7 +31,7 @@
         "finding_ids": [],
         "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
         "status": "met",
-        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、71 项 Node 测试、72 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、72 项 Node 测试、73 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
       },
       {
         "id": "gate-5",
@@ -113,16 +113,23 @@
       {
         "id": "gate-16",
         "finding_ids": ["TEST-V08-022"],
-        "description": "任务工作区提供放大阅读模式：全屏覆盖、加大编辑器与历史记录字号、历史条目不限高，Esc 或按钮恢复。",
+        "description": "长期描述、每日记录、历史记录组件各自提供带图标的全屏放大按钮，Esc 或按钮恢复，不提供工作区全局放大。",
         "status": "met",
-        "evidence": "e2e：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步；契约测试覆盖按钮、reading-mode 与历史不限高规则。"
+        "evidence": "e2e：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步、按钮含 maximize-2 图标；契约测试覆盖三个放大按钮与 Maximize2 图标注册。"
       },
       {
         "id": "gate-17",
         "finding_ids": ["TEST-V08-023"],
-        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）。",
+        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭），丝带与卡片背景高对比。",
         "status": "met",
-        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖偏好、渲染类与后端元数据能力。"
+        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖紫罗兰 #8b5cf6 + 白色描边配色与后端元数据能力。"
+      },
+      {
+        "id": "gate-18",
+        "finding_ids": ["TEST-V08-024"],
+        "description": "历史记录支持展开/折叠与平滑动画、切换记录平滑过渡，并可修改记录日期。",
+        "status": "met",
+        "evidence": "e2e：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新；契约测试覆盖 toggle/move-date 动作、220ms 高度动画与 changeWorkLogDate 后端能力。"
       }
     ]
   },
@@ -246,6 +253,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-022/023 登记并修复：工作区放大阅读模式与近期活跃丝带标记（窗口可设置，默认一周）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "4224500",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-022/023 按用户反馈返工（组件级放大、丝带高对比配色）并新增 TEST-V08-024（历史记录展开折叠、改期与动画）；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -656,16 +673,18 @@
       "kind": "enhancement",
       "title": "任务工作区 Markdown 太小，阅读不方便",
       "status": "fixed",
-      "fix_commit": "b539bcc",
+      "fix_commit": "4224500",
       "verified_by": [
-        "e2e/workbench.spec.mjs：放大后工作区占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
-        "tests/ui.test.mjs：按钮、reading-mode、Esc 与历史记录不限高的契约断言"
+        "e2e/workbench.spec.mjs：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
+        "tests/ui.test.mjs：zoomDescription/zoomDaily/zoomHistory 按钮、zoom-overlay 样式与 Maximize2 图标注册的契约断言"
       ],
-      "evidence": ["用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。"],
-      "resolution": "任务工作区标题栏新增“放大工作区”按钮：阅读模式下工作区变成全屏覆盖层（任何视口都生效），内容最大宽度 1080px 居中，编辑器与历史记录字号加大、行距放宽，历史条目不再限高；再点按钮或按 Esc 恢复。会话内状态，不写入偏好。",
+      "evidence": ["用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。", "追加反馈：不要做工作区全局放大，改为每个可能需要放大查看的组件单独做放大按钮；放大按钮上没有图标。"],
+      "resolution": "改为组件级放大：长期描述、每日记录、历史记录三个区域的标题栏各有放大按钮，点击后该组件变为全屏阅读层（字号 16.5px、行距 1.75），Esc 或按钮恢复；移除了工作区全局放大。图标缺失根因是 maximize-2 不在图标注册表中，已补 Maximize2/CalendarClock 注册。",
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
-        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" }
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" },
+        { "date": "2026-08-16", "event": "reopened", "round": "deepseek/test-feedback-fixes", "evidence": "用户要求取消全局放大，改为组件级放大，并修复按钮图标缺失。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；组件级放大与图标注册，e2e 与契约测试通过。" }
       ]
     },
     {
@@ -675,16 +694,37 @@
       "kind": "enhancement",
       "title": "近期有工作记录的任务/文件夹缺少醒目标记",
       "status": "fixed",
-      "fix_commit": "b539bcc",
+      "fix_commit": "4224500",
       "verified_by": [
         "e2e/workbench.spec.mjs：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复（TEST-V08-023）",
-        "tests/ui.test.mjs：偏好字段、渲染类、丝带样式与后端 listLatestWorklogDates 元数据能力的契约断言"
+        "tests/ui.test.mjs：偏好字段、渲染类、丝带高对比配色与后端 listLatestWorklogDates 元数据能力的契约断言"
       ],
-      "evidence": ["用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。"],
-      "resolution": "任务卡片与文件夹标题左上角增加一角丝带（青绿色三角 + 轻阴影，带 tooltip 与无障碍标签）；近期窗口在侧栏“新任务默认值”区可设置（今天/三天/一周/两周/一个月/关闭，默认一周）；后端新增 listLatestWorklogDates 只读任务索引元数据即可判断活跃，不加载 Markdown 正文；文件夹活跃 = 其任意后代任务活跃。",
+      "evidence": ["用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。", "追加反馈：丝带颜色应该与当前背景颜色有明显差异。"],
+      "resolution": "任务卡片与文件夹标题左上角增加一角丝带（带 tooltip 与无障碍标签）；近期窗口在侧栏“新任务默认值”区可设置（今天/三天/一周/两周/一个月/关闭，默认一周）；后端新增 listLatestWorklogDates 只读任务索引元数据即可判断活跃，不加载 Markdown 正文；文件夹活跃 = 其任意后代任务活跃。追加：丝带配色由青色改为紫罗兰 #8b5cf6 并加白色投影描边，与暖/冷优先级底色和便利签文件夹层明显区分。",
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
-        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" }
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" },
+        { "date": "2026-08-16", "event": "reopened", "round": "deepseek/test-feedback-fixes", "evidence": "用户反馈丝带与背景对比不明显。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；紫罗兰 + 白色描边配色，契约测试更新。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-024",
+      "severity": "P2",
+      "category": "worklog-history-interactions",
+      "kind": "defect",
+      "title": "历史记录展开后无法折叠、不能改期且无动画",
+      "status": "fixed",
+      "fix_commit": "4224500",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新（TEST-V08-024）",
+        "tests/ui.test.mjs：toggle/move-date 动作、history-content-wrap 高度动画、changeWorkLogDate 后端能力的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：单条历史记录展开以后没办法折叠回去，并且无法修改记录日期，展开、折叠、切换记录等动画需要丝滑。"],
+      "resolution": "历史记录点击日期行展开/折叠（chevron 随 220ms 高度动画旋转），展开另一条记录时旧条目平滑收起并切换到编辑器；每条记录新增“修改记录日期”按钮（CalendarClock），后端新增 changeWorkLogDate 把记录移动到目标日期（同任务同日期冲突时报错，主记录换用新日期 ID，冲突副本保留 ID）；展开内容上限提高到 420px 可滚动。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；e2e 与契约测试通过。" }
       ]
     }
   ]
