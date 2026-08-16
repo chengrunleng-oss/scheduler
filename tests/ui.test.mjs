@@ -326,6 +326,30 @@ test("attachments accept drag-and-drop upload and can reveal the task folder (TE
   assert.match(workspace, /dropEffect = handledElsewhere \|\| activeTaskId \? "copy" : "none"/);
 });
 
+test("workspace reading mode and recent-activity ribbons are wired (TEST-V08-022/023)", () => {
+  assert.match(taskWorkspace, /id="workspaceZoomToggle"/);
+  assert.match(taskWorkspace, /maximize-2/);
+  assert.match(taskWorkspace, /minimize-2/);
+  assert.match(taskWorkspace, /detail-header-actions/);
+  assert.match(workspace, /setReadingMode/);
+  assert.match(workspace, /reading-mode/);
+  assert.match(workspace, /event\.key === "Escape" && readingMode/);
+  assert.match(responsiveCss, /\.detail-panel\.reading-mode \.workspace-panel/);
+  assert.match(responsiveCss, /\.detail-panel\.reading-mode \.history-content \{\s*max-height:\s*none/);
+  assert.match(sidebar, /id="recentWorklogDays"/);
+  assert.match(sidebar, /一周内（默认）/);
+  assert.match(types, /recentWorklogDays: number/);
+  assert.match(types, /set-recent-worklog-days/);
+  assert.match(renderer, /computeRecentActivitySets/);
+  assert.match(renderer, /activity-recent/);
+  assert.match(css, /\.task-item\.activity-recent::before/);
+  assert.match(css, /\.tree-group-heading\.activity-recent::before/);
+  assert.match(workspaceBackend, /listLatestWorklogDates\?\(taskIds\?: string\[\]\): Promise<Map<string, string \| null>>/);
+  assert.match(localDirectoryBackend, /async listLatestWorklogDates\(taskIds\?: string\[\]\)/);
+  assert.match(events, /set-recent-worklog-days/);
+  assert.match(workspace, /onActivityChanged/);
+});
+
 test("workspace layout retains internal scrolling and a persistent overview action area", () => {
   assert.match(uiMarkup, /class="detail-fields"/);
   assert.match(css, /\.detail-panel\s*\{[^}]*height:\s*100dvh/s);

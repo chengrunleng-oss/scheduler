@@ -1,7 +1,7 @@
 <template>
   <aside id="taskDetail" class="detail-panel" aria-label="任务工作区">
     <div id="detailResizer" class="detail-resizer" role="separator" aria-label="调整任务工作区宽度" aria-orientation="vertical" tabindex="0"></div>
-    <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></header>
+    <header class="detail-header"><div><p class="eyebrow">当前选择</p><h2>任务工作区</h2></div><div class="detail-header-actions"><button class="icon-button detail-zoom" id="workspaceZoomToggle" type="button" title="放大工作区" aria-label="放大工作区" aria-pressed="false"><i data-lucide="maximize-2"></i><i data-lucide="minimize-2" hidden></i></button><button class="icon-button detail-close" id="detailClose" type="button" title="关闭任务工作区" aria-label="关闭任务工作区"><i data-lucide="x"></i></button></div></header>
     <div id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="任务工作区页面">
       <button id="overviewTab" class="workspace-tab active" type="button" role="tab" data-workspace-tab="overview" aria-controls="overviewPanel" aria-selected="true">概览</button>
       <button id="worklogTab" class="workspace-tab" type="button" role="tab" data-workspace-tab="worklog" aria-controls="worklogPanel" aria-selected="false">工作记录</button>
@@ -71,6 +71,12 @@
 
 .workspace-tabs {
   isolation: isolate;
+}
+
+.detail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .attachment-drop-hint {

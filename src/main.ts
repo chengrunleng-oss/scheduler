@@ -18,6 +18,7 @@ import { refreshStaticIcons } from "./ui/icons.js";
 import { createRenderer } from "./ui/renderer.js";
 import { queryElements } from "./ui/selectors.js";
 import { createWorkspaceController } from "./ui/workspace.js";
+import { refreshRecentActivity } from "./ui/recent-activity.js";
 
 createApp(App).mount("#app");
 await nextTick();
@@ -124,8 +125,8 @@ async function drainWorkspaceSaves(): Promise<boolean> {
   return latestSucceeded;
 }
 
-const workspace = createWorkspaceController(els, store, backend, dialogs, persistState);
-const bindings = bindEvents(els, store, dialogs, workspace, backend, persistState, render);
+const workspace = createWorkspaceController(els, store, backend, dialogs, persistState, refreshActivity);
+const bindings = bindEvents(els, store, dialogs, workspace, backend, persistState, render, refreshActivity);
 installImageLightbox();
 const dragAndDrop = createDragAndDrop(els.taskList, store, bindings.getViewState, (message) => {
   els.liveRegion.textContent = message;
@@ -143,8 +144,14 @@ function render(): void {
   dragAndDrop.refresh();
 }
 
+// TEST-V08-023：工作记录变化后刷新近期活跃标记。
+function refreshActivity(): void {
+  void refreshRecentActivity(backend).then(render);
+}
+
 bindings.reconcileResolutionTimers();
 render();
+void refreshActivity();
 document.documentElement.dataset.appReady = "true";
 
 window.setInterval(() => {

@@ -90,6 +90,8 @@ export interface Preferences {
   expandedHandledContainers: string[];
   navigationCollapsedFolders: string[];
   workspaceWidth: number;
+  // TEST-V08-023：近期活跃标记的时间窗口（天），0 表示关闭标记。
+  recentWorklogDays: number;
 }
 
 export interface AppState {
@@ -144,6 +146,7 @@ export type StateAction =
   | { type: "set-view-mode"; viewMode: ViewMode }
   | { type: "set-folder-scope"; folderScope: FolderScope }
   | { type: "set-default-task-values"; dueDate: DefaultTaskDueDate; priority: Priority }
+  | { type: "set-recent-worklog-days"; days: number }
   | { type: "set-workspace-width"; width: number }
   | { type: "toggle-handled-section"; containerId: string }
   | { type: "toggle-navigation-folder"; id: string }

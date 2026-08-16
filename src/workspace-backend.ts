@@ -107,6 +107,9 @@ export interface WorkspaceBackend {
   // TEST-V08-020：可选能力，用系统文件选择器定位到任务目录（纯 Web 无法直接呼出资源管理器）。
   // 返回是否成功打开；权限不可用或后端不支持时返回 false（IndexedDB 与不可用后端没有真实目录）。
   revealTaskDirectory?(taskId: string): Promise<boolean>;
+  // TEST-V08-023：可选能力，返回每个任务最近的工作日期（YYYY-MM-DD，无记录为 null），
+  // 用于“近期活跃”标记；只读取任务索引元数据，不加载 Markdown 内容。
+  listLatestWorklogDates?(taskIds?: string[]): Promise<Map<string, string | null>>;
 
   exportSnapshot(): Promise<WorkspaceSnapshot>;
   importSnapshot(snapshot: WorkspaceSnapshot): Promise<void>;

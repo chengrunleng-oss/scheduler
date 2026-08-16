@@ -26,6 +26,31 @@
   to { opacity: 1; }
 }
 
+/* TEST-V08-022：工作区放大/阅读模式：全屏阅读层 + 大字号 + 历史记录不限高。 */
+.app-shell.workspace-open .detail-panel.reading-mode {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+  transition: none;
+  animation: none;
+}
+.detail-panel.reading-mode .detail-resizer { display: none; }
+.detail-panel.reading-mode .workspace-panel { width: 100%; max-width: 1080px; margin-inline: auto; font-size: 15.5px; }
+.detail-panel.reading-mode .markdown-editor .editor,
+.detail-panel.reading-mode .markdown-source,
+.detail-panel.reading-mode .history-content,
+.detail-panel.reading-mode .text-preview {
+  font-size: 16.5px;
+  line-height: 1.75;
+}
+.detail-panel.reading-mode .history-content { max-height: none; }
+
 @media (min-width: 881px) and (max-width: 1179px) {
   .app-shell.workspace-open .workspace { display: none; }
   .app-shell.workspace-open .detail-panel { position: static; z-index: auto; grid-column: 2; width: 100%; height: 100dvh; border-top: 0; box-shadow: none; transform: none; transition: none; }

@@ -23,6 +23,7 @@
       <div class="field-grid defaults-grid">
         <label class="field"><span>截止日期</span><select id="defaultDueDate"><option value="today">今天</option><option value="tomorrow">明天</option><option value="next_workday">下个工作日</option><option value="none">不设置</option></select></label>
         <label class="field"><span>优先级</span><select id="defaultPriority"><option value="high">高</option><option value="low">低</option></select></label>
+        <label class="field"><span>近期活跃标记</span><select id="recentWorklogDays" aria-label="近期活跃标记的时间窗口"><option value="7">一周内（默认）</option><option value="1">今天</option><option value="3">三天内</option><option value="14">两周内</option><option value="30">一个月内</option><option value="0">关闭标记</option></select></label>
       </div>
     </details>
 

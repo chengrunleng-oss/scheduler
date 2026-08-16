@@ -807,6 +807,45 @@ test("files dropped anywhere in the app attach to the selected task instead of o
   expect(page.url()).toBe(urlBefore);
 });
 
+test("workspace zoom fills the viewport and Escape restores (TEST-V08-022)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  const panel = page.locator("#taskDetail");
+  await expect(panel).toHaveClass(/is-open/);
+  await page.locator("#workspaceZoomToggle").click();
+  await expect(panel).toHaveClass(/reading-mode/);
+  await expect(page.locator("#workspaceZoomToggle")).toHaveAttribute("aria-pressed", "true");
+  const box = await panel.boundingBox();
+  expect(Math.round(box.width)).toBe(1440);
+  expect(Math.round(box.height)).toBe(900);
+  await page.keyboard.press("Escape");
+  await expect(panel).not.toHaveClass(/reading-mode/);
+  await expect(page.locator("#workspaceZoomToggle")).toHaveAttribute("aria-pressed", "false");
+});
+
+test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {
+  const row = page.getByRole("option", { name: new RegExp(primaryTask) });
+  const workHeading = page.locator('[data-drop-folder-id="folder-work"]');
+  await expect(row).not.toHaveClass(/activity-recent/);
+
+  // 通过界面写入今天的工作记录后，任务与所属文件夹出现丝带标记。
+  await row.locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#worklogEditor textarea").first().fill("今天的进展记录。");
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await expect(row).toHaveClass(/activity-recent/);
+  await expect(workHeading).toHaveClass(/activity-recent/);
+
+  // 关闭标记后丝带消失；恢复默认一周后重新出现。
+  await page.locator("details.defaults-section summary").click();
+  await page.locator("#recentWorklogDays").selectOption("0");
+  await expect(row).not.toHaveClass(/activity-recent/);
+  await expect(workHeading).not.toHaveClass(/activity-recent/);
+  await page.locator("#recentWorklogDays").selectOption("7");
+  await expect(row).toHaveClass(/activity-recent/);
+  await expect(workHeading).toHaveClass(/activity-recent/);
+});
+
 test("embedded data-uri images migrate into attachments (TEST-V08-014c)", async ({ page }) => {
   const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
   const date = await page.evaluate(() => {

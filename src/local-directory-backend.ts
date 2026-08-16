@@ -734,6 +734,26 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     return true;
   }
 
+  // TEST-V08-023：仅读任务文件元数据返回最近工作日期，供近期活跃标记使用。
+  async listLatestWorklogDates(taskIds?: string[]): Promise<Map<string, string | null>> {
+    const result = new Map<string, string | null>();
+    const index = await readRequiredJson<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
+    const wanted = taskIds ? new Set(taskIds) : new Set(index.taskIds);
+    const tasksDirectory = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });
+    for (const taskId of wanted) {
+      result.set(taskId, null);
+      try {
+        const taskDirectory = await tasksDirectory.getDirectoryHandle(safeId(taskId));
+        const taskFile = await readRequiredJson<TaskFile>(taskDirectory, TASK_FILE);
+        const dates = taskFile.workLogs.map((meta) => meta.workDate).filter((date): date is string => Boolean(date)).sort();
+        if (dates.length) result.set(taskId, dates[dates.length - 1]!);
+      } catch (error) {
+        if (!isNotFound(error)) throw error;
+      }
+    }
+    return result;
+  }
+
   private async findWorkLog(id: string): Promise<{ meta: Omit<WorkLog, "contentMarkdown">; taskDirectory: FileSystemDirectoryHandle } | null> {
     const index = await readRequiredJson<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
     const tasks = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });

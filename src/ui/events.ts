@@ -37,6 +37,7 @@ export function bindEvents(
   backend: WorkspaceBackend,
   persistState: () => Promise<boolean>,
   requestRender: () => void,
+  onActivityChanged?: () => void,
 ): EventBindings {
   let selectedTaskId: string | null = null;
   let detailPanelOpen = false;
@@ -300,6 +301,10 @@ export function bindEvents(
   };
   els.defaultDueDate.addEventListener("change", saveDefaults);
   els.defaultPriority.addEventListener("change", saveDefaults);
+  // TEST-V08-023：近期活跃标记窗口设置。
+  els.recentWorklogDays.addEventListener("change", () => {
+    store.dispatch({ type: "set-recent-worklog-days", days: Number(els.recentWorklogDays.value) });
+  });
 
   els.taskList.addEventListener("submit", (event) => {
     if (!backend.available) { event.preventDefault(); requireWritable(); return; }
@@ -639,6 +644,7 @@ export function bindEvents(
       return;
     }
     await workspace.activateTask(null, workspaceTab);
+    onActivityChanged?.();
     importGuardActive = false;
     latestImportReport ??= { ...report, status: "completed", completedAt: new Date().toISOString(), verified: true };
     showImportResult(els, latestImportReport, async () => {

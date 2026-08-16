@@ -17,6 +17,7 @@ import {
 import type { AppState, Folder, Priority, Task, ThemeMode, WorkspaceTab } from "../types.js";
 import { createElement, setHidden } from "./dom.js";
 import { icon, type IconName } from "./icons.js";
+import { computeRecentActivitySets, setRecentWorklogDays } from "./recent-activity.js";
 import type { Elements } from "./selectors.js";
 
 export interface InlineCreateState {
@@ -38,10 +39,15 @@ export interface Renderer {
   render(state: AppState, view: ViewState, canUndo: boolean, canRedo: boolean): void;
 }
 
+// TEST-V08-023：每次渲染前更新，供任务节点与文件夹标题读取。
+let recentActivitySets: { tasks: Set<string>; folders: Set<string> } = { tasks: new Set(), folders: new Set() };
+
 export function createRenderer(els: Elements): Renderer {
   return {
     render(state, view, canUndo, canRedo) {
       applyTheme(state.preferences.theme);
+      setRecentWorklogDays(state.preferences.recentWorklogDays);
+      recentActivitySets = computeRecentActivitySets(state.tasks, state.folders);
       renderControls(state, view, canUndo, canRedo);
       renderMetrics(state);
       renderFolderControls(state);
@@ -64,6 +70,7 @@ export function createRenderer(els: Elements): Renderer {
     els.themeSelect.value = state.preferences.theme;
     els.defaultDueDate.value = state.preferences.defaultTaskDueDate;
     els.defaultPriority.value = state.preferences.defaultTaskPriority;
+    els.recentWorklogDays.value = String(state.preferences.recentWorklogDays);
     const preferredWorkspaceWidth = Number.isFinite(state.preferences.workspaceWidth) ? state.preferences.workspaceWidth : 620;
     // TEST-V08-017：1180px 起即可拖拽调节工作区宽度；1180-1339 使用图标导航（72px）与更窄的任务列表。
     let workspaceWidth = preferredWorkspaceWidth;
@@ -245,9 +252,11 @@ function renderTreeView(state: AppState, visibleTasks: Task[], view: ViewState, 
 
 function createTreeHeading(state: AppState, folder: Folder | null, count: number, sortableCount: number, depth: number): HTMLElement {
   const folderId = folder?.id ?? null;
-  const heading = createElement("div", { className: "group-heading tree-group-heading" });
+  const recent = folder ? recentActivitySets.folders.has(folder.id) : false;
+  const heading = createElement("div", { className: `group-heading tree-group-heading${recent ? " activity-recent" : ""}` });
   heading.style.setProperty("--group-depth", String(depth));
   heading.dataset.dropFolderId = folderId ?? "root";
+  if (recent) heading.title = "该文件夹内近期有工作记录";
   if (folder) {
     const toggle = iconButton("toggle-folder", folder.collapsed ? "ChevronRight" : "ChevronDown", folder.collapsed ? "展开文件夹" : "折叠文件夹", "folder-toggle");
     toggle.dataset.folderId = folder.id;
@@ -445,8 +454,9 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
   const selected = task.id === view.selectedTaskId;
   const overdue = isOverdue(task);
   const pending = Boolean(task.pendingResolution);
+  const recent = recentActivitySets.tasks.has(task.id);
   const node = createElement("article", {
-    className: `task-item ${task.status}${priorityBand ? ` priority-band priority-band-${priorityBand}` : ""}${selected ? " selected" : ""}${view.query ? " search-match" : ""}${overdue ? " overdue" : ""}${pending ? " pending" : ""}${view.flashTaskId === task.id ? " locating" : ""}`,
+    className: `task-item ${task.status}${priorityBand ? ` priority-band priority-band-${priorityBand}` : ""}${selected ? " selected" : ""}${view.query ? " search-match" : ""}${overdue ? " overdue" : ""}${pending ? " pending" : ""}${recent ? " activity-recent" : ""}${view.flashTaskId === task.id ? " locating" : ""}`,
   });
   node.dataset.id = task.id;
   node.dataset.folderId = task.folderId ?? "root";
@@ -455,7 +465,8 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
   node.tabIndex = 0;
   node.setAttribute("role", "option");
   node.setAttribute("aria-selected", String(selected));
-  node.setAttribute("aria-label", `${task.title}，${pending ? "等待确认" : STATUS_LABELS[task.status]}，${PRIORITY_LABELS[task.priority]}优先级`);
+  node.setAttribute("aria-label", `${task.title}，${pending ? "等待确认" : STATUS_LABELS[task.status]}，${PRIORITY_LABELS[task.priority]}优先级${recent ? "，近期有工作记录" : ""}`);
+  if (recent) node.title = "近期有工作记录";
   if (draggable && task.status === "active" && !overdue) node.classList.add("is-draggable");
 
   const main = createElement("div", { className: "task-main" });

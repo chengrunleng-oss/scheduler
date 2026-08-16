@@ -276,6 +276,11 @@ export function reduceState(state: AppState, action: StateAction): AppState {
         ? state
         : { ...state, preferences: { ...state.preferences, defaultTaskDueDate: action.dueDate, defaultTaskPriority: action.priority } };
 
+    case "set-recent-worklog-days": {
+      const days = Number.isInteger(action.days) ? Math.max(0, Math.min(90, action.days)) : 7;
+      return state.preferences.recentWorklogDays === days ? state : { ...state, preferences: { ...state.preferences, recentWorklogDays: days } };
+    }
+
     case "set-workspace-width": {
       const width = Math.max(560, Math.min(680, Math.round(action.width)));
       return state.preferences.workspaceWidth === width ? state : { ...state, preferences: { ...state.preferences, workspaceWidth: width } };

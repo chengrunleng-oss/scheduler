@@ -82,11 +82,27 @@
 .task-actions .icon-button { flex: 0 0 40px; }
 
 .group-heading { display: flex; min-height: 46px; align-items: center; gap: 8px; margin-top: 10px; border-bottom: 1px solid var(--line-strong); color: var(--text); padding: 5px 12px; font-size: 13px; font-weight: 700; }
-.tree-group-heading { margin-top: 8px; margin-bottom: 6px; border-bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--surface) 38%, transparent); padding-left: 8px; color: var(--teal); }
+.tree-group-heading { position: relative; margin-top: 8px; margin-bottom: 6px; border-bottom: 0; border-radius: 5px; background: color-mix(in srgb, var(--surface) 38%, transparent); padding-left: 8px; color: var(--teal); }
 .tree-group-heading[data-toggle-folder-id] { cursor: pointer; }
 .tree-group-heading[data-toggle-folder-id]:hover { background: color-mix(in srgb, var(--surface) 66%, transparent); }
 .tree-group-heading .folder-toggle { flex: 0 0 40px; }
 .tree-group-heading .group-actions { display: flex; margin-left: auto; gap: 3px; }
+/* TEST-V08-023：近期活跃丝带标记（任务卡片与文件夹标题左上角）。 */
+.task-item.activity-recent::before,
+.tree-group-heading.activity-recent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 15px 15px 0 0;
+  border-color: var(--teal) transparent transparent transparent;
+  border-top-left-radius: 6px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 24%));
+  pointer-events: none;
+}
 .group-action { border-color: transparent; background: transparent; }
 .tree-container { position: relative; display: block; min-width: 0; margin: 8px 0; border: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent); border-radius: 7px; background: var(--folder-layer-0); padding: 0 10px 10px; box-shadow: 0 2px 5px rgb(28 48 54 / 5%); }
 .tree-container.tree-depth-0 { background: var(--folder-layer-0); }

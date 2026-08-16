@@ -8,6 +8,7 @@ export interface Elements {
   globalNewTask: HTMLButtonElement;
   defaultDueDate: HTMLSelectElement;
   defaultPriority: HTMLSelectElement;
+  recentWorklogDays: HTMLSelectElement;
   newFolder: HTMLButtonElement;
   folderTree: HTMLElement;
   workspaceTitle: HTMLElement;
@@ -36,6 +37,7 @@ export interface Elements {
   taskDetail: HTMLElement;
   detailResizer: HTMLElement;
   detailClose: HTMLButtonElement;
+  workspaceZoomToggle: HTMLButtonElement;
   detailEmpty: HTMLElement;
   workspaceTabs: HTMLElement;
   workspaceTabButtons: NodeListOf<HTMLButtonElement>;
@@ -166,7 +168,7 @@ export function queryElements(): Elements {
   return {
     appShell: requiredElement("#appShell"),
     sidebar: requiredElement("#sidebar"), sidebarClose: requiredElement("#sidebarClose"), navToggle: requiredElement("#navToggle"),
-    globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"),
+    globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"), recentWorklogDays: requiredElement("#recentWorklogDays"),
     newFolder: requiredElement("#newFolder"), folderTree: requiredElement("#folderTree"), workspaceTitle: requiredElement("#workspaceTitle"),
     taskList: requiredElement("#taskList"), emptyState: requiredElement("#emptyState"), dragHint: requiredElement("#dragHint"), searchInput: requiredElement("#searchInput"),
     statusFilters: document.querySelectorAll(".status-segment"), viewModes: document.querySelectorAll(".view-segment"),
@@ -174,7 +176,7 @@ export function queryElements(): Elements {
     exportData: requiredElement("#exportData"), importData: requiredElement("#importData"), importHistory: requiredElement("#importHistory"), importFile: requiredElement("#importFile"), resetDemo: requiredElement("#resetDemo"),
     workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
-    taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
+    taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), workspaceZoomToggle: requiredElement("#workspaceZoomToggle"), detailEmpty: requiredElement("#detailEmpty"),
     workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),
     detailStatusBadge: requiredElement("#detailStatusBadge"), detailTitle: requiredElement("#detailTitle"), detailNotes: requiredElement("#detailNotes"),
     detailPriority: requiredElement("#detailPriority"), detailFolder: requiredElement("#detailFolder"), detailDueDate: requiredElement("#detailDueDate"),

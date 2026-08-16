@@ -57,6 +57,7 @@ export function createDefaultState(now = Date.now()): AppState {
       expandedHandledContainers: [],
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
+      recentWorklogDays: 7,
     },
     folders: [workFolder, personalFolder],
     tasks: [
@@ -105,6 +106,7 @@ export function createEmptyState(): AppState {
       expandedHandledContainers: [],
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
+      recentWorklogDays: 7,
     },
     folders: [],
     tasks: [],
@@ -462,6 +464,7 @@ function migrateLegacyState(source: UnknownRecord, now: number): AppState {
       expandedHandledContainers: [],
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
+      recentWorklogDays: 7,
     },
     folders: [],
     tasks: normalizeTaskOrders(uniqueById(tasks)),
@@ -482,6 +485,7 @@ function hydratePreferences(value: unknown, legacyRoot: UnknownRecord, folderIds
     expandedHandledContainers: stringArray(source.expandedHandledContainers).filter((id) => id === "root" || folderIds.has(id)),
     navigationCollapsedFolders: stringArray(source.navigationCollapsedFolders).filter((id) => folderIds.has(id)),
     workspaceWidth: coerceWorkspaceWidth(source.workspaceWidth),
+    recentWorklogDays: coerceRecentWorklogDays(source.recentWorklogDays),
   };
 }
 
@@ -723,6 +727,11 @@ function isValidV5Preferences(value: UnknownRecord): boolean {
 
 function coerceWorkspaceWidth(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(560, Math.min(680, Math.round(value))) : DEFAULT_WORKSPACE_WIDTH;
+}
+
+// TEST-V08-023：近期活跃窗口天数，0 关闭，上限 90 天，缺省或非法值回退为 7。
+export function coerceRecentWorklogDays(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 90 ? value : 7;
 }
 
 function normalizeMarkdown(value: unknown): string {

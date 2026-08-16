@@ -25,6 +25,7 @@ export function createWorkspaceController(
   backend: WorkspaceBackend,
   dialogs: Dialogs,
   persistState: () => Promise<boolean>,
+  onActivityChanged?: () => void,
 ): WorkspaceController {
   let activeTaskId: string | null = null;
   let activeTab: WorkspaceTab = "overview";
@@ -46,6 +47,7 @@ export function createWorkspaceController(
   let deletedWorklogWasActive = false;
   let worklogUndoTimer = 0;
   let markdownRenderer: MarkdownRenderer | null = null;
+  let readingMode = false;
 
   els.worklogDate.max = toISODate();
   els.worklogDate.value = activeWorkDate;
@@ -151,6 +153,7 @@ export function createWorkspaceController(
       savedWorklogMarkdown = markdown;
       setSaveStatus("worklog", "saved");
       await renderWorklogHistory();
+      onActivityChanged?.();
       return true;
     } catch (error) {
       if (error instanceof WorkspaceConflictError) {
@@ -334,6 +337,7 @@ export function createWorkspaceController(
     offerWorklogUndo(record, wasActive);
     if (wasActive) await changeWorkDate(activeWorkDate, true);
     else await renderWorklogHistory();
+    onActivityChanged?.();
   }
 
   async function openOrCreateTodayWorklog(): Promise<void> {
@@ -371,6 +375,7 @@ export function createWorkspaceController(
     if (worklogEditor) { await worklogEditor.destroy(); worklogEditor = null; }
     await backend.saveWorkLog({ id: activeWorkLogId ?? undefined, taskId: task.id, workDate: activeWorkDate, contentMarkdown: appendMarkdown(current, text), progressPercent: els.worklogProgress.value === "" ? null : Number(els.worklogProgress.value), conflictOrigin: activeWorkLogConflictOrigin });
     worklogDirty = false;
+    onActivityChanged?.();
     if (activeTab === "worklog") await changeWorkDate(activeWorkDate);
   }
 
@@ -635,12 +640,28 @@ export function createWorkspaceController(
     await destroyEditors();
     if (activeTab === "worklog") await mountEditors();
     await renderAttachments();
+    onActivityChanged?.();
     dialogs.toast(migrated
       ? `已迁移 ${migrated} 张内嵌图片为附件引用${skipped ? `，跳过 ${skipped} 张` : ""}。`
       : (skipped ? "内嵌图片均未迁移，请检查图片大小。 " : "没有找到需要迁移的内嵌图片。"));
   }
 
   els.migrateEmbeddedImages.addEventListener("click", () => { void migrateEmbeddedImages(); });
+
+  // TEST-V08-022：工作区放大/阅读模式。全屏阅读层 + 加大字体与历史区域空间；Esc 或按钮退出。
+  function setReadingMode(enabled: boolean): void {
+    readingMode = enabled;
+    els.taskDetail.classList.toggle("reading-mode", enabled);
+    els.workspaceZoomToggle.setAttribute("aria-pressed", String(enabled));
+    els.workspaceZoomToggle.title = enabled ? "退出放大" : "放大工作区";
+    els.workspaceZoomToggle.setAttribute("aria-label", enabled ? "退出放大工作区" : "放大工作区");
+    els.workspaceZoomToggle.querySelector("i[data-lucide='maximize-2']")?.toggleAttribute("hidden", enabled);
+    els.workspaceZoomToggle.querySelector("i[data-lucide='minimize-2']")?.toggleAttribute("hidden", !enabled);
+  }
+  els.workspaceZoomToggle.addEventListener("click", () => setReadingMode(!readingMode));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && readingMode) setReadingMode(false);
+  });
 
   els.worklogDate.addEventListener("change", () => { void changeWorkDate(els.worklogDate.value); });
   els.worklogProgress.addEventListener("input", () => scheduleSave("worklog"));
@@ -657,6 +678,7 @@ export function createWorkspaceController(
     hideWorklogUndo();
     if (wasActive && record.taskId === activeTaskId && record.workDate === activeWorkDate) await changeWorkDate(activeWorkDate, true, record.id);
     else await renderWorklogHistory();
+    onActivityChanged?.();
     dialogs.toast("工作记录已恢复。");
   });
   els.worklogHistory.addEventListener("click", async (event) => {
