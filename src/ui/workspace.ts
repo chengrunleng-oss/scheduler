@@ -688,6 +688,21 @@ export function createWorkspaceController(
       button.setAttribute("aria-pressed", String(zoomed));
     }
   }
+  // TEST-V08-026：长期描述与每日记录的折叠开关（会话内状态）。
+  const collapseSections = new Map<HTMLButtonElement, HTMLElement>([
+    [els.collapseDescription, els.descriptionSection],
+    [els.collapseDaily, els.dailySection],
+  ]);
+  for (const [button, section] of collapseSections) {
+    const label = zoomLabels.get(button === els.collapseDescription ? els.zoomDescription : els.zoomDaily) ?? "区块";
+    button.addEventListener("click", () => {
+      const collapsed = section.classList.toggle("section-collapsed");
+      button.setAttribute("aria-pressed", String(collapsed));
+      button.title = collapsed ? `展开${label}` : `折叠${label}`;
+      button.setAttribute("aria-label", collapsed ? `展开${label}` : `折叠${label}`);
+    });
+  }
+
   function setSectionZoom(button: HTMLButtonElement | null): void {
     if (zoomedButton === button) return;
     if (zoomedButton) {
@@ -696,7 +711,15 @@ export function createWorkspaceController(
     }
     zoomedButton = button;
     if (button) {
-      zoomSections.get(button)?.classList.add("zoom-overlay");
+      const section = zoomSections.get(button);
+      section?.classList.add("zoom-overlay");
+      // 放大已折叠的区块时先展开，保证放大视图完整。
+      if (section?.classList.contains("section-collapsed")) {
+        section.classList.remove("section-collapsed");
+        for (const [collapseButton, collapseSection] of collapseSections) {
+          if (collapseSection === section) collapseButton.setAttribute("aria-pressed", "false");
+        }
+      }
       // 放大历史记录时展开全部条目，保证阅读视图完整；展开状态保留。
       if (button === els.zoomHistory) {
         for (const item of els.worklogHistory.querySelectorAll<HTMLElement>(".worklog-history-item")) {
@@ -707,10 +730,45 @@ export function createWorkspaceController(
           toggle?.setAttribute("aria-label", labelText.replace(/^展开/, "收起"));
           if (item.dataset.worklogId) expandedWorklogIds.add(item.dataset.worklogId);
         }
+        populateHistoryZoomToc();
       }
     }
+    if (zoomedButton !== els.zoomHistory) els.historyZoomToc.hidden = true;
     refreshZoomButtons();
   }
+
+  // TEST-V08-026：历史记录放大视图的左侧日期目录；点击条目丝滑滚动到对应记录。
+  function populateHistoryZoomToc(): void {
+    els.historyZoomToc.replaceChildren();
+    const items = [...els.worklogHistory.querySelectorAll<HTMLElement>(".worklog-history-item")];
+    els.historyZoomToc.hidden = items.length === 0;
+    for (const item of items) {
+      const toggle = item.querySelector<HTMLButtonElement>(".history-date");
+      const progress = item.querySelector<HTMLElement>(".history-progress");
+      const entry = document.createElement("button");
+      entry.type = "button";
+      entry.className = "history-zoom-toc-entry";
+      entry.dataset.tocTarget = item.dataset.worklogId ?? "";
+      if (item.dataset.worklogId === activeWorkLogId) entry.classList.add("active");
+      entry.append(icon("CalendarClock", 14), document.createTextNode(toggle?.textContent?.trim() ?? ""));
+      if (progress?.textContent) {
+        const meter = document.createElement("span");
+        meter.className = "toc-progress";
+        meter.textContent = progress.textContent;
+        entry.append(meter);
+      }
+      entry.setAttribute("aria-label", `跳转到 ${toggle?.textContent?.trim() ?? ""} 的记录`);
+      els.historyZoomToc.append(entry);
+    }
+  }
+  els.historyZoomToc.addEventListener("click", (event) => {
+    const entry = (event.target as HTMLElement).closest<HTMLButtonElement>(".history-zoom-toc-entry");
+    const targetId = entry?.dataset.tocTarget;
+    if (!targetId) return;
+    const item = els.worklogHistory.querySelector<HTMLElement>(`.worklog-history-item[data-worklog-id="${CSS.escape(targetId)}"]`);
+    item?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   refreshZoomButtons();
   for (const button of zoomSections.keys()) {
     button.addEventListener("click", () => setSectionZoom(zoomedButton === button ? null : button));

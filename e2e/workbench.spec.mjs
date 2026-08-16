@@ -863,6 +863,77 @@ test("history zoom expands all records and shows complete content (TEST-V08-025)
   await expect(section).not.toHaveClass(/zoom-overlay/);
 });
 
+test("description and daily sections collapse, and history zoom offers a date index with smooth jumps (TEST-V08-026)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(30)}${index}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 长期描述与每日记录折叠/展开。
+  const collapseDescription = page.locator("#collapseDescription");
+  await collapseDescription.click();
+  await expect(collapseDescription).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#descriptionEditor")).toBeHidden();
+  await collapseDescription.click();
+  await expect(collapseDescription).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#descriptionEditor")).toBeVisible();
+  const collapseDaily = page.locator("#collapseDaily");
+  await collapseDaily.click();
+  await expect(page.locator("#worklogEditor")).toBeHidden();
+  await collapseDaily.click();
+  await expect(page.locator("#worklogEditor")).toBeVisible();
+
+  // 历史记录放大：左侧日期目录按日期倒序，点击末条丝滑滚动到对应记录。
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(3, { timeout: 20_000 });
+  await page.locator("#zoomHistory").click();
+  const toc = page.locator("#historyZoomToc");
+  await expect(toc).toBeVisible();
+  const entries = toc.locator(".history-zoom-toc-entry");
+  await expect(entries).toHaveCount(3);
+  // 目录首条为当前（最新）记录并高亮。
+  await expect(entries.first()).toHaveClass(/active/);
+  await entries.last().click();
+  await page.waitForTimeout(700);
+  const jumpGeometry = await page.evaluate(() => {
+    const overlay = document.querySelector("#worklogHistorySection");
+    const items = [...document.querySelectorAll("#worklogHistory .worklog-history-item")];
+    const last = items[items.length - 1];
+    const overlayRect = overlay.getBoundingClientRect();
+    const lastRect = last.getBoundingClientRect();
+    return { overlayTop: overlayRect.top, overlayBottom: overlayRect.bottom, lastTop: lastRect.top, scrollTop: overlay.scrollTop };
+  });
+  expect(jumpGeometry.lastTop).toBeGreaterThanOrEqual(jumpGeometry.overlayTop - 1);
+  expect(jumpGeometry.lastTop).toBeLessThan(jumpGeometry.overlayBottom);
+  expect(jumpGeometry.scrollTop).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#historyZoomToc")).toBeHidden();
+
+  // 折叠多条记录后不残留空白条：折叠项高度只剩标题行，内容包装高度为 0。
+  await page.locator("#worklogHistory .worklog-history-item").nth(1).locator(".history-date").click();
+  await page.locator("#worklogHistory .worklog-history-item").nth(2).locator(".history-date").click();
+  await page.waitForTimeout(400);
+  const geometry = await page.evaluate(() => {
+    return [...document.querySelectorAll("#worklogHistory .worklog-history-item")].map((item) => ({
+      collapsed: !item.classList.contains("expanded"),
+      height: Math.round(item.getBoundingClientRect().height),
+      wrapHeight: Math.round(item.querySelector(".history-content-wrap").getBoundingClientRect().height),
+    }));
+  });
+  for (const entry of geometry.filter((item) => item.collapsed)) {
+    expect(entry.wrapHeight).toBe(0);
+    expect(entry.height).toBeLessThan(60);
+  }
+});
+
 test("worklog history expands, collapses, and moves dates (TEST-V08-024)", async ({ page }) => {
   const iso = (offsetDays) => {
     const now = new Date();

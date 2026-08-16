@@ -54,11 +54,50 @@
 .section-zoom[aria-pressed="true"] { color: var(--teal); border-color: var(--line-strong); background: var(--teal-soft); }
 .section-zoom-icon { display: inline-flex; }
 
+/* TEST-V08-026：历史记录放大视图改为“左侧日期目录 + 右侧记录列表”布局。 */
+.worklog-history-section.zoom-overlay {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 6px 18px;
+}
+.worklog-history-section.zoom-overlay .workspace-section-heading { grid-column: 1 / -1; }
+.worklog-history-section.zoom-overlay .history-zoom-toc {
+  grid-column: 1;
+  grid-row: 2 / -1;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100dvh - 150px);
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  padding-right: 12px;
+}
+.worklog-history-section.zoom-overlay .worklog-undo { grid-column: 2; grid-row: 2; align-self: start; }
+.worklog-history-section.zoom-overlay .worklog-history { grid-column: 2; grid-row: 3; align-self: start; }
+@media (max-width: 880px) {
+  .worklog-history-section.zoom-overlay { grid-template-columns: 1fr; }
+  .worklog-history-section.zoom-overlay .history-zoom-toc {
+    grid-column: 1;
+    grid-row: 2;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 8px;
+  }
+  .worklog-history-section.zoom-overlay .worklog-undo { grid-column: 1; grid-row: 3; }
+  .worklog-history-section.zoom-overlay .worklog-history { grid-column: 1; grid-row: 4; }
+}
+
 /* TEST-V08-024：历史记录展开/折叠的高度动画。 */
 .history-content-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 220ms ease; }
 .worklog-history-item.expanded .history-content-wrap { grid-template-rows: 1fr; }
 .history-content-wrap > .history-content { min-height: 0; overflow: hidden; margin: 0; }
-.worklog-history-item.expanded .history-content { max-height: 420px; overflow-y: auto; }
+.worklog-history-item.expanded .history-content { max-height: 420px; overflow-y: auto; padding: 10px 12px; }
 .worklog-history-item .history-date { display: flex; align-items: center; gap: 6px; }
 .worklog-history-item .history-date .lucide-icon { transition: transform 220ms ease; }
 .worklog-history-item.expanded .history-date .lucide-icon { transform: rotate(180deg); }

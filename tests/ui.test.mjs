@@ -219,6 +219,16 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(layoutCss, /markdown-lightbox-close/);
   assert.match(workspace, /Minimize2/);
   assert.match(responsiveCss, /\.zoom-overlay \.worklog-history-item\.expanded \.history-content[^}]*max-height:\s*none/s);
+  // TEST-V08-026：长期描述/每日记录折叠、历史放大左侧日期目录与丝滑跳转、折叠不残留空白。
+  assert.match(taskWorkspace, /id="collapseDescription"/);
+  assert.match(taskWorkspace, /id="collapseDaily"/);
+  assert.match(taskWorkspace, /id="historyZoomToc"/);
+  assert.match(workspace, /section-collapsed/);
+  assert.match(workspace, /populateHistoryZoomToc/);
+  assert.match(workspace, /scrollIntoView\(\{ behavior: "smooth"/);
+  assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay[^}]*grid-template-columns:\s*minmax\(220px,\s*260px\)/s);
+  assert.match(layoutCss, /\.history-zoom-toc-entry/);
+  assert.match(layoutCss, /\.editor-section\.section-collapsed/);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);

@@ -41,6 +41,9 @@ export interface Elements {
   zoomDescription: HTMLButtonElement;
   zoomDaily: HTMLButtonElement;
   zoomHistory: HTMLButtonElement;
+  collapseDescription: HTMLButtonElement;
+  collapseDaily: HTMLButtonElement;
+  historyZoomToc: HTMLElement;
   descriptionSection: HTMLElement;
   dailySection: HTMLElement;
   worklogHistorySection: HTMLElement;
@@ -186,7 +189,7 @@ export function queryElements(): Elements {
     workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
     taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
-    zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"),
+    zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"), collapseDescription: requiredElement("#collapseDescription"), collapseDaily: requiredElement("#collapseDaily"), historyZoomToc: requiredElement("#historyZoomToc"),
     descriptionSection: requiredElement("#descriptionSection"), dailySection: requiredElement("#dailySection"), worklogHistorySection: requiredElement("#worklogHistorySection"),
     worklogDateDialog: requiredElement("#worklogDateDialog"), worklogDateForm: requiredElement("#worklogDateForm"), worklogDatePrompt: requiredElement("#worklogDatePrompt"), worklogNewDate: requiredElement("#worklogNewDate"),
     workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),

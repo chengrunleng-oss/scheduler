@@ -222,7 +222,8 @@
 .rendered-markdown blockquote { margin-inline: 0; padding-inline: 12px; border-left: 3px solid var(--teal); color: var(--muted); }
 .rendered-markdown a { color: var(--teal); }
 .attachment-missing { display: inline-block; padding: 2px 8px; border: 1px dashed var(--line-strong); border-radius: 6px; color: var(--muted); font-size: 12px; }
-.history-content { margin: 0; padding: 2px 2px 12px; line-height: 1.6; }
+/* 历史记录内容：折叠态不得保留内边距（否则 0fr 行残留空白条），展开态在 responsive 中补回。 */
+.history-content { margin: 0; border-left: 2px solid var(--line-strong); background: var(--surface-muted); color: var(--text); white-space: pre-wrap; font: 13px/1.55 inherit; line-height: 1.6; }
 .markdown-lightbox { position: fixed; z-index: 90; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: rgb(10 14 20 / 88%); opacity: 0; transition: opacity 140ms ease; }
 .markdown-lightbox.visible { opacity: 1; }
 .markdown-lightbox-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
@@ -245,7 +246,16 @@
 .history-actions .icon-button { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 .worklog-undo { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; border: 1px solid var(--pending); border-radius: 6px; background: var(--pending-soft); padding: 6px 10px; font-size: 12px; }
 .compact-button { min-height: 34px; padding: 5px 9px; font-size: 12px; }
-.history-content { max-height: 240px; margin: 0 0 12px; overflow: auto; border-left: 2px solid var(--line-strong); background: var(--surface-muted); padding: 10px 12px; color: var(--text); white-space: pre-wrap; font: 13px/1.55 inherit; }
+/* TEST-V08-026：长期描述与每日记录的折叠开关。 */
+.section-collapse-toggle .lucide-icon { transition: transform 220ms ease; }
+.section-collapse-toggle[aria-pressed="true"] .lucide-icon { transform: rotate(180deg); }
+.editor-section.section-collapsed > :not(.workspace-section-heading) { display: none; }
+/* TEST-V08-026：历史记录放大视图的左侧日期目录。 */
+.history-zoom-toc { display: flex; flex-direction: column; gap: 4px; }
+.history-zoom-toc-entry { display: flex; min-width: 0; min-height: 36px; align-items: center; gap: 7px; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 6px 10px; text-align: left; font-size: 13px; }
+.history-zoom-toc-entry:hover { background: var(--surface-muted); }
+.history-zoom-toc-entry.active { background: var(--teal-soft); color: var(--teal); font-weight: 650; }
+.history-zoom-toc-entry .toc-progress { margin-left: auto; color: var(--muted); font-size: 12px; }
 
 .attachment-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--line); }
 .storage-meter { padding: 14px 0; border-bottom: 1px solid var(--line); }
