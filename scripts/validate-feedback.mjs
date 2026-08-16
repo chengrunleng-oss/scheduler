@@ -121,7 +121,7 @@ function validateRegistry(doc, path) {
     if (ids.has(finding.id)) fail(`${path}: 登记项 id 重复: ${finding.id}`);
     if (finding.id) ids.add(finding.id);
     if (!SEVERITIES.includes(finding.severity)) fail(`${path}: ${finding.id} severity 无效`);
-    if (!["defect", "manual-verification", "process"].includes(finding.kind)) fail(`${path}: ${finding.id} kind 必须是 defect/manual-verification/process`);
+    if (!["defect", "manual-verification", "process", "enhancement"].includes(finding.kind)) fail(`${path}: ${finding.id} kind 必须是 defect/manual-verification/process/enhancement`);
     if (!REGISTRY_STATUSES.includes(finding.status)) fail(`${path}: ${finding.id} status 必须是 ${REGISTRY_STATUSES.join("/")}`);
     const history = asArray(finding.history, path, `${finding.id}.history`);
     if (history.length === 0) fail(`${path}: ${finding.id} 缺少 history`);

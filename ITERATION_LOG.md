@@ -1,5 +1,17 @@
 # 迭代记录
 
+## v0.8 补丁六：附件面板拖拽上传与打开任务文件夹（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-019：附件面板支持直接拖拽文件上传。`attachmentsPanel` 增加 dragenter/dragover/dragleave/drop 处理：拖入文件时面板高亮并显示 copy 光标，松手后与“添加附件”文件选择器共用 `uploadAttachments` 入库流程（20 MB 限制、逐项错误提示、刷新列表与空间统计），超限文件被明确拒绝。
+- 修复 TEST-V08-020：附件工具栏新增“打开任务文件夹”按钮。纯 Web 应用无法直接呼出系统资源管理器，因此由本地目录后端新增的 `revealTaskDirectory` 可选能力用系统文件选择器（`showOpenFilePicker` + `startIn`）定位到任务目录（tasks/<任务ID>/），这是浏览器能力范围内的可行近似；IndexedDB 等无真实目录的后端明确提示不支持。
+- 契约测试覆盖拖拽监听、dropEffect、drag-over 高亮、共用上传流程与后端可选能力；e2e 覆盖拖入入库与落盘内容一致、超限拒绝、系统选择器定位到任务目录。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、70 项 Node 测试和 69 项 Playwright 测试全部通过。
+
 ## v0.8 补丁四：工作记录编辑器 Markdown 形态与拖入附件入库（deepseek/test-feedback-fixes）
 
 ### 本次修复

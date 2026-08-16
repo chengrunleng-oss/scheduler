@@ -1,9 +1,9 @@
 {
   "document_type": "scheduler_test_feedback",
   "format_version": 17,
-  "test_date": "2026-08-15",
+  "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "f949338",
+  "source_revision": "4c9e16e",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）、TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）与 TEST-V08-018（概览表单自动保存时 trim 掉用户刚敲入的行尾空格与回车，随后界面重绘把规范化值写回输入框；现保留用户空白且重绘不再覆盖正在编辑的字段）。完整自动验证（69 项 Node 测试、68 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）、TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）、TEST-V08-018（概览表单自动保存时 trim 掉用户刚敲入的行尾空格与回车，随后界面重绘把规范化值写回输入框；现保留用户空白且重绘不再覆盖正在编辑的字段）与 TEST-V08-019/020（附件面板不可拖拽上传、没有打开任务文件夹的入口；现附件面板支持拖放入库与高亮反馈，工具栏新增“打开任务文件夹”用系统文件选择器定位任务目录）。完整自动验证全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -35,13 +35,12 @@
         { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
         { "name": "Vue TypeScript typecheck", "result": "passed" },
         { "name": "Vite production build", "result": "passed" },
-        { "name": "Node unit and structural tests", "result": "passed", "passed": 69, "failed": 0 },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 70, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 68, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 69, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
-      "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。",
-      "e2e_stability_note": "两个拖拽模拟用例（task name…drag 与 task drag previews…）在本机整轮负载下偶发断言失败（撤销回退/占位位置），单独复跑均通过且与 TEST-V08-014 修复无关；完整执行可获得 63/63 通过。"
+      "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
     }
   },
   "verified_progress": [
@@ -63,7 +62,9 @@
     "TEST-V08-015 已修复：编辑器拖放监听从仅 textarea 扩展到整个编辑器宿主并补 dragover 文件交付，拖到预览区/工具栏也能入库，新增拖拽高亮态；e2e 改为在预览区执行完整拖放序列。",
     "TEST-V08-016 已修复：已处理折叠区收起时完全隐藏条目（标题保留数量），展开时显示全部；移除“最新 3 条”预览与“另有 N 项”提示，更新折叠区与完成流程 e2e 用例。",
     "TEST-V08-017 已修复：编辑器增加输入法合成保护（合成期间不保存、合成结束统一提交）；每日记录与长期描述默认纯源码、工具栏手动切换预览；渲染图片可点击放大（Esc/点击关闭）；三轨布局与拖拽调宽阈值下调至 1180px，新增四个 e2e 回归用例。",
-    "TEST-V08-018 已修复：说明字段保存与读取水合均保留用户空白（仅统一换行符），renderDetail 不再覆盖聚焦中的字段；行尾空格与回车在自动保存和界面重绘后保持原样，新增 e2e 回归用例。"
+    "TEST-V08-018 已修复：说明字段保存与读取水合均保留用户空白（仅统一换行符），renderDetail 不再覆盖聚焦中的字段；行尾空格与回车在自动保存和界面重绘后保持原样，新增 e2e 回归用例。",
+    "TEST-V08-019 已修复：附件面板支持拖拽文件上传，拖入高亮、松手入库，与文件选择器共用 20 MB 限制与错误提示流程。",
+    "TEST-V08-020 已修复：附件工具栏新增“打开任务文件夹”，本地目录后端用系统文件选择器定位任务目录（纯 Web 的可行近似）；IndexedDB 等无真实目录的后端提示不支持。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -268,6 +269,42 @@
           "e2e/workbench.spec.mjs：自动保存后缩放重绘（聚焦）与失焦重绘均保留行尾空格与回车，落盘值一致（TEST-V08-018）"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-019",
+      "severity": "P2",
+      "category": "attachment-panel-drag-drop",
+      "title": "附件不支持拖拽上传",
+      "evidence": [
+        "用户直接体验反馈：每个项目的附件不可拖拽上传。",
+        "附件面板只有“添加附件”按钮触发隐藏文件输入，没有拖放处理。"
+      ],
+      "required_action": "附件面板接受文件拖放：拖入时高亮提示，松手后按现有 20 MB 限制入库并刷新列表与空间统计。",
+      "resolution": {
+        "fix_commit": "4c9e16e",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：附件面板 dragenter/dragover 高亮、drop 入库且落盘内容一致、21MB 文件拒绝（TEST-V08-019/020）",
+          "tests/ui.test.mjs：拖拽监听、dropEffect、drag-over 高亮与 uploadAttachments 共用流程的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-020",
+      "severity": "P2",
+      "category": "open-task-folder",
+      "title": "没有按钮能打开当前任务的文件夹",
+      "evidence": [
+        "用户直接体验反馈：没有一个按钮能打开当前项目的文件夹。",
+        "纯 Web 应用无法直接呼出系统资源管理器，浏览器不暴露目录的绝对路径。"
+      ],
+      "required_action": "提供“打开任务文件夹”入口，用系统文件选择器定位到任务目录作为纯 Web 的可行近似；无真实目录的后端给出明确提示。",
+      "resolution": {
+        "fix_commit": "4c9e16e",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：stub 系统文件选择器断言 startIn 定位到 tasks/task-1 且 multiple（TEST-V08-019/020）",
+          "tests/ui.test.mjs：WorkspaceBackend.revealTaskDirectory 可选能力与本地目录后端实现的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -343,13 +380,25 @@
         "status": "met",
         "finding_ids": ["TEST-V08-018"],
         "evidence": "e2e 018：说明字段输入行尾空格与回车后，自动保存并触发窗口重绘（聚焦与失焦两种）内容保持原样，落盘值一致。"
+      },
+      {
+        "description": "附件面板支持直接拖拽文件上传，拖拽过程有高亮反馈，超限文件被明确拒绝。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-019"],
+        "evidence": "e2e：dragenter/dragover 高亮、drop 入库并落盘内容一致、21MB 文件拒绝提示；契约测试覆盖拖拽监听与共用上传流程。"
+      },
+      {
+        "description": "附件工具栏提供“打开任务文件夹”，用系统文件选择器定位到任务目录（纯 Web 的可行近似）。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-020"],
+        "evidence": "e2e：stub 系统选择器断言 startIn 为 tasks/task-1 且 multiple；契约测试覆盖 WorkspaceBackend.revealTaskDirectory 能力。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "cd4e6ab",
+    "head": "4c9e16e",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",
