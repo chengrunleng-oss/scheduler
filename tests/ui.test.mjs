@@ -320,6 +320,10 @@ test("attachments accept drag-and-drop upload and can reveal the task folder (TE
   assert.match(localDirectoryBackend, /showOpenFilePicker/);
   assert.match(localDirectoryBackend, /startIn: handle/);
   assert.match(localDirectoryBackend, /getTaskDirectory\(taskId\)/);
+  assert.match(workspace, /wireGlobalFileDropGuard/);
+  assert.match(workspace, /先选中一个任务，再把文件拖进来上传为附件/);
+  assert.match(workspace, /handledElsewhere/);
+  assert.match(workspace, /dropEffect = handledElsewhere \|\| activeTaskId \? "copy" : "none"/);
 });
 
 test("workspace layout retains internal scrolling and a persistent overview action area", () => {

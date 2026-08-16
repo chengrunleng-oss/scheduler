@@ -719,6 +719,32 @@ export function createWorkspaceController(
     });
   }
   wireAttachmentDropZone();
+  // TEST-V08-021：文件拖到应用窗口任意位置都不再由浏览器直接打开（如 PDF 直接导航）。
+  // 选中任务时落点不在附件面板/编辑器内的文件统一入库为附件；未选中时给出提示。
+  function wireGlobalFileDropGuard(): void {
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
+    window.addEventListener("dragover", (event) => {
+      if (!(event instanceof DragEvent) || !hasFiles(event)) return;
+      event.preventDefault();
+      if (!event.dataTransfer) return;
+      const target = event.target as HTMLElement | null;
+      const handledElsewhere = Boolean(target?.closest?.("#attachmentsPanel") || target?.closest?.(".markdown-editor"));
+      event.dataTransfer.dropEffect = handledElsewhere || activeTaskId ? "copy" : "none";
+    });
+    window.addEventListener("drop", (event) => {
+      if (!(event instanceof DragEvent) || !hasFiles(event)) return;
+      event.preventDefault();
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.("#attachmentsPanel") || target?.closest?.(".markdown-editor")) return; // 面板与编辑器自行处理
+      const files = Array.from(event.dataTransfer?.files ?? []);
+      if (!activeTaskId) {
+        dialogs.toast("先选中一个任务，再把文件拖进来上传为附件。");
+        return;
+      }
+      void uploadAttachments(files);
+    });
+  }
+  wireGlobalFileDropGuard();
   // TEST-V08-020：纯 Web 应用无法直接呼出系统资源管理器，这里由本地目录后端用系统文件选择器
   // 定位到任务目录，让用户可以直接查看该任务的本地文件。
   els.openTaskFolder.addEventListener("click", async () => {

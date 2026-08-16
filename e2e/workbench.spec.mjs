@@ -783,6 +783,30 @@ test("attachments panel accepts drag-and-drop upload and the task folder opens i
   expect(count).toBe(1);
 });
 
+test("files dropped anywhere in the app attach to the selected task instead of opening in the browser (TEST-V08-021)", async ({ page }) => {
+  const urlBefore = page.url();
+  const dropOn = (selector, { name, type, content }) => page.evaluate(({ targetSelector, fileName, fileType, fileContent }) => {
+    const file = new File([fileContent], fileName, { type: fileType });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const target = document.querySelector(targetSelector);
+    for (const eventType of ["dragover", "drop"]) {
+      target.dispatchEvent(new DragEvent(eventType, { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    }
+  }, { targetSelector: selector, fileName: name, fileType: type, fileContent: content });
+
+  // 未选中任务：提示而不是被浏览器直接打开。
+  await dropOn("#appShell", { name: "随手.pdf", type: "application/pdf", content: "pdf-bytes" });
+  await expect(page.locator("#toast")).toContainText("先选中一个任务");
+  expect(page.url()).toBe(urlBefore);
+
+  // 选中任务：拖到窗口任意位置（附件页之外）也入库为附件。
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await dropOn("#appShell", { name: "随手.pdf", type: "application/pdf", content: "pdf-bytes" });
+  await expect.poll(() => page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).some((meta) => meta.name === "随手.pdf"))).toBe(true);
+  expect(page.url()).toBe(urlBefore);
+});
+
 test("embedded data-uri images migrate into attachments (TEST-V08-014c)", async ({ page }) => {
   const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
   const date = await page.evaluate(() => {
