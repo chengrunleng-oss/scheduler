@@ -137,6 +137,13 @@
         "description": "图片放大视图填满可用空间且可切换原始尺寸；分区放大按钮图标随状态切换；历史记录放大自动展开全部条目并完整展示内容。",
         "status": "met",
         "evidence": "e2e 017c 扩展（放大视图尺寸、ZoomIn/ZoomOut 切换、关闭按钮）、022 扩展（minimize-2 图标与恢复语义）、新增 025（历史放大自动展开与 max-height none）；契约测试覆盖 object-fit、Minimize2、放大层内容上限覆盖。"
+      },
+      {
+        "id": "gate-20",
+        "finding_ids": ["TEST-V08-026"],
+        "description": "长期描述与每日记录可折叠；历史记录放大视图提供左侧日期目录并可丝滑跳转；折叠条目间无残留空白。",
+        "status": "met",
+        "evidence": "e2e 026：描述/每日折叠开关与 aria-pressed、放大目录 3 条目且首条高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px；契约测试覆盖折叠开关、目录入口、smooth scroll 与折叠样式。"
       }
     ]
   },
@@ -280,6 +287,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-025 登记并修复：放大视图完整化（图片撑满可用空间、历史放大自动展开）、布局优化与独立缩小图标；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "095f39a",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-026 登记并修复：描述与每日记录折叠、历史放大左侧日期目录与丝滑跳转、折叠空白修复；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -767,6 +784,29 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8a31ddb；72 项 Node 测试与 74 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-026",
+      "severity": "P2",
+      "category": "section-collapse-and-history-toc",
+      "kind": "defect",
+      "title": "描述与每日记录不能折叠，历史放大缺少日期目录且折叠残留空白",
+      "status": "fixed",
+      "fix_commit": "095f39a",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：描述/每日折叠开关与恢复、放大目录条目与高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px（TEST-V08-026）",
+        "tests/ui.test.mjs：折叠开关、目录入口、smooth scroll 与折叠样式契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：每日记录与长期描述也需要可以折叠。",
+        "用户直接体验反馈：放大后的历史记录条目需要在左边有一个按日期展示并索引的目录，点击条目后快速（丝滑）跳转到相应记录。",
+        "用户直接体验反馈：多个历史记录条目被折叠后条目间会隔开一大段空白。"
+      ],
+      "resolution": "长期描述与每日记录标题栏新增折叠按钮（chevron 随状态旋转，放大时自动先展开）；历史放大视图改为左侧日期目录 + 右侧列表，目录按日期倒序、高亮当前记录、点击 scrollIntoView 丝滑跳转（窄屏目录置顶横排）；折叠态内容移除内边距使 0fr 行高度归零，展开态由 responsive 规则补回内边距与上限，消除条目间空白条。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 095f39a；72 项 Node 测试与 75 项 Playwright 测试全部通过，视觉基线重采集。" }
       ]
     }
   ]
