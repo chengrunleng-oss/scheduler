@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "4224500",
+  "source_revision": "8a31ddb",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -13,7 +13,7 @@
   "overall_result": {
     "status": "passed_with_manual_verification_pending",
     "release_gate": "blocked",
-    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）、TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）、TEST-V08-018（概览表单自动保存时 trim 掉用户刚敲入的行尾空格与回车，随后界面重绘把规范化值写回输入框；现保留用户空白且重绘不再覆盖正在编辑的字段）与 TEST-V08-019/020（附件面板不可拖拽上传、没有打开任务文件夹的入口；现附件面板支持拖放入库与高亮反馈，工具栏新增“打开任务文件夹”用系统文件选择器定位任务目录）。完整自动验证全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
+    "summary": "本轮登记并修复 TEST-V08-014：每日记录编辑区显示渲染富文本而历史显示 Markdown 源码（形态相反），且拖入的照片经 Crepe 默认的 blob: 会话链接嵌入、不落入附件分区，刷新后失效。整改后编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染后 HTML；拖入/粘贴文件自动入库为附件并插入 attachment: 引用；新增解析渲染层与“整理内嵌图片”迁移动作；移除 Crepe 依赖后正式构建由约 1.3 MB 多分块降为 472 KB 单分块。后续登记并修复 TEST-V08-015（编辑器拖放监听只挂在 textarea 且未在 dragover 阶段 preventDefault，真实拖拽不生效）、TEST-V08-016（已处理折叠区收起时仍显示最新 3 条，条目少时点击折叠无可见效果；现改为完全收起）、TEST-V08-017（输入法合成期间拼音中间态被保存导致汉字回退、预览默认并排影响阅读、图片无法放大、工作区宽度无法调节；现增加合成保护、纯源码编辑与手动预览、图片放大遮罩，并把拖拽调宽阈值下调到 1180px）、TEST-V08-018（概览表单自动保存时 trim 掉用户刚敲入的行尾空格与回车，随后界面重绘把规范化值写回输入框；现保留用户空白且重绘不再覆盖正在编辑的字段）、TEST-V08-019/020（附件面板不可拖拽上传、没有打开任务文件夹的入口；现附件面板支持拖放入库与高亮反馈，工具栏新增“打开任务文件夹”用系统文件选择器定位任务目录）与 TEST-V08-025（放大视图不完整、布局欠佳且缩小图标沿用放大图标；现图片放大撑满可用空间并带 ZoomIn/ZoomOut 切换与关闭按钮，分区放大按钮图标随状态切换，历史放大自动展开全部条目并取消内容上限，放大层按约 1120px 行宽居中排版）。完整自动验证（72 项 Node 测试、74 项 Playwright 测试、正式构建与视觉基线）全部通过；仅剩真实 Windows 本地目录人工验收未完成，因此发布门槛仍为阻塞。"
   },
   "test_execution": {
     "pre_fix_verification": {
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 72, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 73, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 74, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -68,7 +68,8 @@
     "TEST-V08-021 已修复：文件拖到应用窗口任意位置都不再由浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
     "TEST-V08-022 已修复：取消工作区全局放大，改为长期描述、每日记录、历史记录三个组件的独立全屏放大按钮（Esc 恢复）；修复放大按钮图标缺失（图标注册表补 Maximize2）。",
     "TEST-V08-023 已修复：近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）；丝带配色改为紫罗兰 + 白色描边，与优先级底色和文件夹层明显区分。",
-    "TEST-V08-024 已修复：历史记录点击日期行展开/折叠并带动画，新增修改记录日期按钮与 changeWorkLogDate 后端能力。"
+    "TEST-V08-024 已修复：历史记录点击日期行展开/折叠并带动画，新增修改记录日期按钮与 changeWorkLogDate 后端能力。",
+    "TEST-V08-025 已修复：图片放大撑满可用空间并带 ZoomIn/ZoomOut 切换与关闭按钮；分区放大按钮图标随状态切换（Maximize2/Minimize2）；历史放大自动展开全部条目并取消内容上限；放大层按约 1120px 行宽居中排版。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -380,6 +381,27 @@
           "tests/ui.test.mjs：toggle/move-date 动作、history-content-wrap 高度动画、changeWorkLogDate 后端能力的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-025",
+      "severity": "P2",
+      "category": "zoom-view-completeness-and-layout",
+      "title": "历史记录放大视图不完整且缩小图标沿用了放大图标",
+      "evidence": [
+        "用户直接体验反馈：历史记录放大功能调出来的界面放大不完整。",
+        "用户直接体验反馈：缩小图标也沿用了放大图标。",
+        "图片放大遮罩只设 max-width/max-height，小图按原始像素显示未真正放大；展开态历史内容在放大层仍受 420px 上限与内滚动限制；分区放大按钮图标固定为 maximize-2 不随状态切换。"
+      ],
+      "required_action": "图片放大改为撑满可用空间并提供放大/缩小切换与关闭按钮；分区放大按钮图标随状态切换；历史记录放大时自动展开全部条目并取消内容上限；优化放大层排版。",
+      "resolution": {
+        "fix_commit": "8a31ddb",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：历史放大自动展开全部条目、展开态内容 max-height none 且无内滚动（TEST-V08-025）",
+          "e2e/workbench.spec.mjs：分区放大按钮 minimize-2 图标与恢复语义切换（TEST-V08-022 扩展）",
+          "e2e/workbench.spec.mjs：图片放大视图撑满可用空间、ZoomIn/ZoomOut 切换与关闭按钮（TEST-V08-017c 扩展）",
+          "tests/ui.test.mjs：object-fit contain、Minimize2、放大层内容上限覆盖的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -491,6 +513,12 @@
         "status": "met",
         "finding_ids": ["TEST-V08-024"],
         "evidence": "e2e：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新；契约测试覆盖 toggle/move-date 动作、220ms 高度动画与 changeWorkLogDate 后端能力。"
+      },
+      {
+        "description": "图片放大视图填满可用空间且可切换原始尺寸；分区放大按钮图标随状态切换；历史记录放大自动展开全部条目并完整展示内容。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-025"],
+        "evidence": "e2e 017c 扩展（放大视图尺寸、ZoomIn/ZoomOut 切换、关闭按钮）、022 扩展（minimize-2 图标与恢复语义）、新增 025（历史放大自动展开与 max-height none）；契约测试覆盖 object-fit、Minimize2、放大层内容上限覆盖。"
       }
     ]
   },

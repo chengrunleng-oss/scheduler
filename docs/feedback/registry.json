@@ -130,6 +130,13 @@
         "description": "历史记录支持展开/折叠与平滑动画、切换记录平滑过渡，并可修改记录日期。",
         "status": "met",
         "evidence": "e2e：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新；契约测试覆盖 toggle/move-date 动作、220ms 高度动画与 changeWorkLogDate 后端能力。"
+      },
+      {
+        "id": "gate-19",
+        "finding_ids": ["TEST-V08-025"],
+        "description": "图片放大视图填满可用空间且可切换原始尺寸；分区放大按钮图标随状态切换；历史记录放大自动展开全部条目并完整展示内容。",
+        "status": "met",
+        "evidence": "e2e 017c 扩展（放大视图尺寸、ZoomIn/ZoomOut 切换、关闭按钮）、022 扩展（minimize-2 图标与恢复语义）、新增 025（历史放大自动展开与 max-height none）；契约测试覆盖 object-fit、Minimize2、放大层内容上限覆盖。"
       }
     ]
   },
@@ -263,6 +270,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-022/023 按用户反馈返工（组件级放大、丝带高对比配色）并新增 TEST-V08-024（历史记录展开折叠、改期与动画）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "8a31ddb",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-025 登记并修复：放大视图完整化（图片撑满可用空间、历史放大自动展开）、布局优化与独立缩小图标；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -725,6 +742,31 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-025",
+      "severity": "P2",
+      "category": "zoom-view-completeness-and-layout",
+      "kind": "defect",
+      "title": "历史记录放大视图不完整且缩小图标沿用了放大图标",
+      "status": "fixed",
+      "fix_commit": "8a31ddb",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：历史放大自动展开全部条目、展开态内容 max-height none 且无内滚动（TEST-V08-025）",
+        "e2e/workbench.spec.mjs：分区放大按钮 minimize-2 图标与恢复语义切换（TEST-V08-022 扩展）",
+        "e2e/workbench.spec.mjs：图片放大视图撑满可用空间、ZoomIn/ZoomOut 切换与关闭按钮（TEST-V08-017c 扩展）",
+        "tests/ui.test.mjs：object-fit contain、Minimize2、放大层内容上限覆盖的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：历史记录放大功能调出来的界面放大不完整。",
+        "用户直接体验反馈：缩小图标也沿用了放大图标。",
+        "图片放大遮罩只设 max-width/max-height，小图按原始像素显示未真正放大；展开态历史内容在放大层仍受 420px 上限与内滚动限制；分区放大按钮图标固定为 maximize-2 不随状态切换。"
+      ],
+      "resolution": "图片放大改为撑满可用空间（object-fit: contain）并新增放大/缩小切换（ZoomIn/ZoomOut）与关闭按钮；分区放大按钮图标随状态切换为 Minimize2/Maximize2 并同步标题与 aria 标签；历史记录放大时自动展开全部条目并取消内容上限；放大层内容按约 1120px 行宽居中排版。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8a31ddb；72 项 Node 测试与 74 项 Playwright 测试全部通过。" }
       ]
     }
   ]
