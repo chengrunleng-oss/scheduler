@@ -48,10 +48,12 @@
         <input id="worklogImportFile" class="file-input" type="file" accept="text/markdown,text/plain,application/json,text/csv,.md,.markdown,.txt,.json,.csv,.log" />
         <div class="attachment-toolbar">
           <button id="addAttachment" class="button primary" type="button"><i data-lucide="paperclip"></i><span>添加附件</span></button>
+          <button id="openTaskFolder" class="button secondary" type="button"><i data-lucide="folder-open"></i><span>打开任务文件夹</span></button>
           <button id="importDescription" class="button secondary" type="button"><i data-lucide="file-input"></i><span>导入长期描述</span></button>
           <button id="importWorklog" class="button secondary" type="button"><i data-lucide="notebook-tabs"></i><span>导入每日记录</span></button>
           <button id="migrateEmbeddedImages" class="button secondary" type="button"><i data-lucide="images"></i><span>整理内嵌图片</span></button>
         </div>
+        <p id="attachmentDropHint" class="attachment-drop-hint">也可以把文件直接拖到下方列表区域上传，单个文件不超过 20 MB。</p>
         <div class="storage-meter"><div class="storage-copy"><span>本地附件空间</span><strong id="storageUsage">0 B</strong></div><progress id="storageProgress" max="100" value="0"></progress></div>
         <div id="attachmentList" class="attachment-list"></div>
         <div id="attachmentPreview" class="attachment-preview" hidden></div>
@@ -69,5 +71,18 @@
 
 .workspace-tabs {
   isolation: isolate;
+}
+
+.attachment-drop-hint {
+  margin: -6px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.attachments-panel.drag-over {
+  border-radius: 8px;
+  background: var(--teal-soft);
+  outline: 2px dashed var(--teal);
+  outline-offset: -8px;
 }
 </style>

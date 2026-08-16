@@ -73,6 +73,9 @@ export interface Elements {
   descriptionImportFile: HTMLInputElement;
   worklogImportFile: HTMLInputElement;
   addAttachment: HTMLButtonElement;
+  openTaskFolder: HTMLButtonElement;
+  attachmentsPanel: HTMLElement;
+  attachmentDropHint: HTMLElement;
   importDescription: HTMLButtonElement;
   importWorklog: HTMLButtonElement;
   migrateEmbeddedImages: HTMLButtonElement;
@@ -180,7 +183,7 @@ export function queryElements(): Elements {
     overviewSaveStatus: requiredElement("#overviewSaveStatus"), descriptionSaveStatus: requiredElement("#descriptionSaveStatus"), descriptionRetry: requiredElement("#descriptionRetry"), descriptionEditor: requiredElement("#descriptionEditor"),
     worklogDate: requiredElement("#worklogDate"), worklogProgress: requiredElement("#worklogProgress"), worklogSaveStatus: requiredElement("#worklogSaveStatus"), worklogRetry: requiredElement("#worklogRetry"), worklogEditor: requiredElement("#worklogEditor"), worklogHistory: requiredElement("#worklogHistory"),
     newWorklog: requiredElement("#newWorklog"), worklogUndo: requiredElement("#worklogUndo"), worklogUndoText: requiredElement("#worklogUndoText"), undoWorklogDelete: requiredElement("#undoWorklogDelete"),
-    attachmentFile: requiredElement("#attachmentFile"), descriptionImportFile: requiredElement("#descriptionImportFile"), worklogImportFile: requiredElement("#worklogImportFile"), addAttachment: requiredElement("#addAttachment"), importDescription: requiredElement("#importDescription"), importWorklog: requiredElement("#importWorklog"), migrateEmbeddedImages: requiredElement("#migrateEmbeddedImages"),
+    attachmentFile: requiredElement("#attachmentFile"), descriptionImportFile: requiredElement("#descriptionImportFile"), worklogImportFile: requiredElement("#worklogImportFile"), addAttachment: requiredElement("#addAttachment"), openTaskFolder: requiredElement("#openTaskFolder"), attachmentsPanel: requiredElement("#attachmentsPanel"), attachmentDropHint: requiredElement("#attachmentDropHint"), importDescription: requiredElement("#importDescription"), importWorklog: requiredElement("#importWorklog"), migrateEmbeddedImages: requiredElement("#migrateEmbeddedImages"),
     storageUsage: requiredElement("#storageUsage"), storageProgress: requiredElement("#storageProgress"), attachmentList: requiredElement("#attachmentList"), attachmentPreview: requiredElement("#attachmentPreview"), attachmentRenameDialog: requiredElement("#attachmentRenameDialog"), attachmentRenameForm: requiredElement("#attachmentRenameForm"), attachmentRenameName: requiredElement("#attachmentRenameName"),
     folderDialog: requiredElement("#folderDialog"), folderDialogForm: requiredElement("#folderDialogForm"), folderDialogTitle: requiredElement("#folderDialogTitle"),
     folderName: requiredElement("#folderName"), folderParent: requiredElement("#folderParent"), folderMoveDialog: requiredElement("#folderMoveDialog"), folderMoveForm: requiredElement("#folderMoveForm"), folderMoveName: requiredElement("#folderMoveName"), folderMoveParent: requiredElement("#folderMoveParent"), folderMovePosition: requiredElement("#folderMovePosition"), folderDeleteDialog: requiredElement("#folderDeleteDialog"),

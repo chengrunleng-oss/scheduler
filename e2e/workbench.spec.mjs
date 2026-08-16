@@ -734,6 +734,55 @@ test("image dropped into daily record is stored as an attachment reference and s
   await expect(page.locator("#worklogHistory .history-content img")).toHaveAttribute("src", /^blob:/, { timeout: 20_000 });
 });
 
+test("attachments panel accepts drag-and-drop upload and the task folder opens in the system picker (TEST-V08-019/020)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+
+  // TEST-V08-020：stub 系统文件选择器，验证它被定位到当前任务目录（tasks/task-1）。
+  await page.evaluate(() => {
+    window.__pickerCalls = [];
+    window.showOpenFilePicker = async (options = {}) => {
+      window.__pickerCalls.push({ startInName: options?.startIn?.name ?? null, multiple: options?.multiple ?? false });
+      return [];
+    };
+  });
+  await page.locator("#openTaskFolder").click();
+  await expect.poll(() => page.evaluate(() => window.__pickerCalls.length)).toBe(1);
+  const pickerCall = await page.evaluate(() => window.__pickerCalls[0]);
+  expect(pickerCall).toMatchObject({ startInName: "task-1", multiple: true });
+
+  // TEST-V08-019：真实拖放序列（dragenter/dragover 高亮，drop 入库）。
+  const dropFile = (selector, types, { name, type, content }) => page.evaluate(({ targetSelector, eventTypes, fileName, fileType, fileContent }) => {
+    const file = new File([fileContent], fileName, { type: fileType });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    const target = document.querySelector(targetSelector);
+    const options = { bubbles: true, cancelable: true, dataTransfer: transfer };
+    for (const eventType of eventTypes) target.dispatchEvent(new DragEvent(eventType, options));
+  }, { targetSelector: selector, eventTypes: types, fileName: name, fileType: type, fileContent: content });
+
+  await dropFile("#attachmentsPanel", ["dragenter", "dragover"], { name: "拖入笔记.txt", type: "text/plain", content: "dragged content" });
+  await expect(page.locator("#attachmentsPanel")).toHaveClass(/drag-over/);
+  await dropFile("#attachmentsPanel", ["drop"], { name: "拖入笔记.txt", type: "text/plain", content: "dragged content" });
+  await expect(page.locator("#attachmentsPanel")).not.toHaveClass(/drag-over/);
+  await expect(page.locator(".attachment-row").filter({ hasText: "拖入笔记.txt" })).toBeVisible({ timeout: 20_000 });
+
+  const stored = await page.evaluate(async () => {
+    const metas = await globalThis.__workspaceBackendForTests.listAttachments("task-1");
+    const meta = metas.find((item) => item.name === "拖入笔记.txt");
+    if (!meta) return null;
+    const blob = await globalThis.__workspaceBackendForTests.readAttachment(meta.id);
+    return { name: meta.name, kind: meta.kind, content: await blob.text() };
+  });
+  expect(stored).toMatchObject({ name: "拖入笔记.txt", kind: "text", content: "dragged content" });
+
+  // 超过 20 MB 的文件被拒绝并提示。
+  await dropFile("#attachmentsPanel", ["drop"], { name: "超大.bin", type: "application/octet-stream", content: "x".repeat(21 * 1024 * 1024) });
+  await expect(page.locator("#toast")).toContainText("超过 20 MB");
+  const count = await page.evaluate(async () => (await globalThis.__workspaceBackendForTests.listAttachments("task-1")).length);
+  expect(count).toBe(1);
+});
+
 test("embedded data-uri images migrate into attachments (TEST-V08-014c)", async ({ page }) => {
   const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
   const date = await page.evaluate(() => {

@@ -672,16 +672,74 @@ export function createWorkspaceController(
   els.addAttachment.addEventListener("click", () => els.attachmentFile.click());
   els.importDescription.addEventListener("click", () => els.descriptionImportFile.click());
   els.importWorklog.addEventListener("click", () => els.worklogImportFile.click());
-  els.attachmentFile.addEventListener("change", async () => {
-    const files = Array.from(els.attachmentFile.files ?? []); els.attachmentFile.value = "";
-    if (!activeTaskId || !files.length) return;
-    try {
-      for (const file of files) {
+  // TEST-V08-019：文件选择器与拖拽共用同一套入库流程（20 MB 限制、逐项错误提示、刷新列表与空间）。
+  async function uploadAttachments(files: File[]): Promise<number> {
+    if (!activeTaskId || !files.length) return 0;
+    let uploaded = 0;
+    const errors: string[] = [];
+    for (const file of files) {
+      try {
         if (file.size > MAX_ATTACHMENT_BYTES) throw new Error(`“${file.name}”超过 20 MB。`);
         await backend.putAttachment(activeTaskId, file);
+        uploaded += 1;
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
       }
-      await renderAttachments();
-    } catch (error) { dialogs.toast(error instanceof Error ? error.message : "附件保存失败。"); }
+    }
+    await renderAttachments();
+    if (uploaded) dialogs.toast(`已添加 ${uploaded} 个附件。`);
+    for (const message of errors.slice(0, 3)) dialogs.toast(message);
+    return uploaded;
+  }
+  function wireAttachmentDropZone(): void {
+    const panel = els.attachmentsPanel;
+    let dragDepth = 0;
+    const hasFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes("Files");
+    panel.addEventListener("dragenter", (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      dragDepth += 1;
+      panel.classList.add("drag-over");
+    });
+    panel.addEventListener("dragover", (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    });
+    panel.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) panel.classList.remove("drag-over");
+    });
+    panel.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      dragDepth = 0;
+      panel.classList.remove("drag-over");
+      if (!activeTaskId) return;
+      await uploadAttachments(Array.from(event.dataTransfer?.files ?? []));
+    });
+  }
+  wireAttachmentDropZone();
+  // TEST-V08-020：纯 Web 应用无法直接呼出系统资源管理器，这里由本地目录后端用系统文件选择器
+  // 定位到任务目录，让用户可以直接查看该任务的本地文件。
+  els.openTaskFolder.addEventListener("click", async () => {
+    if (!activeTaskId) return;
+    const reveal = backend.revealTaskDirectory;
+    if (!reveal) {
+      dialogs.toast("当前存储后端不支持打开系统文件夹。");
+      return;
+    }
+    try {
+      const opened = await reveal.call(backend, activeTaskId);
+      if (!opened) dialogs.toast("无法访问任务文件夹，请先确认工作区目录权限。");
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        dialogs.toast(`打开任务文件夹失败：${error instanceof Error ? error.message : "未知错误"}`);
+      }
+    }
+  });
+  els.attachmentFile.addEventListener("change", async () => {
+    const files = Array.from(els.attachmentFile.files ?? []); els.attachmentFile.value = "";
+    await uploadAttachments(files);
   });
   els.descriptionImportFile.addEventListener("change", async () => {
     const file = els.descriptionImportFile.files?.[0]; els.descriptionImportFile.value = ""; if (file) await importIntoDescription(file);

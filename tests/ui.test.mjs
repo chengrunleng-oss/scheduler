@@ -298,6 +298,30 @@ test("sticky-note folder layers and discoverable folder management are wired", (
   assert.match(types, /type: "move-folder"/);
 });
 
+test("attachments accept drag-and-drop upload and can reveal the task folder (TEST-V08-019/020)", () => {
+  assert.match(taskWorkspace, /id="openTaskFolder"/);
+  assert.match(taskWorkspace, /id="attachmentDropHint"/);
+  assert.match(taskWorkspace, /folder-open/);
+  assert.match(workspace, /wireAttachmentDropZone/);
+  assert.match(workspace, /dragover/);
+  assert.match(workspace, /dragenter/);
+  assert.match(workspace, /dragleave/);
+  assert.match(workspace, /"drop"/);
+  assert.match(workspace, /dataTransfer\?\.files/);
+  assert.match(workspace, /dropEffect = "copy"/);
+  assert.match(workspace, /drag-over/);
+  assert.match(workspace, /uploadAttachments/);
+  assert.match(workspace, /MAX_ATTACHMENT_BYTES/);
+  assert.match(workspace, /putAttachment\(activeTaskId, file\)/);
+  assert.match(workspace, /revealTaskDirectory/);
+  assert.match(workspace, /backend\.revealTaskDirectory/);
+  assert.match(workspaceBackend, /revealTaskDirectory\?\(taskId: string\): Promise<boolean>/);
+  assert.match(localDirectoryBackend, /async revealTaskDirectory\(taskId: string\): Promise<boolean>/);
+  assert.match(localDirectoryBackend, /showOpenFilePicker/);
+  assert.match(localDirectoryBackend, /startIn: handle/);
+  assert.match(localDirectoryBackend, /getTaskDirectory\(taskId\)/);
+});
+
 test("workspace layout retains internal scrolling and a persistent overview action area", () => {
   assert.match(uiMarkup, /class="detail-fields"/);
   assert.match(css, /\.detail-panel\s*\{[^}]*height:\s*100dvh/s);

@@ -722,6 +722,18 @@ export class LocalDirectoryBackend implements WorkspaceBackend {
     return tasks.getDirectoryHandle(safeId(taskId));
   }
 
+  // TEST-V08-020：用系统文件选择器定位到任务目录；权限不可用或浏览器不支持时返回 false。
+  async revealTaskDirectory(taskId: string): Promise<boolean> {
+    if (!(await this.ensurePermission(true))) return false;
+    const picker = (window as typeof window & {
+      showOpenFilePicker(options?: { multiple?: boolean; startIn?: FileSystemDirectoryHandle }): Promise<FileSystemFileHandle[]>;
+    }).showOpenFilePicker;
+    if (typeof picker !== "function") return false;
+    const handle = await this.getTaskDirectory(taskId);
+    await picker.call(window, { multiple: true, startIn: handle });
+    return true;
+  }
+
   private async findWorkLog(id: string): Promise<{ meta: Omit<WorkLog, "contentMarkdown">; taskDirectory: FileSystemDirectoryHandle } | null> {
     const index = await readRequiredJson<WorkspaceIndexFile>(this.root, WORKSPACE_FILE);
     const tasks = await this.root.getDirectoryHandle(TASKS_DIRECTORY, { create: true });

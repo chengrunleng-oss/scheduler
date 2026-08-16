@@ -104,6 +104,9 @@ export interface WorkspaceBackend {
   deleteAttachment(id: string): Promise<void>;
   saveConflictCopy(target: WorkspaceConflictTarget, content: Blob): Promise<string>;
   estimateStorage(): Promise<StorageEstimate>;
+  // TEST-V08-020：可选能力，用系统文件选择器定位到任务目录（纯 Web 无法直接呼出资源管理器）。
+  // 返回是否成功打开；权限不可用或后端不支持时返回 false（IndexedDB 与不可用后端没有真实目录）。
+  revealTaskDirectory?(taskId: string): Promise<boolean>;
 
   exportSnapshot(): Promise<WorkspaceSnapshot>;
   importSnapshot(snapshot: WorkspaceSnapshot): Promise<void>;
