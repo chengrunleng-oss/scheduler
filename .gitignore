@@ -6,11 +6,14 @@ desktop.ini
 # Editor folders
 .vscode/
 .idea/
+.modlens-install/
 
 # Dependencies and build output
 node_modules/
-dist/
 build/
+playwright-report/
+test-results/
+blob-report/
 
 # Logs and local env
 *.log

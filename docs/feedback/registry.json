@@ -1,0 +1,813 @@
+{
+  "document_type": "scheduler_findings_registry",
+  "format_version": 1,
+  "updated": "2026-08-16",
+  "release_gate": {
+    "target_release": "v0.8-merge-import",
+    "status": "blocked",
+    "exit_criteria": [
+      {
+        "id": "gate-1",
+        "finding_ids": ["TEST-V08-009"],
+        "description": "同一冲突备份重复执行 keep-both 不增加重复副本或重复 ID，并通过四类实体的幂等测试。",
+        "status": "met",
+        "evidence": "tests/merge.test.mjs：工作记录、任务、文件夹、附件四类实体的重复 keep-both 幂等用例，以及同 ID 内容变化时生成新冲突 ID 的用例。"
+      },
+      {
+        "id": "gate-2",
+        "finding_ids": ["TEST-V08-010"],
+        "description": "手机导入中心能够明确显示备份文件名，新增可见性视觉断言。",
+        "status": "met",
+        "evidence": "scripts/capture-visuals.mjs：importSourceName 文本非空、可见、宽度不小于 80px 与移动端不裁剪断言；import-center-mobile 截图复核。"
+      },
+      {
+        "id": "gate-3",
+        "finding_ids": ["TEST-V08-007"],
+        "description": "完成真实 Windows Chrome/Edge 本地目录导入合并与故障恢复人工验收。",
+        "status": "pending"
+      },
+      {
+        "id": "gate-4",
+        "finding_ids": [],
+        "description": "npm run verify、优先级持久化重复测试和视觉基线在整改后继续全部通过。",
+        "status": "met",
+        "evidence": "deepseek/test-feedback-fixes：反馈文档校验、72 项 Node 测试、73 项 Playwright 测试、构建产物同步与视觉基线全部通过。"
+      },
+      {
+        "id": "gate-5",
+        "finding_ids": ["TEST-V08-011"],
+        "description": "点击文件夹头部任意非按钮区域均可切换展开/折叠，头部内操作按钮保持独立。",
+        "status": "met",
+        "evidence": "e2e：点击标题文字展开/折叠、点击“在此处新建任务”不误触折叠；契约测试覆盖 data-toggle-folder-id。"
+      },
+      {
+        "id": "gate-6",
+        "finding_ids": ["TEST-V08-012"],
+        "description": "宽屏打开工作区时保留对齐的表头行，面板展开过渡平滑且支持减少动态效果。",
+        "status": "met",
+        "evidence": "e2e：双行表头可见且 grid-template-areas 对齐、app-shell 过渡含 grid-template-columns；视觉基线通过。"
+      },
+      {
+        "id": "gate-7",
+        "finding_ids": ["TEST-V08-013"],
+        "description": "含工作记录的备份导入必须通过写后校验并完成合并，不得被误判为内容不一致而自动回滚。",
+        "status": "met",
+        "evidence": "e2e 回归用例注入无 conflictOrigin 键的工作记录备份，修复后走完合并与写后校验并持久化记录；修复前同一用例复现自动回滚失败。"
+      },
+      {
+        "id": "gate-8",
+        "finding_ids": ["TEST-V08-014"],
+        "description": "工作记录编辑区显示 Markdown 源码、历史显示渲染结果；拖入的文件入库为附件并插入 attachment: 引用，刷新后仍可显示。",
+        "status": "met",
+        "evidence": "e2e 014a 源码编辑与历史渲染、014b 拖入图片入库与刷新后显示、014c data: URI 迁移全部通过；视觉基线按新编辑形态重采集。"
+      },
+      {
+        "id": "gate-9",
+        "finding_ids": ["TEST-V08-015"],
+        "description": "在编辑器任意区域（含预览区）拖入或粘贴文件均能入库为附件并插入引用，且拖拽过程有明确的高亮反馈。",
+        "status": "met",
+        "evidence": "e2e 014b 改为在预览区执行完整 dragenter/dragover/drop 序列，断言 drag-active 高亮态出现与消除、attachment: 引用插入并刷新后仍显示。"
+      },
+      {
+        "id": "gate-10",
+        "finding_ids": ["TEST-V08-016"],
+        "description": "已处理折叠区收起时完全隐藏条目，展开时显示全部，点击折叠有明确可见效果。",
+        "status": "met",
+        "evidence": "e2e 016：折叠态不渲染任何已处理条目、展开后 4 条全部可见、再次折叠后再次全部收起；完成流程用例先展开再恢复。"
+      },
+      {
+        "id": "gate-11",
+        "finding_ids": ["TEST-V08-017"],
+        "description": "编辑器输入法合成期间不持久化拼音中间态；默认纯源码编辑并提供手动预览；渲染图片可点击放大；1180px 起可拖拽调节工作区宽度。",
+        "status": "met",
+        "evidence": "e2e 017a 合成保护（CDP IME 模拟）、017b 预览手动开关、017c 图片放大遮罩与 Esc 关闭、017d 1280px 拖拽调宽全部通过。"
+      },
+      {
+        "id": "gate-12",
+        "finding_ids": ["TEST-V08-018"],
+        "description": "任务概览等表单字段保留用户输入的空格与回车，自动保存与界面重绘不得抹掉用户刚输入的内容。",
+        "status": "met",
+        "evidence": "e2e 018：说明字段输入行尾空格与回车后，自动保存并触发窗口重绘（聚焦与失焦两种）内容保持原样，落盘值一致。"
+      },
+      {
+        "id": "gate-13",
+        "finding_ids": ["TEST-V08-019"],
+        "description": "附件面板支持直接拖拽文件上传，拖拽过程有高亮反馈，超限文件被明确拒绝。",
+        "status": "met",
+        "evidence": "e2e：dragenter/dragover 高亮、drop 入库并落盘内容一致、21MB 文件拒绝提示；契约测试覆盖拖拽监听与共用上传流程。"
+      },
+      {
+        "id": "gate-14",
+        "finding_ids": ["TEST-V08-020"],
+        "description": "附件工具栏提供“打开任务文件夹”，用系统文件选择器定位到任务目录（纯 Web 的可行近似）。",
+        "status": "met",
+        "evidence": "e2e：stub 系统选择器断言 startIn 为 tasks/task-1 且 multiple；契约测试覆盖 WorkspaceBackend.revealTaskDirectory 能力。"
+      },
+      {
+        "id": "gate-15",
+        "finding_ids": ["TEST-V08-021"],
+        "description": "文件拖到应用窗口任意位置都不再被浏览器直接打开；选中任务时入库为附件，未选中时提示先选任务。",
+        "status": "met",
+        "evidence": "e2e：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库；契约测试覆盖全局守卫与 copy/none 光标逻辑。"
+      },
+      {
+        "id": "gate-16",
+        "finding_ids": ["TEST-V08-022"],
+        "description": "长期描述、每日记录、历史记录组件各自提供带图标的全屏放大按钮，Esc 或按钮恢复，不提供工作区全局放大。",
+        "status": "met",
+        "evidence": "e2e：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步、按钮含 maximize-2 图标；契约测试覆盖三个放大按钮与 Maximize2 图标注册。"
+      },
+      {
+        "id": "gate-17",
+        "finding_ids": ["TEST-V08-023"],
+        "description": "近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭），丝带与卡片背景高对比。",
+        "status": "met",
+        "evidence": "e2e：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复；契约测试覆盖紫罗兰 #8b5cf6 + 白色描边配色与后端元数据能力。"
+      },
+      {
+        "id": "gate-18",
+        "finding_ids": ["TEST-V08-024"],
+        "description": "历史记录支持展开/折叠与平滑动画、切换记录平滑过渡，并可修改记录日期。",
+        "status": "met",
+        "evidence": "e2e：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新；契约测试覆盖 toggle/move-date 动作、220ms 高度动画与 changeWorkLogDate 后端能力。"
+      },
+      {
+        "id": "gate-19",
+        "finding_ids": ["TEST-V08-025"],
+        "description": "图片放大视图填满可用空间且可切换原始尺寸；分区放大按钮图标随状态切换；历史记录放大自动展开全部条目并完整展示内容。",
+        "status": "met",
+        "evidence": "e2e 017c 扩展（放大视图尺寸、ZoomIn/ZoomOut 切换、关闭按钮）、022 扩展（minimize-2 图标与恢复语义）、新增 025（历史放大自动展开与 max-height none）；契约测试覆盖 object-fit、Minimize2、放大层内容上限覆盖。"
+      },
+      {
+        "id": "gate-20",
+        "finding_ids": ["TEST-V08-026"],
+        "description": "长期描述与每日记录可折叠；历史记录放大视图提供左侧日期目录并可丝滑跳转；折叠条目间无残留空白。",
+        "status": "met",
+        "evidence": "e2e 026：描述/每日折叠开关与 aria-pressed、放大目录 3 条目且首条高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px；契约测试覆盖折叠开关、目录入口、smooth scroll 与折叠样式。"
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "snapshot": "docs/feedback/2026-08-14.json",
+      "test_date": "2026-08-14",
+      "format_version": 16,
+      "target_branch": "codex/merge-import",
+      "source_revision": "b740eff+uncommitted-working-tree",
+      "target_release": "v0.8-merge-import-working-tree",
+      "status": "changes_required",
+      "note": "违反可复现性规则（source_revision 含未提交工作区）；最近的可复现基线为提交 1c4fa06。"
+    },
+    {
+      "snapshot": "git:b740eff:TEST_FEEDBACK.json",
+      "test_date": "2026-08-13",
+      "format_version": 15,
+      "target_branch": "codex/local-workspace-storage",
+      "source_revision": "89476b7+uncommitted-working-tree",
+      "target_release": "v0.8-merge-import-working-tree",
+      "status": "changes_required",
+      "note": "git 引用，未单独归档文件；同样违反可复现性规则。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-14",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "cd4e6ab",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "用户直接体验反馈轮：TEST-V08-011/012 登记并修复；TEST-V08-009/010 修复验证；TEST-V08-007 等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "4d019c0",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-013 登记并修复：含工作记录备份导入的写后校验误判；新增 e2e 回归用例；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "d4827fc",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-014 登记并修复：工作记录编辑器 Markdown 形态纠正与拖入文件自动入库；移除 Crepe 依赖；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "77fd0ec",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-015 登记并修复：编辑器拖放监听扩展到整个宿主并补 dragover 文件交付；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "cc141b8",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-016 登记并修复：已处理折叠区收起时完全隐藏条目；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "79bdfa5",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-017 登记并修复：输入法合成保护、纯源码编辑与手动预览、图片放大查看、1180px 起可调工作区宽度；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-15",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "f949338",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-018 登记并修复：概览表单保留用户空白且重绘不再覆盖正在编辑的字段；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "4c9e16e",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-019/020 登记并修复：附件面板拖拽上传与“打开任务文件夹”按钮；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "0aaa87b",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-021 登记并修复：文件拖到窗口任意位置不再被浏览器直接打开，选中任务即入库；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "b539bcc",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-022/023 登记并修复：工作区放大阅读模式与近期活跃丝带标记（窗口可设置，默认一周）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "4224500",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-022/023 按用户反馈返工（组件级放大、丝带高对比配色）并新增 TEST-V08-024（历史记录展开折叠、改期与动画）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "8a31ddb",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-025 登记并修复：放大视图完整化（图片撑满可用空间、历史放大自动展开）、布局优化与独立缩小图标；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "095f39a",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-026 登记并修复：描述与每日记录折叠、历史放大左侧日期目录与丝滑跳转、折叠空白修复；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    }
+  ],
+  "findings": [
+    {
+      "id": "TEST-V08-001",
+      "severity": "P0",
+      "category": "priority-persistence-race",
+      "kind": "defect",
+      "title": "优先级分界线重做后存在本地持久化竞态",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 priority_persistence_repeat：5/5 通过"],
+      "evidence": ["完整 Playwright 测试中界面已为高优先级，但 WorkspaceBackend 读取仍为低优先级，等待 5 秒未一致。", "单独重复该测试三次再次出现一次失败，失败发生在刷新后 data-priority 恢复为 low。"],
+      "resolution": "分界线操作、撤销、重做与持久化写入顺序修复；连续拖动、撤销、重做、立即刷新压力测试通过，上一轮竞态在本轮 5 次重复执行中未再复现。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "npx playwright test e2e/workbench.spec.mjs --grep \"priority divider changes crossed priorities atomically and persists\" --repeat-each=5 全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-002",
+      "severity": "P0",
+      "category": "worklog-conflict-keep-both",
+      "kind": "defect",
+      "title": "工作记录冲突无法保留双方内容",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 完整验证 62 项 Node + 57 项 Playwright 全部通过"],
+      "evidence": ["同 ID 且内容不同的工作记录被识别为 conflict。", "allowedDecisions 实际只有 keep-current 和 use-imported；通用冲突规则只为 task 和 folder 提供 keep-both。"],
+      "resolution": "工作记录冲突支持 keep-both，生成新的记录 ID 与 conflictOrigin 标识，并可在真实目录后端保存为同日两个独立文件。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "工作记录冲突 keep-both 通过引擎单元测试与真实目录端到端测试。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-003",
+      "severity": "P1",
+      "category": "event-id-merge",
+      "kind": "defect",
+      "title": "延期与状态事件没有按稳定事件 ID 合并",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 完整验证 62 项 Node + 57 项 Playwright 全部通过"],
+      "evidence": ["RescheduleRecord 已增加 eventId，但 merge 引擎仍把整个 Task 当作单一内容比较。", "定向测试使用 event-a 和 event-b 两条不同延期记录，默认合并结果只保留 event-a。"],
+      "resolution": "延期与完成、不再需要、恢复状态历史按稳定 eventId 合并；相同 eventId 不同内容仍进入冲突。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "状态事件并集、同 eventId 冲突与重复导入测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-004",
+      "severity": "P1",
+      "category": "import-preview-accuracy",
+      "kind": "defect",
+      "title": "导入预览不能准确反映用户最终决定",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 完整验证 62 项 Node + 57 项 Playwright 全部通过"],
+      "evidence": ["导入中心默认调用 applyFilter(\"all\")，没有默认只显示需要处理的项目。", "顶部统计在打开对话框时一次性生成；修改逐项下拉决定后不会重新计算最终数量。"],
+      "resolution": "导入中心默认显示待处理项，提供字段差异、动态最终影响和同类批量决定。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "动态影响与批量决定键盘与移动端测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-005",
+      "severity": "P1",
+      "category": "write-verification",
+      "kind": "defect",
+      "title": "写入后的完整性校验不足",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 完整验证 62 项 Node + 57 项 Playwright 全部通过"],
+      "evidence": ["verifyImportedWorkspace 只比较任务、文件夹、工作记录和附件 ID 集合。", "附件只检查 attachmentBlobs 中是否存在对应 ID，没有对写回内容重新计算并比较哈希。"],
+      "resolution": "写后校验覆盖任务、文件夹、工作记录、附件元数据、引用关系、附件 SHA-256 和版本元数据，并有故障注入自动回滚测试。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "故障注入回滚测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-006",
+      "severity": "P2",
+      "category": "import-source-progress-history",
+      "kind": "defect",
+      "title": "导入来源、进度、历史和结果定位仍不完整",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 完整验证 62 项 Node + 57 项 Playwright 全部通过"],
+      "evidence": ["来源区域只显示文件名和备份类型，没有显示 exportedAt 和来源 workspaceId 的安全摘要。", "导入执行期间没有分阶段进度，也没有发布前安全取消入口。"],
+      "resolution": "来源区域提供导出时间和工作区摘要，导入过程增加备份、写入、发布、校验阶段和发布前取消；导入恢复点、报告和备份持久化到本地工作区，重新打开后仍能查看、回滚和定位受影响任务。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "来源信息、阶段进度、持久化历史与回滚入口端到端测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-007",
+      "severity": "P1",
+      "category": "manual-windows-acceptance",
+      "kind": "manual-verification",
+      "title": "真实 Windows 本地目录验收尚未完成",
+      "status": "open",
+      "fix_commit": null,
+      "verified_by": [],
+      "evidence": ["现有 Playwright 自动化使用 Chromium OPFS 和代理目录句柄，不能完整代表 Windows NTFS 权限撤销、杀毒软件占用、同步软件竞争、真实文件选择器和磁盘故障。"],
+      "resolution": null,
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "noted", "round": "docs/feedback/2026-08-14.json", "evidence": "仍需真实 Chrome/Edge 目录验收；自 format 17 起进入 pending_verification 区。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-008",
+      "severity": "P1",
+      "category": "branch-isolation",
+      "kind": "defect",
+      "title": "实现没有按计划隔离到独立合并分支",
+      "status": "closed",
+      "fix_commit": "89476b7..1c4fa06（历史未逐项归属）",
+      "verified_by": ["format-16 verified_progress 第一条"],
+      "evidence": ["当前分支仍为 codex/local-workspace-storage。", "v0.8 合并实现、测试、截图和构建产物均为未提交工作区改动；计划中的 codex/merge-import 分支尚未建立。"],
+      "resolution": "当前实现已经位于独立分支 codex/merge-import，不再与本地存储稳定分支共用同一分支头。",
+      "history": [
+        { "date": "2026-08-13", "event": "opened", "round": "git:b740eff:TEST_FEEDBACK.json" },
+        { "date": "2026-08-14", "event": "closed", "round": "docs/feedback/2026-08-14.json", "evidence": "v0.8 实现迁移到 codex/merge-import 并提交（89476b7..1c4fa06）。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-009",
+      "severity": "P1",
+      "category": "merge-keep-both-idempotency",
+      "kind": "defect",
+      "title": "冲突副本在重复导入时不幂等",
+      "status": "fixed",
+      "fix_commit": "fba0a78",
+      "verified_by": [
+        "tests/merge.test.mjs：工作记录、任务、文件夹、附件四类实体重复 keep-both 幂等用例",
+        "tests/merge.test.mjs：同 ID 冲突内容变化时生成受内容哈希区分的新冲突 ID 用例"
+      ],
+      "evidence": ["第一次把同 ID 不同内容的工作记录选择 keep-both 后，结果包含原记录和 worklog-imported-770ee790。", "以第一次结果为当前工作区再次分析同一导入快照并再次选择 keep-both，结果数组包含两个相同的 worklog-imported-770ee790，记录总数从 2 增加到 3。", "src/merge.ts 的工作记录 keep-both 分支直接 push 确定性 importedId，没有先检查结果集合是否已经存在该 ID。"],
+      "resolution": "所有 keep-both 分支生成确定性副本 ID 后先检查目标集合：相同 ID 且内容相同视为已应用并跳过，相同 ID 但内容不同生成受内容哈希区分的新冲突 ID；四类实体幂等测试覆盖。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "docs/feedback/2026-08-14.json" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit fba0a78；67 项 Node 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-010",
+      "severity": "P2",
+      "category": "mobile-import-filename-visibility",
+      "kind": "defect",
+      "title": "手机导入中心无法看到备份文件名",
+      "status": "fixed",
+      "fix_commit": "4ad4208",
+      "verified_by": [
+        "scripts/capture-visuals.mjs：importSourceName 文本非空、可见、宽度不小于 80px 断言（1440 与 390 两档）",
+        "scripts/capture-visuals.mjs：390px 下来源文件名不裁剪断言"
+      ],
+      "evidence": ["最新 output/playwright/import-center-mobile.png 中可以看到 v6、导出时间和来源工作区摘要，但看不到桌面端显示的备份文件名。", "import-source 在所有宽度都使用 minmax(0, 1fr) auto；手机端较长的 importSourceMeta 占据 auto 列后，importSourceName 所在第一列被压缩到接近 0。", "当前视觉基线只断言导入对话框不横向溢出，没有断言来源文件名具有可见尺寸。"],
+      "resolution": "手机断点把 import-source 改为单列布局，文件名独占一行并允许安全换行；视觉基线增加 importSourceName 宽度、可见性和文本非空断言。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "docs/feedback/2026-08-14.json" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4ad4208；npm run visual:baseline 与 npm run verify 通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-011",
+      "severity": "P2",
+      "category": "folder-heading-click-target",
+      "kind": "defect",
+      "title": "文件夹展开/折叠只在小按钮范围可点击",
+      "status": "fixed",
+      "fix_commit": "cd4e6ab",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：点击文件夹标题文字展开/折叠、头部内操作按钮不误触折叠（TEST-V08-011）",
+        "tests/ui.test.mjs：tree-group-heading 携带 data-toggle-folder-id 且事件委托排除交互元素的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：展开/折叠的点击命中范围只有一个按钮的大小，期望点击整个文件夹头部都能识别。", "事件委托只处理 button[data-action] 的 toggle-folder，标题、图标、计数和留白区域点击无效。"],
+      "resolution": "文件夹头部增加 data-toggle-folder-id 与 pointer 光标；点击头部内按钮、summary、输入控件以外的任何区域都切换展开/折叠，操作按钮保持独立行为。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cd4e6ab；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-012",
+      "severity": "P2",
+      "category": "workspace-open-header-and-motion",
+      "kind": "defect",
+      "title": "打开工作区时表头消失且过渡不丝滑",
+      "status": "fixed",
+      "fix_commit": "cd4e6ab",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：打开任务后双行表头可见且网格区域对齐、app-shell 过渡包含 grid-template-columns（TEST-V08-012）",
+        "tests/ui.test.mjs：workspace-open 双行表头与轨道过渡的契约断言",
+        "scripts/capture-visuals.mjs：1440 打开工作区等待轨道过渡结束后的视觉基线"
+      ],
+      "evidence": ["用户直接体验反馈：选中任务后“任务/优先级/截止日期/操作”表头行消失，工作区弹出过程不够丝滑。", "宽屏规则 .app-shell.workspace-open .list-head { display: none; } 直接隐藏表头；面板从 fixed 离屏状态瞬间切换为网格列，没有过渡。"],
+      "resolution": "宽屏保持第三轨并给 app-shell 增加 grid-template-columns 过渡；工作区打开后表头保留为与两行任务卡对齐的双行表头；面板增加入场淡入；reduced-motion 下自动禁用动画。",
+      "history": [
+        { "date": "2026-08-14", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-14", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cd4e6ab；e2e 与视觉基线通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-013",
+      "severity": "P1",
+      "category": "import-worklog-verification",
+      "kind": "defect",
+      "title": "含工作记录的备份导入被写后校验误判失败并自动回滚",
+      "status": "fixed",
+      "fix_commit": "4d019c0",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：备份含工作记录（无 conflictOrigin 键）导入通过写后校验并合并持久化（TEST-V08-013）"
+      ],
+      "evidence": [
+        "用户导入 task-workbench-2026-08-15.zip 后提示“导入失败，已自动回滚：工作记录 … 的内容校验失败”，工作区恢复为导入前内容，导入报告停留在 prepared 状态。",
+        "parseWorkLog 总是把值为 undefined 的 conflictOrigin 作为自有键返回；备份清单 JSON 序列化会丢弃 undefined 键，导致解析侧与读回侧记录形状不一致。",
+        "verifyEntityContent 的 stableValue 把 {conflictOrigin: undefined} 与 {} 判为不同内容，任何含工作记录的备份导入都会踩中。"
+      ],
+      "resolution": "parseWorkLog 仅在确有取值时返回 conflictOrigin 键；stableValue 忽略值为 undefined 的键（与 JSON 语义一致）。新增 e2e 回归用例：修复前复现自动回滚失败，修复后通过。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户导入真实备份发现写后校验误判并自动回滚；用真实备份数据复现导入管线定位到 conflictOrigin 键形状不一致。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4d019c0；e2e 回归用例修复前失败、修复后通过；69 项 Node 测试与 60 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-014",
+      "severity": "P1",
+      "category": "worklog-editor-markdown-and-attachments",
+      "kind": "defect",
+      "title": "工作记录编辑形态相反且拖入图片不入库",
+      "status": "fixed",
+      "fix_commit": "d4827fc",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：源码编辑与历史渲染（TEST-V08-014a）",
+        "e2e/workbench.spec.mjs：拖入图片入库为 attachment: 引用并刷新后仍显示（TEST-V08-014b）",
+        "e2e/workbench.spec.mjs：data: URI 内嵌图片迁移为附件（TEST-V08-014c）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：每日记录编辑区显示渲染后的富文本而历史记录显示 Markdown 源码，与期望相反。",
+        "用户直接体验反馈：照片拖入每日记录后不进入工作区附件目录，过段时间无法再显示。",
+        "Crepe image-block 默认用 URL.createObjectURL 嵌入 blob: 会话链接，刷新即失效；attachment: 引用约定存在但全代码库没有解析渲染层。"
+      ],
+      "resolution": "编辑器改为 Markdown 源码 + 实时渲染预览（宽屏分栏、窄屏切换），历史改为渲染 HTML；拖入/粘贴文件走 putAttachment 入库并插入 attachment: 引用；新增解析渲染层（对象 URL 缓存与失效占位）与“整理内嵌图片”迁移动作；移除 Crepe 依赖，构建体积显著下降。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d4827fc；69 项 Node 测试与 63 项 Playwright 测试全部通过，视觉基线重采集。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-015",
+      "severity": "P1",
+      "category": "markdown-editor-host-drop",
+      "kind": "defect",
+      "title": "每日记录编辑器拖拽上传图片不生效",
+      "status": "fixed",
+      "fix_commit": "77fd0ec",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：预览区执行完整 dragenter/dragover/drop 序列、drag-active 高亮态、attachment: 引用插入并刷新后仍显示（TEST-V08-014b 扩展）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：每日记录那里好像不支持拖拽上传图片了。",
+        "拖放监听只挂在源码 textarea 上，宽屏分栏时拖到预览区或工具栏完全没有响应。",
+        "浏览器要求 dragover 阶段 preventDefault 才会把从资源管理器拖入的文件交付给页面，原实现只处理了 drop 事件。"
+      ],
+      "resolution": "dragenter/dragover/dragleave/drop/paste 监听移到编辑器宿主，覆盖工具栏、源码与预览整块区域；dragover 对含文件的拖拽 preventDefault；新增 drag-active 高亮态；e2e 改为在预览区执行完整拖放序列。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 77fd0ec；69 项 Node 测试与 63 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-016",
+      "severity": "P2",
+      "category": "handled-section-collapse",
+      "kind": "defect",
+      "title": "已处理折叠区收起时仍显示条目，折叠按钮显得无效",
+      "status": "fixed",
+      "fix_commit": "cc141b8",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：折叠态不渲染条目、展开显示全部、再次折叠收起（TEST-V08-016）",
+        "e2e/workbench.spec.mjs：完成流程先展开已处理区再恢复为待办"
+      ],
+      "evidence": [
+        "用户直接体验反馈：在绝对频率测量的文件夹下，已完成条目的子分组内条目没有办法折叠，点击了折叠按钮没用。",
+        "renderHandledSection 在折叠态仍渲染最新 3 条预览；条目少于等于 3 条时点击折叠没有任何可见变化。"
+      ],
+      "resolution": "折叠态完全收起全部已处理条目（标题仍显示数量），展开态显示全部；移除“另有 N 项”提示；更新折叠区与完成流程 e2e 用例。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cc141b8；69 项 Node 测试与 63 项 Playwright 测试通过（拖拽用例单独复跑通过）。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-017",
+      "severity": "P1",
+      "category": "editor-ime-preview-lightbox-resize",
+      "kind": "defect",
+      "title": "编辑器输入法回退、无预览开关、图片无法放大且工作区宽度无法调节",
+      "status": "fixed",
+      "fix_commit": "79bdfa5",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：CDP IME 模拟合成期间拼音不落盘、提交汉字后保存（TEST-V08-017a）",
+        "e2e/workbench.spec.mjs：默认纯源码与预览手动开关（TEST-V08-017b）",
+        "e2e/workbench.spec.mjs：点击渲染图片打开放大遮罩并 Esc 关闭（TEST-V08-017c）",
+        "e2e/workbench.spec.mjs：1280px 视口拖拽分界调节工作区宽度（TEST-V08-017d）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：输入法选字时汉字闪现后变回拼音，多个汉字一次性输入尤为明显；有时输入数字会让上一个数字消失。",
+        "用户直接体验反馈：不希望 md 编译效果直接放在源码旁边，每日记录纯放源码即可。",
+        "用户直接体验反馈：md 中图片看不清，希望点击图片放大显示。",
+        "用户直接体验反馈：任务工作区大小没办法拖拽分界线调节。"
+      ],
+      "resolution": "编辑器在 composition 期间不触发保存与预览、合成结束统一提交，保存函数在合成中自动推迟；每日记录与长期描述默认纯源码、工具栏“预览/源码”手动切换；新增渲染图片放大遮罩（Esc/点击关闭）；三轨布局与拖拽调宽阈值从 1340px 下调到 1180px，1180-1339 使用图标导航与紧凑任务列表。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 79bdfa5；69 项 Node 测试与 67 项 Playwright 测试全部通过，视觉基线重采集。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-018",
+      "severity": "P2",
+      "category": "overview-form-whitespace",
+      "kind": "defect",
+      "title": "敲入空格或回车后过一段时间消失",
+      "status": "fixed",
+      "fix_commit": "f949338",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：自动保存后缩放重绘（聚焦）与失焦重绘均保留行尾空格与回车，落盘值一致（TEST-V08-018）"
+      ],
+      "evidence": [
+        "用户直接体验反馈：敲入空格或回车后，等一段时间就消失了。",
+        "readDetailDraft 用 normalizeMultiline（trim）规范化说明字段，updateTask 与 hydrateTask 同样 trim，用户输入的行尾空格与回车在保存时被丢弃。",
+        "renderDetail 在 detailDirty 复位后的下一次重绘（任务完成 8 秒确认、窗口变化等）把规范化后的值写回输入框，抹掉用户刚输入的内容。"
+      ],
+      "resolution": "说明字段改为 normalizeMultilineKeep（仅统一换行符，不 trim），保存与读取水合两侧均保留用户空白；renderDetail 跳过聚焦中的字段不再覆盖；新增 e2e 回归用例。",
+      "history": [
+        { "date": "2026-08-15", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-15", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit f949338；69 项 Node 测试与 68 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-019",
+      "severity": "P2",
+      "category": "attachment-panel-drag-drop",
+      "kind": "enhancement",
+      "title": "附件不支持拖拽上传",
+      "status": "fixed",
+      "fix_commit": "4c9e16e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：附件面板 dragenter/dragover 高亮、drop 入库且落盘内容一致、21MB 文件拒绝（TEST-V08-019/020）",
+        "tests/ui.test.mjs：拖拽监听、dropEffect、drag-over 高亮与 uploadAttachments 共用流程的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：每个项目的附件不可拖拽上传。", "附件面板只有“添加附件”按钮触发隐藏文件输入，没有拖放处理。"],
+      "resolution": "attachmentsPanel 增加 dragenter/dragover/dragleave/drop 处理：拖入文件时高亮面板并显示 copy 光标，松手后与文件选择器共用 uploadAttachments 入库流程（20 MB 限制、逐项错误提示、刷新列表与空间统计）。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4c9e16e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-020",
+      "severity": "P2",
+      "category": "open-task-folder",
+      "kind": "enhancement",
+      "title": "没有按钮能打开当前任务的文件夹",
+      "status": "fixed",
+      "fix_commit": "4c9e16e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：stub 系统文件选择器断言 startIn 定位到 tasks/task-1 且 multiple（TEST-V08-019/020）",
+        "tests/ui.test.mjs：WorkspaceBackend.revealTaskDirectory 可选能力与本地目录后端实现的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：没有一个按钮能打开当前项目的文件夹。", "纯 Web 应用无法直接呼出系统资源管理器，浏览器不暴露目录的绝对路径。"],
+      "resolution": "附件工具栏新增“打开任务文件夹”按钮；WorkspaceBackend 增加 revealTaskDirectory 可选能力，本地目录后端在权限可用时用系统文件选择器（showOpenFilePicker + startIn）定位到该任务目录——这是纯 Web 应用可行的最近似方案；IndexedDB 等无真实目录的后端提示不支持。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4c9e16e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-021",
+      "severity": "P2",
+      "category": "file-drop-outside-attachments",
+      "kind": "defect",
+      "title": "PDF 拖到浏览器窗口被浏览器直接打开而非存入附件",
+      "status": "fixed",
+      "fix_commit": "0aaa87b",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：未选中任务时 toast 提示且页面不跳转、选中后拖到附件页以外也入库（TEST-V08-021）",
+        "tests/ui.test.mjs：全局守卫、提示文案与 copy/none 光标逻辑的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：直接把 PDF 拖动到浏览器后，浏览器直接打开了 PDF，附件没有存入项目文件夹。", "此前只有附件面板与 Markdown 编辑器有拖放处理，窗口其余区域落入浏览器的默认文件拖放行为（直接导航打开文件）。"],
+      "resolution": "新增窗口级 dragover/drop 守卫：含文件的拖放一律阻止浏览器默认行为；未选中任务时提示“先选中一个任务，再把文件拖进来上传为附件”，选中任务时落点不在附件面板/编辑器内的文件统一经 uploadAttachments 入库为附件；面板与编辑器区域保持原有流程避免重复入库。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 0aaa87b；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-022",
+      "severity": "P2",
+      "category": "workspace-reading-mode",
+      "kind": "enhancement",
+      "title": "任务工作区 Markdown 太小，阅读不方便",
+      "status": "fixed",
+      "fix_commit": "4224500",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：组件放大层占满 1440x900 视口、Esc 恢复且 aria-pressed 同步（TEST-V08-022）",
+        "tests/ui.test.mjs：zoomDescription/zoomDaily/zoomHistory 按钮、zoom-overlay 样式与 Maximize2 图标注册的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：任务工作区显示的 md 文档太小，不太方便阅读，希望有一个放大键，方便查看工作记录各组件，历史记录区要留充足位置。", "追加反馈：不要做工作区全局放大，改为每个可能需要放大查看的组件单独做放大按钮；放大按钮上没有图标。"],
+      "resolution": "改为组件级放大：长期描述、每日记录、历史记录三个区域的标题栏各有放大按钮，点击后该组件变为全屏阅读层（字号 16.5px、行距 1.75），Esc 或按钮恢复；移除了工作区全局放大。图标缺失根因是 maximize-2 不在图标注册表中，已补 Maximize2/CalendarClock 注册。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" },
+        { "date": "2026-08-16", "event": "reopened", "round": "deepseek/test-feedback-fixes", "evidence": "用户要求取消全局放大，改为组件级放大，并修复按钮图标缺失。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；组件级放大与图标注册，e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-023",
+      "severity": "P2",
+      "category": "recent-worklog-ribbon",
+      "kind": "enhancement",
+      "title": "近期有工作记录的任务/文件夹缺少醒目标记",
+      "status": "fixed",
+      "fix_commit": "4224500",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：写入今日工作记录后任务与文件夹出现丝带，切到 0 消失、切回 7 恢复（TEST-V08-023）",
+        "tests/ui.test.mjs：偏好字段、渲染类、丝带高对比配色与后端 listLatestWorklogDates 元数据能力的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：所有近期有过工作记录的待办/文件夹需要在左上角有一个丝带等漂亮的标记，近期是多久要可以设置，默认一个星期。", "追加反馈：丝带颜色应该与当前背景颜色有明显差异。"],
+      "resolution": "任务卡片与文件夹标题左上角增加一角丝带（带 tooltip 与无障碍标签）；近期窗口在侧栏“新任务默认值”区可设置（今天/三天/一周/两周/一个月/关闭，默认一周）；后端新增 listLatestWorklogDates 只读任务索引元数据即可判断活跃，不加载 Markdown 正文；文件夹活跃 = 其任意后代任务活跃。追加：丝带配色由青色改为紫罗兰 #8b5cf6 并加白色投影描边，与暖/冷优先级底色和便利签文件夹层明显区分。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit b539bcc；e2e 与契约测试通过。" },
+        { "date": "2026-08-16", "event": "reopened", "round": "deepseek/test-feedback-fixes", "evidence": "用户反馈丝带与背景对比不明显。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；紫罗兰 + 白色描边配色，契约测试更新。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-024",
+      "severity": "P2",
+      "category": "worklog-history-interactions",
+      "kind": "defect",
+      "title": "历史记录展开后无法折叠、不能改期且无动画",
+      "status": "fixed",
+      "fix_commit": "4224500",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：展开/折叠类与 aria-expanded 切换、改期后后端记录日期更新（TEST-V08-024）",
+        "tests/ui.test.mjs：toggle/move-date 动作、history-content-wrap 高度动画、changeWorkLogDate 后端能力的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：单条历史记录展开以后没办法折叠回去，并且无法修改记录日期，展开、折叠、切换记录等动画需要丝滑。"],
+      "resolution": "历史记录点击日期行展开/折叠（chevron 随 220ms 高度动画旋转），展开另一条记录时旧条目平滑收起并切换到编辑器；每条记录新增“修改记录日期”按钮（CalendarClock），后端新增 changeWorkLogDate 把记录移动到目标日期（同任务同日期冲突时报错，主记录换用新日期 ID，冲突副本保留 ID）；展开内容上限提高到 420px 可滚动。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 4224500；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-025",
+      "severity": "P2",
+      "category": "zoom-view-completeness-and-layout",
+      "kind": "defect",
+      "title": "历史记录放大视图不完整且缩小图标沿用了放大图标",
+      "status": "fixed",
+      "fix_commit": "8a31ddb",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：历史放大自动展开全部条目、展开态内容 max-height none 且无内滚动（TEST-V08-025）",
+        "e2e/workbench.spec.mjs：分区放大按钮 minimize-2 图标与恢复语义切换（TEST-V08-022 扩展）",
+        "e2e/workbench.spec.mjs：图片放大视图撑满可用空间、ZoomIn/ZoomOut 切换与关闭按钮（TEST-V08-017c 扩展）",
+        "tests/ui.test.mjs：object-fit contain、Minimize2、放大层内容上限覆盖的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：历史记录放大功能调出来的界面放大不完整。",
+        "用户直接体验反馈：缩小图标也沿用了放大图标。",
+        "图片放大遮罩只设 max-width/max-height，小图按原始像素显示未真正放大；展开态历史内容在放大层仍受 420px 上限与内滚动限制；分区放大按钮图标固定为 maximize-2 不随状态切换。"
+      ],
+      "resolution": "图片放大改为撑满可用空间（object-fit: contain）并新增放大/缩小切换（ZoomIn/ZoomOut）与关闭按钮；分区放大按钮图标随状态切换为 Minimize2/Maximize2 并同步标题与 aria 标签；历史记录放大时自动展开全部条目并取消内容上限；放大层内容按约 1120px 行宽居中排版。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8a31ddb；72 项 Node 测试与 74 项 Playwright 测试全部通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-026",
+      "severity": "P2",
+      "category": "section-collapse-and-history-toc",
+      "kind": "defect",
+      "title": "描述与每日记录不能折叠，历史放大缺少日期目录且折叠残留空白",
+      "status": "fixed",
+      "fix_commit": "095f39a",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：描述/每日折叠开关与恢复、放大目录条目与高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px（TEST-V08-026）",
+        "tests/ui.test.mjs：折叠开关、目录入口、smooth scroll 与折叠样式契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：每日记录与长期描述也需要可以折叠。",
+        "用户直接体验反馈：放大后的历史记录条目需要在左边有一个按日期展示并索引的目录，点击条目后快速（丝滑）跳转到相应记录。",
+        "用户直接体验反馈：多个历史记录条目被折叠后条目间会隔开一大段空白。"
+      ],
+      "resolution": "长期描述与每日记录标题栏新增折叠按钮（chevron 随状态旋转，放大时自动先展开）；历史放大视图改为左侧日期目录 + 右侧列表，目录按日期倒序、高亮当前记录、点击 scrollIntoView 丝滑跳转（窄屏目录置顶横排）；折叠态内容移除内边距使 0fr 行高度归零，展开态由 responsive 规则补回内边距与上限，消除条目间空白条。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 095f39a；72 项 Node 测试与 75 项 Playwright 测试全部通过，视觉基线重采集。" }
+      ]
+    }
+  ]
+}
