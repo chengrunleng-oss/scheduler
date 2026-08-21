@@ -228,6 +228,13 @@
         "description": "历史记录新增总折叠开关；三个区块折叠按钮统一靠左对齐；放大视图左侧日期目录不被标题头遮挡；折叠按钮与图标点击判定区回归验证。",
         "status": "met",
         "evidence": "e2e（TEST-V08-039/040/041）：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开、三按钮同 x 且为首元素、列表滚动时目录与标题头无重叠；契约测试覆盖接线、标题头顺序、折叠隐藏规则与 TOC 去除 sticky。"
+      },
+      {
+        "id": "gate-33",
+        "finding_ids": ["TEST-V08-042", "TEST-V08-043"],
+        "description": "每日记录标题头在默认宽度与滚动条出现时保持单行；放大视图折叠全部历史条目后条目不拉伸、无大间隙。",
+        "status": "met",
+        "evidence": "e2e（TEST-V08-042/043）：标题头高度 ≤60px（单行）在折叠/展开历史条目前后保持；折叠全部条目后每条高度 ≤52px、相邻间隙 ≤4px；契约测试覆盖 scrollbar-gutter、标题头间距与控件宽度、align-content: start。"
       }
     ]
   },
@@ -431,6 +438,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-038~041 登记并修复：历史记录区新增总折叠开关、三个区块折叠按钮统一靠左对齐、放大视图日期目录防遮挡并加固折叠判定区（038 无法在当前构建复现，指向旧构建，顺带加固并回归验证）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "a9619e7",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-042/043 登记并修复：每日记录标题头不再因滚动条出现而换行（控件压缩 + 滚动条空间常驻）、放大视图折叠全部条目不再拉伸出大间隙（列表 align-content: start）；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -1233,6 +1250,50 @@
       "history": [
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit ae5ced1；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-042",
+      "severity": "P2",
+      "category": "daily-heading-wrap-scrollbar",
+      "kind": "defect",
+      "title": "展开历史单条目后，折叠的每日记录标题栏排版变成两行",
+      "status": "fixed",
+      "fix_commit": "a9619e7",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：折叠每日记录后及展开/折叠历史条目后，标题头高度始终不超过 60px（单行）（TEST-V08-042/043）",
+        "tests/ui.test.mjs：scrollbar-gutter、daily-heading 间距与控件宽度的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：在历史纪录中展开单一条目时，折叠后的每日记录排版会变成两行，不知道怎么回事，有点影响美观。",
+        "探针定位：.daily-heading 允许换行，单行所需约 584px 与默认面板标题头宽 587px 仅差 3px；真实 Chrome 经典滚动条（约 17px）在展开历史条目、面板变高后出现，内容宽度跌破阈值，进度控件独自换到第二行。"
+      ],
+      "resolution": "每日标题头日期/进度控件宽度压缩（148→124、66→56）并收紧间距（gap 8→6），单行阈值降至约 496px；工作区/附件面板滚动条空间常驻（scrollbar-gutter: stable），滚动条出现/消失不再引起内容宽度跳变。默认宽度下标题头始终单行，窄面板仍可优雅换行。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈；探针复现阈值边界。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit a9619e7；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-043",
+      "severity": "P2",
+      "category": "zoom-history-collapsed-row-stretch",
+      "kind": "defect",
+      "title": "放大历史记录并折叠全部条目后，条目之间出现大间隙",
+      "status": "fixed",
+      "fix_commit": "a9619e7",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：放大视图折叠全部条目后每条高度不超过 52px、相邻条目间隙不超过 4px（TEST-V08-042/043）",
+        "tests/ui.test.mjs：放大视图列表 align-content: start 的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：放大历史记录之后，折叠所有的条目会导致条目之间有很大的间隙，要改一下。",
+        "探针定位：历史列表为 display: grid，放大视图列表被拉伸到固定高度后，align-content 默认 stretch 把剩余空间均分给每条折叠条目（实测每条 96px，多出约 48px 空白）。"
+      ],
+      "resolution": "放大视图历史列表增加 align-content: start，条目行按内容高度排列、自由空间留在列表底部；折叠全部条目后每条只占一行头部（约 49px），不再出现拉伸间隙。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈；探针复现行拉伸。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit a9619e7；e2e 与契约测试通过。" }
       ]
     }
   ]

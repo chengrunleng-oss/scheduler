@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-17",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "ae5ced1",
+  "source_revision": "a9619e7",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 75, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 85, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 86, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -85,7 +85,9 @@
     "TEST-V08-038 已关闭：折叠按钮与图标点击在当前构建探针验证正常，无法复现（指向旧构建）；借标题头重构统一加固判定区并补回归断言。",
     "TEST-V08-039 已修复：历史记录标题头新增总折叠/展开按钮，折叠隐藏目录、撤销条与记录列表。",
     "TEST-V08-040 已修复：三个区块标题头统一为折叠按钮靠左的排列，按钮 x 坐标一致。",
-    "TEST-V08-041 已修复：放大视图日期目录去除 sticky 吸顶，独占标题头下方网格列，任何滚动状态下不被标题头遮挡。"
+    "TEST-V08-041 已修复：放大视图日期目录去除 sticky 吸顶，独占标题头下方网格列，任何滚动状态下不被标题头遮挡。",
+    "TEST-V08-042 已修复：每日记录标题头控件压缩 + 面板滚动条空间常驻（scrollbar-gutter: stable），展开历史条目不因滚动条出现而换行。",
+    "TEST-V08-043 已修复：放大视图历史列表 align-content: start，折叠全部条目后条目不拉伸、无大间隙。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -674,6 +676,42 @@
           "tests/ui.test.mjs：放大视图 TOC 规则不含 position: sticky 的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-042",
+      "severity": "P2",
+      "category": "daily-heading-wrap-scrollbar",
+      "title": "展开历史单条目后，折叠的每日记录标题栏排版变成两行",
+      "evidence": [
+        "用户直接体验反馈：在历史纪录中展开单一条目时，折叠后的每日记录排版会变成两行，不知道怎么回事，有点影响美观。",
+        "探针定位：.daily-heading 允许换行，单行所需约 584px 与默认面板标题头宽 587px 仅差 3px；真实 Chrome 经典滚动条（约 17px）在展开历史条目、面板变高后出现，内容宽度跌破阈值，进度控件独自换到第二行。"
+      ],
+      "required_action": "标题头单行阈值降至默认面板宽度以下（含滚动条宽度），滚动条出现/消失不引起布局跳变。",
+      "resolution": {
+        "fix_commit": "a9619e7",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：折叠每日记录后及展开/折叠历史条目后，标题头高度始终不超过 60px（单行）（TEST-V08-042/043）",
+          "tests/ui.test.mjs：scrollbar-gutter、daily-heading 间距与控件宽度的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-043",
+      "severity": "P2",
+      "category": "zoom-history-collapsed-row-stretch",
+      "title": "放大历史记录并折叠全部条目后，条目之间出现大间隙",
+      "evidence": [
+        "用户直接体验反馈：放大历史记录之后，折叠所有的条目会导致条目之间有很大的间隙，要改一下。",
+        "探针定位：历史列表为 display: grid，放大视图列表被拉伸到固定高度后，align-content 默认 stretch 把剩余空间均分给每条折叠条目（实测每条 96px，多出约 48px 空白）。"
+      ],
+      "required_action": "放大视图折叠后的条目只占一行头部高度，列表剩余空间留在底部。",
+      "resolution": {
+        "fix_commit": "a9619e7",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：放大视图折叠全部条目后每条高度不超过 52px、相邻条目间隙不超过 4px（TEST-V08-042/043）",
+          "tests/ui.test.mjs：放大视图列表 align-content: start 的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -869,13 +907,19 @@
         "status": "met",
         "finding_ids": ["TEST-V08-038", "TEST-V08-039", "TEST-V08-040", "TEST-V08-041"],
         "evidence": "e2e（TEST-V08-039/040/041）：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开、三按钮同 x 且为首元素、列表滚动时目录与标题头无重叠；契约测试覆盖接线、标题头顺序、折叠隐藏规则与 TOC 去除 sticky；038 经探针与 036 用例回归验证。"
+      },
+      {
+        "description": "每日记录标题头在默认宽度与滚动条出现时保持单行；放大视图折叠全部历史条目后条目不拉伸、无大间隙。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-042", "TEST-V08-043"],
+        "evidence": "e2e（TEST-V08-042/043）：标题头高度 ≤60px（单行）在折叠/展开历史条目前后保持；折叠全部条目后每条高度 ≤52px、相邻间隙 ≤4px；契约测试覆盖 scrollbar-gutter、标题头间距与控件宽度、align-content: start。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "ae5ced1",
+    "head": "a9619e7",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",
