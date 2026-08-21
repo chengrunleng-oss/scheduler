@@ -242,6 +242,13 @@
         "description": "md 文档显示区域按主题定制表面并与整体背景明确区分；放大历史记录的日期目录高亮跟随滚动/跳转同步。",
         "status": "met",
         "evidence": "e2e：TEST-V08-044 断言浅/深主题下编辑器、源码与历史内容背景为主题定制色且与 --bg/--surface 不同；TEST-V08-045 断言打开高亮首条、滚动高亮跟随、点击即时高亮且滚动后保持；契约测试覆盖令牌、应用规则与 scroll-spy 接线。"
+      },
+      {
+        "id": "gate-35",
+        "finding_ids": ["TEST-V08-046"],
+        "description": "工作记录区便利贴嵌套展示：三个区块为父便利贴、历史记录条目为嵌套子便利贴，浅/深主题与放大视图均保持层次分明。",
+        "status": "met",
+        "evidence": "e2e（TEST-V08-046）：浅/深主题断言区块背景与圆角、条目背景与父便利贴不同、折叠条目高度与放大视图表面；契约测试覆盖 --note-surface 令牌、区块/条目便利贴规则与嵌套表头圆角；既有吸顶、折叠、放大与视觉基线全部通过。"
       }
     ]
   },
@@ -465,6 +472,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-044/045 登记并修复：md 文档显示区域按主题定制表面（浅色暖纸白/深色提亮冷灰）、历史放大视图日期目录高亮改为滚动跟随；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "9df3c37",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-046 登记并完成：工作记录区便利贴化——长期描述/每日记录/历史记录为父便利贴，历史记录条目为嵌套其中的子便利贴；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -1355,6 +1372,27 @@
       "history": [
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 1477e09；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-046",
+      "severity": "P2",
+      "category": "worklog-sticky-note-nesting",
+      "kind": "enhancement",
+      "title": "任务工作区（尤其工作记录区）做成便利贴嵌套展示，子条目放在父条目便利贴内",
+      "status": "fixed",
+      "fix_commit": "9df3c37",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：浅/深主题下三个区块为父便利贴（暖纸白/提亮冷灰、圆角 10px）、历史条目为嵌套子便利贴且颜色与父便利贴不同、放大视图保持子便利贴表面（TEST-V08-046）",
+        "tests/ui.test.mjs：--note-surface 令牌、区块与条目的便利贴规则、嵌套表头圆角与吸顶表面的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：任务工作区（尤其是工作记录区）我也想做成便利贴嵌套形式的展示，子条目放在父条目便利贴内，更方便阅读。"
+      ],
+      "resolution": "工作记录区便利贴化：长期描述/每日记录/历史记录三个区块成为父便利贴（文档表面背景 + 描边 + 圆角 10px + 轻投影，折叠后收紧为标题条）；历史记录条目成为嵌套在父便利贴内的子便利贴（新增 --note-surface 令牌：浅色纯白、深色更深冷灰，圆角 8px + 描边 + 轻投影），展开态标题条吸顶时保持子便利贴表面与顶部圆角；放大视图占满视口时去掉外边距/边框/圆角保留文档表面；标题头控件同步再压缩保证默认宽度单行。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 9df3c37；e2e 与契约测试通过。" }
       ]
     }
   ]
