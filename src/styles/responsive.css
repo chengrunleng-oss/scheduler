@@ -54,6 +54,21 @@
 .worklog-panel .workspace-section-heading { background: var(--surface); }
 .zoom-overlay .workspace-section-heading { background: var(--bg); }
 
+/* TEST-V08-037：历史记录日期表头随滚动吸顶，贴在区块标题栏下方，多条记录逐条顶替。 */
+.worklog-panel { --sticky-heading-height: 53px; }
+/* 放大视图里历史列表自身滚动，标题栏固定在列表外，日期表头相对列表吸顶。 */
+.worklog-history-section.zoom-overlay { --sticky-heading-height: 0px; }
+.worklog-history-item.expanded .worklog-history-head {
+  position: sticky;
+  top: var(--sticky-heading-height, 53px);
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  margin: 0 -2px;
+  padding: 0 2px;
+}
+.worklog-history-section.zoom-overlay .worklog-history-item.expanded .worklog-history-head { background: var(--bg); }
+
 /* TEST-V08-030：区块表头整条可点折叠（交互元素除外）。 */
 .section-heading-toggleable { cursor: pointer; }
 .section-heading-toggleable:hover { color: var(--teal); }
@@ -97,7 +112,13 @@
   padding-right: 12px;
 }
 .worklog-history-section.zoom-overlay .worklog-undo { grid-column: 2; grid-row: 2; align-self: start; }
-.worklog-history-section.zoom-overlay .worklog-history { grid-column: 2; grid-row: 3; align-self: start; }
+.worklog-history-section.zoom-overlay .worklog-history {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: stretch;
+  min-height: 0;
+  overflow-y: auto;
+}
 @media (max-width: 880px) {
   .worklog-history-section.zoom-overlay { grid-template-columns: 1fr; }
   .worklog-history-section.zoom-overlay .history-zoom-toc {

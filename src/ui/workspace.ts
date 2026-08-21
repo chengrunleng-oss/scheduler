@@ -716,10 +716,17 @@ export function createWorkspaceController(
     button.setAttribute("aria-pressed", String(collapsed));
     button.title = collapsed ? `展开${label}` : `折叠${label}`;
     button.setAttribute("aria-label", collapsed ? `展开${label}` : `折叠${label}`);
+    // TEST-V08-036：折叠后按钮改为“展开”按钮（图标切换而非旋转）。
+    button.querySelector("svg")?.remove();
+    const glyph = icon(collapsed ? "ChevronRight" : "ChevronDown", 16);
+    glyph.dataset.collapseGlyph = collapsed ? "expand" : "collapse";
+    button.prepend(glyph);
     section.querySelector<HTMLElement>(":scope > .workspace-section-heading")?.setAttribute("title", collapsed ? "点击展开该区块" : "点击折叠该区块");
   }
   for (const [button, section] of collapseSections) {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      // TEST-V08-036：阻止冒泡到表头热区；图标替换会移除原事件目标，closest 在脱离节点上失效。
+      event.stopPropagation();
       setSectionCollapsed(section, button, !section.classList.contains("section-collapsed"));
     });
     const heading = section.querySelector<HTMLElement>(":scope > .workspace-section-heading");
@@ -727,8 +734,8 @@ export function createWorkspaceController(
       heading.classList.add("section-heading-toggleable");
       heading.title = section.classList.contains("section-collapsed") ? "点击展开该区块" : "点击折叠该区块";
       heading.addEventListener("click", (event) => {
-        const target = event.target as HTMLElement;
-        if (target.closest("button, input, select, label, a")) return;
+        const interactive = event.composedPath().some((entry) => entry instanceof Element && entry.matches("button, input, select, label, a"));
+        if (interactive) return;
         setSectionCollapsed(section, button, !section.classList.contains("section-collapsed"));
       });
     }

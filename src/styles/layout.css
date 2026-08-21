@@ -246,9 +246,7 @@
 .history-actions .icon-button { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 .worklog-undo { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; border: 1px solid var(--pending); border-radius: 6px; background: var(--pending-soft); padding: 6px 10px; font-size: 12px; }
 .compact-button { min-height: 34px; padding: 5px 9px; font-size: 12px; }
-/* TEST-V08-026：长期描述与每日记录的折叠开关。 */
-.section-collapse-toggle .lucide-icon { transition: transform 220ms ease; }
-.section-collapse-toggle[aria-pressed="true"] .lucide-icon { transform: rotate(180deg); }
+/* TEST-V08-026/036：长期描述与每日记录的折叠开关；折叠后按钮图标切换为“展开”。 */
 .editor-section.section-collapsed > :not(.workspace-section-heading) { display: none; }
 /* TEST-V08-026：历史记录放大视图的左侧日期目录。 */
 .history-zoom-toc { display: flex; flex-direction: column; gap: 4px; }

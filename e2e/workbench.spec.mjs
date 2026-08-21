@@ -907,11 +907,12 @@ test("description and daily sections collapse, and history zoom offers a date in
   await page.waitForTimeout(700);
   const jumpGeometry = await page.evaluate(() => {
     const overlay = document.querySelector("#worklogHistorySection");
+    const list = overlay.querySelector(".worklog-history");
     const items = [...document.querySelectorAll("#worklogHistory .worklog-history-item")];
     const last = items[items.length - 1];
     const overlayRect = overlay.getBoundingClientRect();
     const lastRect = last.getBoundingClientRect();
-    return { overlayTop: overlayRect.top, overlayBottom: overlayRect.bottom, lastTop: lastRect.top, scrollTop: overlay.scrollTop };
+    return { overlayTop: overlayRect.top, overlayBottom: overlayRect.bottom, lastTop: lastRect.top, scrollTop: list.scrollTop };
   });
   expect(jumpGeometry.lastTop).toBeGreaterThanOrEqual(jumpGeometry.overlayTop - 1);
   expect(jumpGeometry.lastTop).toBeLessThan(jumpGeometry.overlayBottom);
@@ -1245,6 +1246,76 @@ test("zoom buttons sit right of the preview toggle and the source pane fills the
   expect(geometry.resize).toBe("none");
   await page.keyboard.press("Escape");
   await expect(page.locator("#dailySection")).not.toHaveClass(/zoom-overlay/);
+});
+
+test("collapse buttons switch to an expand chevron when collapsed (TEST-V08-036)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  const collapse = page.locator("#collapseDescription");
+  await expect(collapse).toHaveAttribute("aria-label", "折叠长期描述");
+  await collapse.click();
+  await expect(collapse).toHaveAttribute("aria-pressed", "true");
+  await expect(collapse).toHaveAttribute("aria-label", "展开长期描述");
+  await expect(collapse.locator("[data-collapse-glyph='expand']")).toHaveCount(1);
+  await expect(page.locator("#descriptionEditor")).toBeHidden();
+  await collapse.click();
+  await expect(collapse).toHaveAttribute("aria-pressed", "false");
+  await expect(collapse).toHaveAttribute("aria-label", "折叠长期描述");
+  await expect(collapse.locator("[data-collapse-glyph='collapse']")).toHaveCount(1);
+  await expect(page.locator("#descriptionEditor")).toBeVisible();
+});
+
+test("history date headers stick below the section heading while scrolling (TEST-V08-037)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(80)}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2), iso(-3), iso(-4), iso(-5)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(6, { timeout: 20_000 });
+  await page.evaluate(() => {
+    for (const item of document.querySelectorAll("#worklogHistory .worklog-history-item")) item.classList.add("expanded");
+  });
+  await page.waitForTimeout(300);
+
+  // 普通视图：滚动面板后至少有一个日期表头吸顶在“区块标题栏高度”处。
+  const panel = page.locator("#worklogPanel");
+  await panel.evaluate((node) => { node.scrollTop = 1100; });
+  await page.waitForTimeout(250);
+  const normal = await page.evaluate(() => {
+    const panelNode = document.querySelector("#worklogPanel");
+    const panelTop = panelNode.getBoundingClientRect().top;
+    const offset = parseFloat(getComputedStyle(document.querySelector(".worklog-history-item.expanded .worklog-history-head")).top) || 53;
+    const heads = [...document.querySelectorAll("#worklogHistory .worklog-history-item.expanded .worklog-history-head")];
+    const stuck = heads.some((head) => Math.abs(head.getBoundingClientRect().top - (panelTop + offset)) <= 3);
+    return { stuck, panelTop, offset, scrollTop: panelNode.scrollTop };
+  });
+  expect(normal.scrollTop).toBeGreaterThan(0);
+  expect(normal.stuck).toBe(true);
+
+  // 放大视图：历史列表自身滚动，日期表头相对列表吸顶。
+  await page.locator("#zoomHistory").click();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { const node = document.querySelector("#worklogHistorySection .worklog-history"); node.scrollTop = 600; });
+  await page.waitForTimeout(250);
+  const zoomed = await page.evaluate(() => {
+    const list = document.querySelector("#worklogHistorySection .worklog-history");
+    const listTop = list.getBoundingClientRect().top;
+    const heads = [...list.querySelectorAll(".worklog-history-item.expanded .worklog-history-head")];
+    const stuck = heads.some((head) => Math.abs(head.getBoundingClientRect().top - listTop) <= 3);
+    return { stuck, listTop, scrollTop: list.scrollTop };
+  });
+  expect(zoomed.scrollTop).toBeGreaterThan(0);
+  expect(zoomed.stuck).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
 });
 
 test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {

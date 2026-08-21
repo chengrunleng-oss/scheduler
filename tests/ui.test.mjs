@@ -465,4 +465,12 @@ test("feedback round improvements are wired (TEST-V08-029/030/031/032/033/034/03
   assert.match(responsiveCss, /\.zoom-overlay \.markdown-source \{\s*min-height:\s*0;\s*resize:\s*none;\s*height:\s*auto !important/);
   // 035：区块标题栏吸顶。
   assert.match(responsiveCss, /\.worklog-panel \.workspace-section-heading,\s*\.zoom-overlay \.workspace-section-heading \{\s*position:\s*sticky/);
+  // 036：折叠后按钮切换为展开图标（不再旋转）。
+  assert.match(workspace, /ChevronRight" : "ChevronDown"/);
+  assert.match(workspace, /collapseGlyph/);
+  assert.doesNotMatch(css, /section-collapse-toggle\[aria-pressed="true"\]/);
+  // 037：历史记录日期表头分层吸顶。
+  assert.match(responsiveCss, /--sticky-heading-height/);
+  assert.match(responsiveCss, /\.worklog-history-item\.expanded \.worklog-history-head \{\s*position:\s*sticky/);
+  assert.match(responsiveCss, /top: var\(--sticky-heading-height/);
 });
