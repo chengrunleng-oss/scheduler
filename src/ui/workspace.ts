@@ -775,6 +775,7 @@ export function createWorkspaceController(
           if (item.dataset.worklogId) expandedWorklogIds.add(item.dataset.worklogId);
         }
         populateHistoryZoomToc();
+        refreshHistoryTocActive();
       }
     }
     if (zoomedButton !== els.zoomHistory) els.historyZoomToc.hidden = true;
@@ -793,7 +794,6 @@ export function createWorkspaceController(
       entry.type = "button";
       entry.className = "history-zoom-toc-entry";
       entry.dataset.tocTarget = item.dataset.worklogId ?? "";
-      if (item.dataset.worklogId === activeWorkLogId) entry.classList.add("active");
       entry.append(icon("CalendarClock", 14), document.createTextNode(toggle?.textContent?.trim() ?? ""));
       if (progress?.textContent) {
         const meter = document.createElement("span");
@@ -805,10 +805,38 @@ export function createWorkspaceController(
       els.historyZoomToc.append(entry);
     }
   }
+  // TEST-V08-045：目录高亮跟随滚动——高亮当前视口顶部的记录，点击目录或手动翻页后始终同步。
+  function refreshHistoryTocActive(): void {
+    const list = els.worklogHistory;
+    const items = [...list.querySelectorAll<HTMLElement>(".worklog-history-item")];
+    const listTop = list.getBoundingClientRect().top;
+    let currentId: string | null = null;
+    for (const item of items) {
+      const head = item.querySelector<HTMLElement>(".worklog-history-head") ?? item;
+      const rect = head.getBoundingClientRect();
+      if (rect.top <= listTop + 32 && rect.bottom > listTop) currentId = item.dataset.worklogId ?? null;
+    }
+    if (!currentId && items.length) currentId = items[0]?.dataset.worklogId ?? null;
+    for (const entry of els.historyZoomToc.querySelectorAll<HTMLElement>(".history-zoom-toc-entry")) {
+      entry.classList.toggle("active", Boolean(currentId) && entry.dataset.tocTarget === currentId);
+    }
+  }
+  let historyTocSpyFrame = 0;
+  els.worklogHistory.addEventListener("scroll", () => {
+    if (zoomedButton !== els.zoomHistory || historyTocSpyFrame) return;
+    historyTocSpyFrame = window.requestAnimationFrame(() => {
+      historyTocSpyFrame = 0;
+      refreshHistoryTocActive();
+    });
+  }, { passive: true });
   els.historyZoomToc.addEventListener("click", (event) => {
     const entry = (event.target as HTMLElement).closest<HTMLButtonElement>(".history-zoom-toc-entry");
     const targetId = entry?.dataset.tocTarget;
     if (!targetId) return;
+    // 点击瞬间先把高亮切到目标条目，丝滑滚动途中再由 scroll-spy 跟随途经/目标条目。
+    for (const tocEntry of els.historyZoomToc.querySelectorAll<HTMLElement>(".history-zoom-toc-entry")) {
+      tocEntry.classList.toggle("active", tocEntry.dataset.tocTarget === targetId);
+    }
     const item = els.worklogHistory.querySelector<HTMLElement>(`.worklog-history-item[data-worklog-id="${CSS.escape(targetId)}"]`);
     item?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
@@ -917,6 +945,8 @@ export function createWorkspaceController(
       button.setAttribute("aria-label", `${expanded ? "收起" : "展开"} ${formatDate(button.dataset.workDate)}的记录`);
       if (expanded) expandedWorklogIds.add(item.dataset.worklogId ?? "");
       else expandedWorklogIds.delete(item.dataset.worklogId ?? "");
+      // TEST-V08-045：放大视图内折叠/展开会改变条目高度，同步刷新目录高亮。
+      if (zoomedButton === els.zoomHistory) refreshHistoryTocActive();
       if (expanded && button.dataset.worklogId !== activeWorkLogId) await changeWorkDate(button.dataset.workDate, false, button.dataset.worklogId);
       return;
     }

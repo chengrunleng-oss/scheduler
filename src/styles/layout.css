@@ -200,9 +200,10 @@
 .progress-field { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
 .progress-field input { width: 56px; min-height: 34px; }
 .editor-save-line { min-height: 28px; justify-content: flex-end; }
-.markdown-editor { min-height: 220px; margin-top: 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-raised); overflow: hidden; }
+/* TEST-V08-044：md 文档显示区使用主题定制的文档表面，与整体背景明确区分。 */
+.markdown-editor { min-height: 220px; margin-top: 10px; border: 1px solid var(--doc-line); border-radius: 7px; background: var(--doc-surface); overflow: hidden; }
 .markdown-editor[data-editor-state="loading"] { display: grid; place-items: center; color: var(--muted); }
-.markdown-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 218px; background: var(--surface-raised); }
+.markdown-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 218px; background: var(--doc-surface); }
 .markdown-shell.drag-active { outline: 2px dashed var(--teal); outline-offset: -2px; }
 .markdown-shell.drag-active .markdown-source, .markdown-shell.drag-active .markdown-preview { background: var(--teal-soft); }
 .markdown-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: var(--surface); }
@@ -214,7 +215,7 @@
 .markdown-fallback .markdown-preview { display: none; }
 .markdown-fallback.preview-mode { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .markdown-fallback.preview-mode .markdown-preview { display: block; }
-.markdown-source { min-width: 0; min-height: 280px; padding: 12px; border: 0; border-radius: 0; resize: vertical; background: var(--surface-raised); color: var(--text); font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace); font-size: 13px; line-height: 1.6; }
+.markdown-source { min-width: 0; min-height: 280px; padding: 12px; border: 0; border-radius: 0; resize: vertical; background: var(--doc-surface); color: var(--text); font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace); font-size: 13px; line-height: 1.6; }
 .markdown-fallback.preview-mode .markdown-source { border-right: 1px solid var(--line); }
 .markdown-source[readonly] { color: var(--muted); background: var(--surface-muted); }
 .markdown-preview { min-width: 0; overflow: auto; padding: 12px; line-height: 1.6; }

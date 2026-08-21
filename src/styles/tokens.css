@@ -4,6 +4,9 @@
   --surface: #ffffff;
   --surface-muted: #f4f7f7;
   --surface-raised: #fafcfc;
+  /* TEST-V08-044：md 文档显示区专用表面，与整体背景明确区分（浅色为暖纸白，深色为提亮的冷灰）。 */
+  --doc-surface: #fdfcf4;
+  --doc-line: #ded8c9;
   --text: #172326;
   --muted: #617075;
   --line: #d7e0e2;
@@ -55,6 +58,8 @@
   --surface: #191d1f;
   --surface-muted: #202528;
   --surface-raised: #272c2f;
+  --doc-surface: #242a2f;
+  --doc-line: #39424a;
   --text: #f1f3f4;
   --muted: #aab3b7;
   --line: #31383c;
@@ -96,6 +101,7 @@
   :root[data-theme="system"] {
     color-scheme: dark;
     --bg: #101315; --surface: #191d1f; --surface-muted: #202528; --surface-raised: #272c2f;
+    --doc-surface: #242a2f; --doc-line: #39424a;
     --text: #f1f3f4; --muted: #aab3b7; --line: #31383c; --line-strong: #4b555a;
     --teal: #58b9c7; --teal-hover: #7bcbd5; --teal-soft: #19363b;
     --high: #ff9a8e; --high-soft: #452824; --low: #9dc5d1; --low-soft: #26383f;

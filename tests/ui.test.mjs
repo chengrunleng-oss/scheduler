@@ -248,6 +248,19 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(layoutCss, /\.progress-field input \{ width: 56px;/);
   // TEST-V08-043：放大视图历史列表条目行按内容排列、不拉伸分摊剩余空间。
   assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay \.worklog-history[^{]*\{[^}]*align-content:\s*start/s);
+  // TEST-V08-044：主题定制的文档表面令牌（浅色暖纸白、深色提亮冷灰）与 md 显示区应用。
+  assert.match(tokensCss, /--doc-surface: #fdfcf4;/);
+  assert.match(tokensCss, /--doc-line: #ded8c9;/);
+  assert.match(tokensCss, /--doc-surface: #242a2f;/);
+  assert.match(tokensCss, /--doc-line: #39424a;/);
+  assert.match(layoutCss, /\.markdown-editor \{[^}]*border: 1px solid var\(--doc-line\);[^}]*background: var\(--doc-surface\)/);
+  assert.match(layoutCss, /\.markdown-shell \{[^}]*background: var\(--doc-surface\)/);
+  assert.match(layoutCss, /\.markdown-source \{[^}]*background: var\(--doc-surface\)/);
+  assert.match(responsiveCss, /\.history-content-wrap > \.history-content \{[^}]*background: var\(--doc-surface\)/);
+  // TEST-V08-045：目录高亮滚动同步（scroll-spy 与点击即时高亮）。
+  assert.match(workspace, /refreshHistoryTocActive/);
+  assert.match(workspace, /els\.worklogHistory\.addEventListener\("scroll"/);
+  assert.match(workspace, /tocEntry\.classList\.toggle\("active", tocEntry\.dataset\.tocTarget === targetId\)/);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);

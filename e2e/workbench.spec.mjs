@@ -1407,6 +1407,92 @@ test("daily heading stays on one line and zoom history collapse leaves no inflat
   await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
 });
 
+test("markdown document surfaces stay distinct in every theme (TEST-V08-044)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ today }) => {
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: today, contentMarkdown: "# 今天\n\n内容", progressPercent: 20 });
+  }, { today: iso(0) });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await expect(page.locator("#worklogHistory .worklog-history-item.expanded .history-content")).toHaveCount(1);
+
+  const readColors = () => page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const bgOf = (selector) => getComputedStyle(document.querySelector(selector)).backgroundColor;
+    return {
+      bg: root.getPropertyValue("--bg").trim(),
+      surface: root.getPropertyValue("--surface").trim(),
+      doc: root.getPropertyValue("--doc-surface").trim(),
+      editor: bgOf(".markdown-editor"),
+      source: bgOf(".markdown-source"),
+      history: bgOf("#worklogHistory .worklog-history-item.expanded .history-content"),
+    };
+  });
+  // 浅色主题：文档表面为暖纸白，与整体背景和面板表面都不同。
+  await page.locator("#themeSelect").selectOption("light");
+  const light = await readColors();
+  expect(light.doc).toBe("#fdfcf4");
+  expect(light.editor).toBe("rgb(253, 252, 244)");
+  expect(light.source).toBe("rgb(253, 252, 244)");
+  expect(light.history).toBe("rgb(253, 252, 244)");
+  expect(light.doc).not.toBe(light.bg);
+  expect(light.doc).not.toBe(light.surface);
+  // 深色主题：文档表面为提亮的冷灰，同样与背景/面板区分。
+  await page.locator("#themeSelect").selectOption("dark");
+  const dark = await readColors();
+  expect(dark.doc).toBe("#242a2f");
+  expect(dark.editor).toBe("rgb(36, 42, 47)");
+  expect(dark.source).toBe("rgb(36, 42, 47)");
+  expect(dark.history).toBe("rgb(36, 42, 47)");
+  expect(dark.doc).not.toBe(dark.bg);
+  expect(dark.doc).not.toBe(dark.surface);
+});
+
+test("zoom history TOC highlight follows the visible record while scrolling and clicking (TEST-V08-045)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(200)}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2), iso(-3), iso(-4), iso(-5), iso(-6), iso(-7)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(8, { timeout: 20_000 });
+  await page.locator("#zoomHistory").click();
+  await page.waitForTimeout(350);
+  const toc = page.locator("#historyZoomToc .history-zoom-toc-entry");
+  await expect(toc).toHaveCount(8);
+  // 打开放大视图时，高亮当前视口顶部的记录（第一条）。
+  await expect(toc.first()).toHaveClass(/active/);
+  await expect(toc.nth(1)).not.toHaveClass(/active/);
+  // 手动翻页到第 5 条记录：目录高亮同步跟随。
+  await page.evaluate(() => {
+    const items = [...document.querySelectorAll("#worklogHistory .worklog-history-item")];
+    items[4].scrollIntoView({ block: "start" });
+  });
+  await page.waitForTimeout(450);
+  await expect(toc.nth(4)).toHaveClass(/active/);
+  await expect(toc.first()).not.toHaveClass(/active/);
+  // 点击目录条目：高亮即时切换，丝滑滚动结束后保持在目标条目。
+  await toc.nth(2).click();
+  await expect(toc.nth(2)).toHaveClass(/active/);
+  await page.waitForTimeout(900);
+  await expect(toc.nth(2)).toHaveClass(/active/);
+  await expect(toc.nth(4)).not.toHaveClass(/active/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
+});
+
 test("history date headers stick below the section heading while scrolling (TEST-V08-037)", async ({ page }) => {
   const iso = (offsetDays) => {
     const now = new Date();
