@@ -895,6 +895,8 @@ test("description and daily sections collapse, and history zoom offers a date in
   // 历史记录放大：左侧日期目录按日期倒序，点击末条丝滑滚动到对应记录。
   await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(3, { timeout: 20_000 });
   await page.locator("#zoomHistory").click();
+  // 等待展开动画（220ms）结束再点击目录，避免平滑滚动在布局动画期间被浏览器取消。
+  await page.waitForTimeout(300);
   const toc = page.locator("#historyZoomToc");
   await expect(toc).toBeVisible();
   const entries = toc.locator(".history-zoom-toc-entry");
