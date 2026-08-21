@@ -1,5 +1,22 @@
 # 迭代记录
 
+## v0.8 补丁十四：SchedulerSaveTest 反馈批次（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-029：Esc 分层退出。lightbox 暴露 isLightboxOpen 状态，工作区 Esc 守卫在图片放大遮罩打开时让位——第一次 Esc 只关遮罩，下一次 Esc 再关区块放大窗口。
+- 修复 TEST-V08-030：长期描述与每日记录的折叠热区扩展到整个区块表头（标题、留白、保存状态等非交互区域均可折叠/展开），按钮、输入、下拉、标签保持原有行为，表头显示 pointer 光标。
+- 修复 TEST-V08-031：新任务截止日期默认值新增 3 天后、7 天后、本周五（已过取下周五）、下周一（当天为周一时取下周一）四个选项，resolveDefaultDueDate 与迁移白名单同步扩展。
+- 修复 TEST-V08-032：新增 video 附件类型（mp4/webm/ogg），附件面板可直接预览播放；Markdown 中的 attachment: 视频引用（图片或链接语法）渲染为带控件的内嵌播放器。
+- 修复 TEST-V08-033：markdown 编辑器增加 toolbarExtras 扩展点，长期描述与每日记录的放大按钮移入编辑器工具栏、紧贴“源码/预览”切换键右侧。
+- 修复 TEST-V08-034：放大模式下源码框自动铺展到窗口底部（height auto !important 覆盖手动 resize 的内联高度）并禁用手动 resize，退出放大恢复。
+- 修复 TEST-V08-035：工作区三个区块标题栏（长期描述/每日记录/历史记录）在面板滚动与放大视图中 sticky 吸顶，滚动浏览长文档时标题与操作按钮始终可见。
+- 契约、领域与 e2e 用例同步补齐（共 5 个新 e2e 用例 + 契约断言 + 领域日期用例）。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、75 项 Node 测试和 82 项 Playwright 测试全部通过。
+
 ## v0.8 补丁十三：放大层编辑器滚动修复（deepseek/test-feedback-fixes）
 
 ### 本次修复

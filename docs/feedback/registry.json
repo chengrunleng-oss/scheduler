@@ -158,6 +158,55 @@
         "description": "放大后的每日记录/长期描述编辑器撑满放大层，源码与编译预览窗格可完整滚动查看页面外的上下内容。",
         "status": "met",
         "evidence": "e2e：长记录放大后源码窗格高度超过 600px 且可滚到底、预览窗格同样撑满可滚到底；契约测试覆盖 zoom-overlay 编辑器纵向 flex 与各层 min-height 0 规则。"
+      },
+      {
+        "id": "gate-23",
+        "finding_ids": ["TEST-V08-029"],
+        "description": "Esc 分层退出：第一次只关图片放大遮罩，下一次再关区块放大窗口。",
+        "status": "met",
+        "evidence": "e2e：Esc 后遮罩消失而区块放大保持、第二次 Esc 才关闭；契约测试覆盖 isLightboxOpen 协调与 Esc 守卫。"
+      },
+      {
+        "id": "gate-24",
+        "finding_ids": ["TEST-V08-030"],
+        "description": "长期描述与每日记录的折叠热区覆盖整个表头，表头内按钮/输入/标签不误触。",
+        "status": "met",
+        "evidence": "e2e：点标题文字折叠/展开、点表头内放大按钮不误触折叠；契约测试覆盖热区与交互元素排除。"
+      },
+      {
+        "id": "gate-25",
+        "finding_ids": ["TEST-V08-031"],
+        "description": "新任务截止日期默认值提供 3 天后/7 天后/本周五/下周一选项并正确解析。",
+        "status": "met",
+        "evidence": "领域测试覆盖四个新值的日期解析（含周五/周一当天边界）；e2e 断言行内创建表单预填；契约测试覆盖类型与迁移白名单。"
+      },
+      {
+        "id": "gate-26",
+        "finding_ids": ["TEST-V08-032"],
+        "description": "视频附件（mp4/webm/ogg）可在附件面板预览播放，md 引用渲染为内嵌播放器。",
+        "status": "met",
+        "evidence": "e2e：附件预览 video 元素与 md 内嵌播放器 src 为 blob 地址；契约测试覆盖 video 类型识别、Film 图标与渲染层。"
+      },
+      {
+        "id": "gate-27",
+        "finding_ids": ["TEST-V08-033"],
+        "description": "长期描述与每日记录的放大按钮位于编辑器工具栏“源码/预览”切换键右侧。",
+        "status": "met",
+        "evidence": "e2e：放大按钮父级为 markdown-toolbar 且为切换键的下一个兄弟；契约测试覆盖 toolbarExtras 扩展点。"
+      },
+      {
+        "id": "gate-28",
+        "finding_ids": ["TEST-V08-034"],
+        "description": "放大后源码区自动铺展到窗口底部，禁用手动 resize，退出放大恢复。",
+        "status": "met",
+        "evidence": "e2e：手动 resize 过的源码框放大后高度超过 600px 且 computed resize 为 none；契约测试覆盖样式规则。"
+      },
+      {
+        "id": "gate-29",
+        "finding_ids": ["TEST-V08-035"],
+        "description": "工作区三个区块标题栏滚动吸顶，浏览长文档时标题与操作按钮始终可见。",
+        "status": "met",
+        "evidence": "e2e：滚动面板后历史标题栏距面板顶不超过 2px；契约测试覆盖 sticky 规则。"
       }
     ]
   },
@@ -331,6 +380,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-028 登记并修复：放大层编辑器撑满剩余高度，源码与编译预览窗格可完整滚动；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "8d3c55e",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "SchedulerSaveTest 反馈批次：TEST-V08-029~035 登记并修复（Esc 分层退出、折叠热区、日期选项、视频展示、放大键移位、源码铺展、标题吸顶）；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -879,6 +938,140 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit c1c0524；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-029",
+      "severity": "P2",
+      "category": "esc-layered-exit",
+      "kind": "defect",
+      "title": "按 Esc 一次性关闭放大的图片与放大窗口，希望一步一步退出",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：第一次 Esc 只关图片放大遮罩、第二次 Esc 才关区块放大（TEST-V08-029）",
+        "tests/ui.test.mjs：isLightboxOpen 协调与工作区 Esc 守卫的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：按 esc 退出时会一次性关闭放大的图片、放大窗口，希望能一步一步慢慢退出。"],
+      "resolution": "lightbox 暴露 isLightboxOpen 状态，工作区 Esc 处理器在图片放大遮罩打开时让位：第一次 Esc 只关闭遮罩，下一次 Esc 再关闭区块放大窗口。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-030",
+      "severity": "P2",
+      "category": "section-heading-collapse-area",
+      "kind": "defect",
+      "title": "长期描述与每日记录的折叠按钮可识别区域太小",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：点击表头标题文字折叠/展开、点表头内按钮不误触（TEST-V08-030/035）",
+        "tests/ui.test.mjs：setSectionCollapsed、表头热区与交互元素排除的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：长期描述与每日记录部分的折叠按钮可识别区域拓展到整个表头。"],
+      "resolution": "折叠热区扩展到整个区块表头：点击标题、留白、保存状态等非交互区域即可折叠/展开；按钮、输入、下拉、标签等交互元素保持原有行为；表头显示 pointer 光标与悬停提示。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-031",
+      "severity": "P2",
+      "category": "default-due-date-options",
+      "kind": "enhancement",
+      "title": "新任务截止日期默认值的可选项再多一些",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "tests/domain.test.mjs：in_3_days/in_7_days/this_friday/next_monday 解析到正确日期",
+        "e2e/workbench.spec.mjs：默认值切换后行内创建表单预填对应日期（TEST-V08-031）",
+        "tests/ui.test.mjs：类型、迁移白名单与侧栏选项的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：新任务截止日期默认值的可选项再多一些。"],
+      "resolution": "截止日期默认值新增 3 天后、7 天后、本周五（已过取下周五）、下周一（当天为周一时取下周一）四个选项；resolveDefaultDueDate 与迁移白名单同步扩展。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；领域与 e2e 测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-032",
+      "severity": "P2",
+      "category": "video-attachment-preview",
+      "kind": "enhancement",
+      "title": "工作区的 md 文档处需要视频展示",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：视频附件应用内预览播放器、md 引用渲染为内嵌播放器且 src 为 blob 地址（TEST-V08-032）",
+        "tests/ui.test.mjs：video 附件类型、Film 图标、渲染层与样式的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：能否实现工作区的 md 文档处视频展示。"],
+      "resolution": "新增 video 附件类型（mp4/webm/ogg，按扩展名或 MIME 识别）；附件面板可直接预览播放；Markdown 中的 attachment: 视频引用（图片或链接语法）渲染为带控件的内嵌播放器。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-033",
+      "severity": "P2",
+      "category": "zoom-button-toolbar-position",
+      "kind": "defect",
+      "title": "长期描述/每日记录的放大按钮要放在源码键右边",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：放大按钮位于编辑器工具栏且是源码切换键的下一个兄弟（TEST-V08-033/034）",
+        "tests/ui.test.mjs：toolbarExtras 扩展点与两处传参的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：长期描述，每日记录的放大按扭键要放置在源码键右边。"],
+      "resolution": "markdown 编辑器增加 toolbarExtras 扩展点，长期描述与每日记录的放大按钮在编辑器挂载时移入工具栏、紧贴“源码/预览”切换键右侧；历史记录放大按钮保持在区块标题栏。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-034",
+      "severity": "P2",
+      "category": "zoom-source-pane-autofill",
+      "kind": "defect",
+      "title": "每日记录放大后源码区应自动铺展到窗口底部",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：手动 resize 过的源码框放大后高度超过 600px 且 resize 为 none（TEST-V08-033/034）",
+        "tests/ui.test.mjs：放大态源码框 height auto !important 与 resize none 的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：每日记录放大以后应该要让源码区自动铺展到窗口底部，不然每一次还要手动拉宽到底部。"],
+      "resolution": "放大模式下源码框自动铺展到窗口底部（height: auto !important 覆盖用户手动 resize 的内联高度）并禁用手动 resize；退出放大后恢复用户自定义高度。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-035",
+      "severity": "P2",
+      "category": "sticky-section-headings",
+      "kind": "enhancement",
+      "title": "工作区表头浮动，浏览文档时操作按钮始终可见",
+      "status": "fixed",
+      "fix_commit": "8d3c55e",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：滚动工作区面板后历史区块标题栏吸顶（距面板顶不超过 2px）（TEST-V08-030/035）",
+        "tests/ui.test.mjs：sticky 规则的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：工作区表头浮动，能让我在浏览当前文档记录时，能看到标题，点击下载，修改，折叠等功能。"],
+      "resolution": "工作区三个区块标题栏（长期描述/每日记录/历史记录）在面板滚动与放大视图中 sticky 吸顶，带背景与底边线，滚动浏览长文档时标题和放大/折叠/导出等操作按钮始终可见。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
       ]
     }
   ]
