@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-17",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "a9619e7",
+  "source_revision": "1477e09",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 75, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 86, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 88, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -87,7 +87,9 @@
     "TEST-V08-040 已修复：三个区块标题头统一为折叠按钮靠左的排列，按钮 x 坐标一致。",
     "TEST-V08-041 已修复：放大视图日期目录去除 sticky 吸顶，独占标题头下方网格列，任何滚动状态下不被标题头遮挡。",
     "TEST-V08-042 已修复：每日记录标题头控件压缩 + 面板滚动条空间常驻（scrollbar-gutter: stable），展开历史条目不因滚动条出现而换行。",
-    "TEST-V08-043 已修复：放大视图历史列表 align-content: start，折叠全部条目后条目不拉伸、无大间隙。"
+    "TEST-V08-043 已修复：放大视图历史列表 align-content: start，折叠全部条目后条目不拉伸、无大间隙。",
+    "TEST-V08-044 已修复：md 文档显示区新增按主题定制的 --doc-surface/--doc-line（浅色暖纸白、深色提亮冷灰），与整体背景明确区分。",
+    "TEST-V08-045 已修复：放大历史记录的日期目录高亮改为滚动跟随（scroll-spy），跳转、翻页与点击目录后高亮同步。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -712,6 +714,42 @@
           "tests/ui.test.mjs：放大视图列表 align-content: start 的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-044",
+      "severity": "P2",
+      "category": "markdown-doc-surface-theme",
+      "title": "md 文档显示区域背景与整体背景太过相似，建议各主题单独定制",
+      "evidence": [
+        "用户直接体验反馈：md 文档显示区域的背景色与整体背景色太过相似，不容易区分，建议针对所有颜色主题单独定制。",
+        "浅色主题 --bg #edf1f2、--surface #ffffff 与编辑器 --surface-raised #fafcfc 三者几乎同色，文档区缺乏边界感。"
+      ],
+      "required_action": "为各主题单独定制文档区表面与描边，应用到编辑器、源码、预览与历史渲染内容。",
+      "resolution": {
+        "fix_commit": "1477e09",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：浅色/深色主题下编辑器、源码、历史渲染内容的背景均为主题定制色且与 --bg/--surface 不同（TEST-V08-044）",
+          "tests/ui.test.mjs：--doc-surface/--doc-line 令牌与四处应用规则的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-045",
+      "severity": "P2",
+      "category": "history-zoom-toc-scroll-spy",
+      "title": "放大历史记录后跳转或翻页到其它记录，左侧日期目录高亮不跟随",
+      "evidence": [
+        "用户直接体验反馈：历史记录放大后，选择左边的日期项时，跳转到对应的工作日历或者手动翻页到其它工作日历后，日期项高亮的位置没有改变。",
+        "目录 active 状态仅在生成时按 activeWorkLogId 标记一次，滚动与跳转都不会更新。"
+      ],
+      "required_action": "目录高亮跟随滚动与跳转：滚动时高亮当前视口顶部的记录，点击目录即时高亮目标。",
+      "resolution": {
+        "fix_commit": "1477e09",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：打开放大视图高亮首条、滚动到第 5 条高亮跟随、点击第 3 条即时高亮且丝滑滚动后保持（TEST-V08-045）",
+          "tests/ui.test.mjs：refreshHistoryTocActive、列表 scroll 监听与点击即时高亮的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -913,13 +951,19 @@
         "status": "met",
         "finding_ids": ["TEST-V08-042", "TEST-V08-043"],
         "evidence": "e2e（TEST-V08-042/043）：标题头高度 ≤60px（单行）在折叠/展开历史条目前后保持；折叠全部条目后每条高度 ≤52px、相邻间隙 ≤4px；契约测试覆盖 scrollbar-gutter、标题头间距与控件宽度、align-content: start。"
+      },
+      {
+        "description": "md 文档显示区域按主题定制表面并与整体背景明确区分；放大历史记录的日期目录高亮跟随滚动/跳转同步。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-044", "TEST-V08-045"],
+        "evidence": "e2e：TEST-V08-044 断言浅/深主题下编辑器、源码与历史内容背景为主题定制色且与 --bg/--surface 不同；TEST-V08-045 断言打开高亮首条、滚动高亮跟随、点击即时高亮且滚动后保持；契约测试覆盖令牌、应用规则与 scroll-spy 接线。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "a9619e7",
+    "head": "1477e09",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

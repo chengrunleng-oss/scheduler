@@ -235,6 +235,13 @@
         "description": "每日记录标题头在默认宽度与滚动条出现时保持单行；放大视图折叠全部历史条目后条目不拉伸、无大间隙。",
         "status": "met",
         "evidence": "e2e（TEST-V08-042/043）：标题头高度 ≤60px（单行）在折叠/展开历史条目前后保持；折叠全部条目后每条高度 ≤52px、相邻间隙 ≤4px；契约测试覆盖 scrollbar-gutter、标题头间距与控件宽度、align-content: start。"
+      },
+      {
+        "id": "gate-34",
+        "finding_ids": ["TEST-V08-044", "TEST-V08-045"],
+        "description": "md 文档显示区域按主题定制表面并与整体背景明确区分；放大历史记录的日期目录高亮跟随滚动/跳转同步。",
+        "status": "met",
+        "evidence": "e2e：TEST-V08-044 断言浅/深主题下编辑器、源码与历史内容背景为主题定制色且与 --bg/--surface 不同；TEST-V08-045 断言打开高亮首条、滚动高亮跟随、点击即时高亮且滚动后保持；契约测试覆盖令牌、应用规则与 scroll-spy 接线。"
       }
     ]
   },
@@ -448,6 +455,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-042/043 登记并修复：每日记录标题头不再因滚动条出现而换行（控件压缩 + 滚动条空间常驻）、放大视图折叠全部条目不再拉伸出大间隙（列表 align-content: start）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "1477e09",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-044/045 登记并修复：md 文档显示区域按主题定制表面（浅色暖纸白/深色提亮冷灰）、历史放大视图日期目录高亮改为滚动跟随；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -1294,6 +1311,50 @@
       "history": [
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈；探针复现行拉伸。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit a9619e7；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-044",
+      "severity": "P2",
+      "category": "markdown-doc-surface-theme",
+      "kind": "enhancement",
+      "title": "md 文档显示区域背景与整体背景太过相似，建议各主题单独定制",
+      "status": "fixed",
+      "fix_commit": "1477e09",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：浅色/深色主题下编辑器、源码、历史渲染内容的背景均为主题定制色且与 --bg/--surface 不同（TEST-V08-044）",
+        "tests/ui.test.mjs：--doc-surface/--doc-line 令牌与四处应用规则的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：md 文档显示区域的背景色与整体背景色太过相似，不容易区分，建议针对所有颜色主题单独定制。",
+        "浅色主题 --bg #edf1f2、--surface #ffffff 与编辑器 --surface-raised #fafcfc 三者几乎同色，文档区缺乏边界感。"
+      ],
+      "resolution": "新增 --doc-surface/--doc-line 令牌按主题单独定制：浅色主题为暖纸白 #fdfcf4（配暖色描边 #ded8c9），深色主题为提亮的冷灰 #242a2f（配 #39424a）；应用到 markdown 编辑器壳、源码框、渲染预览与历史记录渲染内容区，文档区边框改用 --doc-line，与整体背景和面板表面明确区分。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 1477e09；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-045",
+      "severity": "P2",
+      "category": "history-zoom-toc-scroll-spy",
+      "kind": "defect",
+      "title": "放大历史记录后跳转或翻页到其它记录，左侧日期目录高亮不跟随",
+      "status": "fixed",
+      "fix_commit": "1477e09",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：打开放大视图高亮首条、滚动到第 5 条高亮跟随、点击第 3 条即时高亮且丝滑滚动后保持（TEST-V08-045）",
+        "tests/ui.test.mjs：refreshHistoryTocActive、列表 scroll 监听与点击即时高亮的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：历史记录放大后，选择左边的日期项时，跳转到对应的工作日历或者手动翻页到其它工作日历后，日期项高亮的位置没有改变。",
+        "目录 active 状态仅在生成时按 activeWorkLogId 标记一次，滚动与跳转都不会更新。"
+      ],
+      "resolution": "目录高亮改为滚动跟随（scroll-spy）：放大视图列表滚动时（rAF 节流）高亮当前视口顶部的记录；点击目录条目先把高亮切到目标、再丝滑滚动，途中与终点都由 spy 同步；放大视图内折叠/展开条目后同步刷新高亮。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 1477e09；e2e 与契约测试通过。" }
       ]
     }
   ]
