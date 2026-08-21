@@ -1,9 +1,9 @@
 {
   "document_type": "scheduler_test_feedback",
   "format_version": 17,
-  "test_date": "2026-08-16",
+  "test_date": "2026-08-17",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "3ca92ac",
+  "source_revision": "ae5ced1",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -81,7 +81,11 @@
     "TEST-V08-034 已修复：放大后源码区自动铺展到窗口底部并禁用手动 resize。",
     "TEST-V08-035 已修复：工作区三个区块标题栏滚动吸顶，操作按钮浏览时始终可见。",
     "TEST-V08-036 已修复：折叠按钮在折叠后切换为展开图标（ChevronRight）并同步语义。",
-    "TEST-V08-037 已修复：历史记录展开态日期表头随滚动吸顶，日期与编辑/改期/导出/删除按钮始终可见。"
+    "TEST-V08-037 已修复：历史记录展开态日期表头随滚动吸顶，日期与编辑/改期/导出/删除按钮始终可见。",
+    "TEST-V08-038 已关闭：折叠按钮与图标点击在当前构建探针验证正常，无法复现（指向旧构建）；借标题头重构统一加固判定区并补回归断言。",
+    "TEST-V08-039 已修复：历史记录标题头新增总折叠/展开按钮，折叠隐藏目录、撤销条与记录列表。",
+    "TEST-V08-040 已修复：三个区块标题头统一为折叠按钮靠左的排列，按钮 x 坐标一致。",
+    "TEST-V08-041 已修复：放大视图日期目录去除 sticky 吸顶，独占标题头下方网格列，任何滚动状态下不被标题头遮挡。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -603,6 +607,73 @@
           "tests/ui.test.mjs：--sticky-heading-height 与吸顶规则的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-038",
+      "severity": "P2",
+      "category": "collapse-toggle-hit-area",
+      "title": "折叠展开符号点击不起作用（疑似未划入判定区）",
+      "evidence": [
+        "用户直接体验反馈：任务工作区的折叠展开符号点击怎么不起作用，没有被划定到堆叠展开判定区吗？",
+        "探针在当前构建验证：直接点击按钮、点击图标 svg、放大态下点击均正常切换 aria-pressed 与折叠类，无法复现。",
+        "症状与 036 之前旧构建的双重折叠 bug（图标替换移除事件目标，冒泡到表头热区 closest 失效）一致，指向旧构建/旧目录服务未更新。"
+      ],
+      "required_action": "折叠判定区保持按钮 + 表头热区两级并统一在最左；从 scheduler-ds-dev 目录运行 npm run dev 加载最新构建；补按钮与图标点击回归断言。",
+      "resolution": {
+        "fix_commit": "ae5ced1",
+        "verified_by": [
+          "探针：按钮、图标 svg 与放大态点击均正常切换",
+          "e2e/workbench.spec.mjs：TEST-V08-036 按钮点击与图标语义切换；TEST-V08-039/040/041 历史折叠按钮点击"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-039",
+      "severity": "P2",
+      "category": "history-section-collapse",
+      "title": "历史记录区域需要一个总的折叠展开按钮",
+      "evidence": ["用户直接体验反馈：历史记录区域也需要一个总的折叠展开按钮。"],
+      "required_action": "历史记录标题头提供总折叠/展开开关，折叠后隐藏目录、撤销条与记录列表，图标与语义同步。",
+      "resolution": {
+        "fix_commit": "ae5ced1",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开（TEST-V08-039/040/041）",
+          "tests/ui.test.mjs：collapseHistory 接线、折叠隐藏规则与标题头结构的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-040",
+      "severity": "P2",
+      "category": "section-collapse-button-alignment",
+      "title": "长期描述/每日记录/历史记录的折叠展开按钮排列不对齐，应靠左",
+      "evidence": ["用户直接体验反馈：长期描述，每日记录，历史记录这几个折叠展开按钮排列要对齐，我推荐靠左放。"],
+      "required_action": "三个区块标题头统一为折叠按钮靠左的排列，按钮位置对齐。",
+      "resolution": {
+        "fix_commit": "ae5ced1",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：三个折叠按钮均为各自标题头首元素且 x 坐标一致（TEST-V08-039/040/041）",
+          "tests/ui.test.mjs：三个标题头折叠按钮先于 h3、h3 右侧弹性留白规则的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-041",
+      "severity": "P2",
+      "category": "zoom-history-toc-overlap",
+      "title": "历史记录放大后左侧日期条目被最顶上的标题头遮挡",
+      "evidence": [
+        "用户直接体验反馈：历史记录区放大之后，左边一列的日期条目排列在浮动过程中会被最顶上的历史记录标题头遮挡，这里需要优化一下。",
+        "放大视图日期目录残留旧布局的 position: sticky; top: 0，滚动时条目滑进吸顶标题头（z-index 3）下面。"
+      ],
+      "required_action": "放大视图日期目录不被标题头遮挡：去除 sticky 吸顶，独占标题头下方网格列，条目过多时自身内滚。",
+      "resolution": {
+        "fix_commit": "ae5ced1",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：列表滚动后日期目录顶部不低于标题头底部、目录不超出视口（TEST-V08-039/040/041）",
+          "tests/ui.test.mjs：放大视图 TOC 规则不含 position: sticky 的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -792,13 +863,19 @@
         "status": "met",
         "finding_ids": ["TEST-V08-037"],
         "evidence": "e2e：普通视图与放大视图均断言日期表头吸顶位置；契约测试覆盖吸顶规则与偏移变量。"
+      },
+      {
+        "description": "历史记录新增总折叠开关；三个区块折叠按钮统一靠左对齐；放大视图左侧日期目录不被标题头遮挡；折叠判定区回归验证。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-038", "TEST-V08-039", "TEST-V08-040", "TEST-V08-041"],
+        "evidence": "e2e（TEST-V08-039/040/041）：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开、三按钮同 x 且为首元素、列表滚动时目录与标题头无重叠；契约测试覆盖接线、标题头顺序、折叠隐藏规则与 TOC 去除 sticky；038 经探针与 036 用例回归验证。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "3ca92ac",
+    "head": "ae5ced1",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

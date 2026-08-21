@@ -1,7 +1,7 @@
 {
   "document_type": "scheduler_findings_registry",
   "format_version": 1,
-  "updated": "2026-08-16",
+  "updated": "2026-08-17",
   "release_gate": {
     "target_release": "v0.8-merge-import",
     "status": "blocked",
@@ -221,6 +221,13 @@
         "description": "历史记录展开态日期表头随滚动吸顶（普通视图贴区块标题栏下方，放大视图贴列表顶部）。",
         "status": "met",
         "evidence": "e2e：普通视图与放大视图均断言日期表头吸顶位置；契约测试覆盖吸顶规则与偏移变量。"
+      },
+      {
+        "id": "gate-32",
+        "finding_ids": ["TEST-V08-038", "TEST-V08-039", "TEST-V08-040", "TEST-V08-041"],
+        "description": "历史记录新增总折叠开关；三个区块折叠按钮统一靠左对齐；放大视图左侧日期目录不被标题头遮挡；折叠按钮与图标点击判定区回归验证。",
+        "status": "met",
+        "evidence": "e2e（TEST-V08-039/040/041）：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开、三按钮同 x 且为首元素、列表滚动时目录与标题头无重叠；契约测试覆盖接线、标题头顺序、折叠隐藏规则与 TOC 去除 sticky。"
       }
     ]
   },
@@ -414,6 +421,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-036/037 登记并修复：折叠按钮折叠后切换为展开图标、历史记录日期表头随滚动吸顶；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "ae5ced1",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-038~041 登记并修复：历史记录区新增总折叠开关、三个区块折叠按钮统一靠左对齐、放大视图日期目录防遮挡并加固折叠判定区（038 无法在当前构建复现，指向旧构建，顺带加固并回归验证）；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -1134,6 +1151,88 @@
       "history": [
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 3ca92ac；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-038",
+      "severity": "P2",
+      "category": "collapse-toggle-hit-area",
+      "kind": "defect",
+      "title": "折叠展开符号点击不起作用（疑似未划入判定区）",
+      "status": "fixed",
+      "fix_commit": "ae5ced1",
+      "verified_by": [
+        "探针验证：直接点击按钮、点击图标 svg、放大态下点击均正常切换 aria-pressed 与折叠类，当前构建无法复现",
+        "e2e/workbench.spec.mjs：TEST-V08-036 覆盖按钮点击与图标语义切换；TEST-V08-039/040/041 覆盖历史折叠按钮点击"
+      ],
+      "evidence": [
+        "用户直接体验反馈：任务工作区的折叠展开符号点击怎么不起作用，没有被划定到堆叠展开判定区吗？",
+        "症状与 036 之前旧构建的双重折叠 bug（图标替换移除事件目标，冒泡到表头热区 closest 失效）一致，指向旧构建/旧目录服务未更新。"
+      ],
+      "resolution": "折叠判定区保持「按钮（40×40）+ 表头整条热区（交互元素除外）」两级，并借本轮标题头重构把折叠按钮统一排在最左、判定区一致；e2e 对按钮与图标点击做回归断言。请从 scheduler-ds-dev 目录运行 npm run dev 加载最新构建。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈；探针无法在当前构建复现。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit ae5ced1；探针与 e2e 回归通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-039",
+      "severity": "P2",
+      "category": "history-section-collapse",
+      "kind": "enhancement",
+      "title": "历史记录区域需要一个总的折叠展开按钮",
+      "status": "fixed",
+      "fix_commit": "ae5ced1",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：历史折叠展开、折叠态放大自动展开且图标/标题/aria 一致、放大视图内折叠再展开（TEST-V08-039/040/041）",
+        "tests/ui.test.mjs：collapseHistory 接线、折叠隐藏规则与标题头结构的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：历史记录区域也需要一个总的折叠展开按钮。"],
+      "resolution": "历史记录标题头新增 #collapseHistory 折叠/展开按钮并接入统一折叠机制：折叠后隐藏日期目录、撤销条与记录列表，按钮切换展开图标并同步 title/aria-label；表头整条热区同样可折叠；折叠态下放大自动展开且状态一致。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit ae5ced1；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-040",
+      "severity": "P2",
+      "category": "section-collapse-button-alignment",
+      "kind": "enhancement",
+      "title": "长期描述/每日记录/历史记录的折叠展开按钮排列不对齐，应靠左",
+      "status": "fixed",
+      "fix_commit": "ae5ced1",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：三个折叠按钮均为各自标题头首元素且 x 坐标一致（TEST-V08-039/040/041）",
+        "tests/ui.test.mjs：三个标题头折叠按钮先于 h3、h3 右侧弹性留白规则的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：长期描述、每日记录、历史记录这几个折叠展开按钮排列要对齐，我推荐靠左放。"],
+      "resolution": "三个区块标题头统一为「折叠按钮 → 标题 → 其余操作」结构，标题右侧弹性留白（margin-right: auto）把放大、导出、新建、日期等操作推到最右；三个折叠按钮同为标题头首元素、x 坐标完全一致。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit ae5ced1；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-041",
+      "severity": "P2",
+      "category": "zoom-history-toc-overlap",
+      "kind": "defect",
+      "title": "历史记录放大后左侧日期条目被最顶上的标题头遮挡",
+      "status": "fixed",
+      "fix_commit": "ae5ced1",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：列表滚动后日期目录顶部不低于标题头底部、目录不超出视口（TEST-V08-039/040/041）",
+        "tests/ui.test.mjs：放大视图 TOC 规则不含 position: sticky 的契约断言"
+      ],
+      "evidence": [
+        "用户直接体验反馈：历史记录区放大之后，左边一列的日期条目排列在浮动过程中会被最顶上的历史记录标题头遮挡。",
+        "放大视图日期目录残留旧布局的 position: sticky; top: 0，滚动时条目会滑进吸顶标题头（z-index 3）下面。"
+      ],
+      "resolution": "放大视图日期目录不再吸顶（移除 sticky/top），独占标题头下方的网格列并自带背景，条目过多时目录自身内部滚动；配合 037 的列表自滚动布局，任何滚动状态下日期条目都不会滑进吸顶标题头下面。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit ae5ced1；e2e 与契约测试通过。" }
       ]
     }
   ]
