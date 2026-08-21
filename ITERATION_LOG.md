@@ -1,5 +1,17 @@
 # 迭代记录
 
+## v0.8 补丁十三：放大层编辑器滚动修复（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-028：放大每日记录/长期描述后，编译后的 md 文档区无法滚动查看页面外的上下内容。根因是放大层内 markdown-editor 为块级容器、内部 markdown-shell 未撑满剩余高度，源码/预览窗格只有约 280px 高，长内容被困在小窗格里。
+- 放大层内 markdown-editor 改为纵向 flex 容器、markdown-shell 撑满剩余高度、markdown-fallback 与 markdown-source 取消最小高度限制：源码与编译预览窗格各自获得约全屏高度并独立内滚，长文档可完整滚动查看。
+- 新增 e2e 回归（长记录放大后源码/预览窗格高度与滚动到底断言），契约测试覆盖四条放大层样式规则。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、73 项 Node 测试和 77 项 Playwright 测试全部通过。
+
 ## v0.8 补丁十二：Markdown 文档导出 PDF（deepseek/test-feedback-fixes）
 
 ### 本次修复

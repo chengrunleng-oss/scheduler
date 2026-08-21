@@ -151,6 +151,13 @@
         "description": "每日记录、历史记录与长期描述可导出为 PDF（浏览器原生打印），Markdown 中的附件图片在导出文档中正常显示。",
         "status": "met",
         "evidence": "e2e：stub window.print 断言三个入口各自生成打印文档，导出文档标题含“工作记录”，attachment 图片以 blob: 地址加载成功；契约测试覆盖 iframe/A4 打印样式/图片等待与三处入口。"
+      },
+      {
+        "id": "gate-22",
+        "finding_ids": ["TEST-V08-028"],
+        "description": "放大后的每日记录/长期描述编辑器撑满放大层，源码与编译预览窗格可完整滚动查看页面外的上下内容。",
+        "status": "met",
+        "evidence": "e2e：长记录放大后源码窗格高度超过 600px 且可滚到底、预览窗格同样撑满可滚到底；契约测试覆盖 zoom-overlay 编辑器纵向 flex 与各层 min-height 0 规则。"
       }
     ]
   },
@@ -314,6 +321,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-027 登记并修复：Markdown 文档导出 PDF（浏览器原生打印，附件图片内嵌显示）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "c1c0524",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-028 登记并修复：放大层编辑器撑满剩余高度，源码与编译预览窗格可完整滚动；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -843,6 +860,25 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 67accb6；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-028",
+      "severity": "P2",
+      "category": "zoom-overlay-editor-scroll",
+      "kind": "defect",
+      "title": "放大后编译的 md 文档区无法滚动查看页面外的上下内容",
+      "status": "fixed",
+      "fix_commit": "c1c0524",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：长记录放大后源码窗格高度超过 600px 且可滚到底、预览窗格同样撑满可滚到底（TEST-V08-028）",
+        "tests/ui.test.mjs：zoom-overlay 编辑器纵向 flex、shell 撑满、fallback/source min-height 0 的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：工作区的每日记录等模块放大以后，编译后的 md 文档区没办法滚动查看页面外的上下内容。"],
+      "resolution": "放大层内 markdown-editor 改为纵向 flex 容器、markdown-shell 撑满剩余高度、markdown-fallback 与 markdown-source 取消最小高度限制：源码与编译预览窗格各自获得约全屏高度并独立内滚，长文档可完整滚动查看。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit c1c0524；e2e 与契约测试通过。" }
       ]
     }
   ]
