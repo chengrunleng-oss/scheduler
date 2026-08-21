@@ -144,6 +144,13 @@
         "description": "长期描述与每日记录可折叠；历史记录放大视图提供左侧日期目录并可丝滑跳转；折叠条目间无残留空白。",
         "status": "met",
         "evidence": "e2e 026：描述/每日折叠开关与 aria-pressed、放大目录 3 条目且首条高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px；契约测试覆盖折叠开关、目录入口、smooth scroll 与折叠样式。"
+      },
+      {
+        "id": "gate-21",
+        "finding_ids": ["TEST-V08-027"],
+        "description": "每日记录、历史记录与长期描述可导出为 PDF（浏览器原生打印），Markdown 中的附件图片在导出文档中正常显示。",
+        "status": "met",
+        "evidence": "e2e：stub window.print 断言三个入口各自生成打印文档，导出文档标题含“工作记录”，attachment 图片以 blob: 地址加载成功；契约测试覆盖 iframe/A4 打印样式/图片等待与三处入口。"
       }
     ]
   },
@@ -297,6 +304,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-026 登记并修复：描述与每日记录折叠、历史放大左侧日期目录与丝滑跳转、折叠空白修复；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-16",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "67accb6",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-027 登记并修复：Markdown 文档导出 PDF（浏览器原生打印，附件图片内嵌显示）；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -807,6 +824,25 @@
       "history": [
         { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 095f39a；72 项 Node 测试与 75 项 Playwright 测试全部通过，视觉基线重采集。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-027",
+      "severity": "P2",
+      "category": "markdown-pdf-export",
+      "kind": "enhancement",
+      "title": "需要能把 md 文档（如每日记录）导出成 PDF，且图片正常显示",
+      "status": "fixed",
+      "fix_commit": "67accb6",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：三个入口各自生成打印文档、导出文档标题含“工作记录”、attachment 图片以 blob: 地址加载成功（TEST-V08-027）",
+        "tests/ui.test.mjs：iframe、@page A4、图片 max-width、break-inside、print 与三处入口的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：需要能够导出 md 文档（如每日记录等）成 PDF，放在 md 文档中的图片等附件在导出后要能够正常显示。"],
+      "resolution": "采用方案 A（浏览器原生打印）：新增 pdf-export 模块在隐藏 iframe 中以 srcdoc 排版（A4、页边距、图片/表格/代码块跨页保护），等待图片全部加载后调用 window.print()，用户在打印对话框选择“另存为 PDF”即可保存本地文件，文档标题作为默认文件名；每日记录编辑器工具栏与每条历史记录、长期描述标题栏新增“导出 PDF”按钮；attachment 图片经渲染层解析为 blob URL 后在导出文档中正常显示。",
+      "history": [
+        { "date": "2026-08-16", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-16", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 67accb6；e2e 与契约测试通过。" }
       ]
     }
   ]

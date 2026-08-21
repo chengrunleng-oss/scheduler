@@ -1,5 +1,18 @@
 # 迭代记录
 
+## v0.8 补丁十二：Markdown 文档导出 PDF（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-027：新增 `src/ui/pdf-export.ts`，采用**方案 A（浏览器原生打印）**——隐藏 iframe 中以 srcdoc 排版（A4、页边距、图片 max-width、表格/代码块/引用块跨页保护、标题不孤行），等待全部图片加载完成后调用 `window.print()`，用户在打印对话框选择“另存为 PDF”即可保存本地文件；文档标题作为 Chrome/Edge 保存对话框的默认文件名。
+- 三个导出入口：**每日记录**编辑器工具栏、**每条历史记录**操作区、**长期描述**标题栏的“导出 PDF”按钮（导出前自动落盘）。
+- Markdown 中的 `attachment:` 图片经渲染层解析为 blob URL，在导出文档中正常显示；失效附件显示占位说明。
+- 契约测试覆盖 iframe/A4 打印样式/图片等待/三处入口；e2e stub `window.print` 断言三个入口各自生成打印文档、标题含“工作记录”、附件图片以 blob 地址加载成功。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、73 项 Node 测试和 76 项 Playwright 测试全部通过。
+
 ## v0.8 补丁十一：区块折叠、历史放大日期目录与折叠空白修复（deepseek/test-feedback-fixes）
 
 ### 本次修复

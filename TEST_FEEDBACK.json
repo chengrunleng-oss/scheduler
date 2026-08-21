@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "095f39a",
+  "source_revision": "67accb6",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -35,9 +35,9 @@
         { "name": "测试反馈文档校验（validate:feedback）", "result": "passed" },
         { "name": "Vue TypeScript typecheck", "result": "passed" },
         { "name": "Vite production build", "result": "passed" },
-        { "name": "Node unit and structural tests", "result": "passed", "passed": 72, "failed": 0 },
+        { "name": "Node unit and structural tests", "result": "passed", "passed": 73, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 75, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 76, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -70,7 +70,8 @@
     "TEST-V08-023 已修复：近期有工作记录的任务与文件夹左上角显示丝带标记，时间窗口可在侧栏设置（默认一周，可关闭）；丝带配色改为紫罗兰 + 白色描边，与优先级底色和文件夹层明显区分。",
     "TEST-V08-024 已修复：历史记录点击日期行展开/折叠并带动画，新增修改记录日期按钮与 changeWorkLogDate 后端能力。",
     "TEST-V08-025 已修复：图片放大撑满可用空间并带 ZoomIn/ZoomOut 切换与关闭按钮；分区放大按钮图标随状态切换（Maximize2/Minimize2）；历史放大自动展开全部条目并取消内容上限；放大层按约 1120px 行宽居中排版。",
-    "TEST-V08-026 已修复：长期描述与每日记录标题栏新增折叠按钮；历史放大视图改为左侧日期目录 + 右侧列表（点击条目丝滑跳转、高亮当前记录）；折叠条目不再残留空白条。"
+    "TEST-V08-026 已修复：长期描述与每日记录标题栏新增折叠按钮；历史放大视图改为左侧日期目录 + 右侧列表（点击条目丝滑跳转、高亮当前记录）；折叠条目不再残留空白条。",
+    "TEST-V08-027 已修复：每日记录、历史记录与长期描述可导出 PDF（浏览器原生打印，附件图片内嵌显示），文档标题作为默认文件名。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -422,6 +423,23 @@
           "tests/ui.test.mjs：折叠开关、目录入口、smooth scroll 与折叠样式契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-027",
+      "severity": "P2",
+      "category": "markdown-pdf-export",
+      "title": "需要能把 md 文档（如每日记录）导出成 PDF，且图片正常显示",
+      "evidence": [
+        "用户直接体验反馈：需要能够导出 md 文档（如每日记录等）成 PDF，放在 md 文档中的图片等附件在导出后要能够正常显示。"
+      ],
+      "required_action": "每日记录、历史记录与长期描述可导出 PDF；Markdown 中的附件图片在导出文档中正常显示；文档标题作为默认文件名。",
+      "resolution": {
+        "fix_commit": "67accb6",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：三个入口各自生成打印文档、导出文档标题含“工作记录”、attachment 图片以 blob: 地址加载成功（TEST-V08-027）",
+          "tests/ui.test.mjs：iframe、@page A4、图片 max-width、break-inside、print 与三处入口的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -545,13 +563,19 @@
         "status": "met",
         "finding_ids": ["TEST-V08-026"],
         "evidence": "e2e 026：描述/每日折叠开关与 aria-pressed、放大目录 3 条目且首条高亮、点击末条滚动跳转、折叠项 wrap 高度 0 且条目高度小于 60px；契约测试覆盖折叠开关、目录入口、smooth scroll 与折叠样式。"
+      },
+      {
+        "description": "每日记录、历史记录与长期描述可导出为 PDF（浏览器原生打印），Markdown 中的附件图片在导出文档中正常显示。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-027"],
+        "evidence": "e2e：stub window.print 断言三个入口各自生成打印文档，导出文档标题含“工作记录”，attachment 图片以 blob: 地址加载成功；契约测试覆盖 iframe/A4 打印样式/图片等待与三处入口。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "4224500",
+    "head": "67accb6",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",
