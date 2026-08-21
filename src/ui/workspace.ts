@@ -7,6 +7,7 @@ import { createElement } from "./dom.js";
 import { icon } from "./icons.js";
 import { createMarkdownEditor, type MarkdownEditorHandle } from "./markdown-editor.js";
 import { attachmentImageMarkdown, attachmentLinkMarkdown, createMarkdownRenderer, renderPlainMarkdown, type MarkdownRenderer } from "./markdown-render.js";
+import { exportHtmlAsPdf } from "./pdf-export.js";
 import type { Elements } from "./selectors.js";
 
 type SaveKind = "description" | "worklog";
@@ -307,12 +308,18 @@ export function createWorkspaceController(
     move.dataset.worklogId = record.id;
     move.setAttribute("aria-label", `修改 ${formatDate(record.workDate)} 的记录日期`);
     move.append(icon("CalendarClock", 16));
+    const exportPdf = createElement("button", { className: "icon-button", title: "导出 PDF" });
+    exportPdf.type = "button";
+    exportPdf.dataset.worklogAction = "export-pdf";
+    exportPdf.dataset.worklogId = record.id;
+    exportPdf.setAttribute("aria-label", `导出 ${formatDate(record.workDate)} 的记录为 PDF`);
+    exportPdf.append(icon("Download", 16));
     const remove = createElement("button", { className: "icon-button danger", title: "删除记录" });
     remove.type = "button";
     remove.dataset.worklogAction = "delete";
     remove.setAttribute("aria-label", `删除 ${formatDate(record.workDate)} 的记录`);
     remove.append(icon("Trash2", 16));
-    actions.append(edit, move, remove);
+    actions.append(edit, move, exportPdf, remove);
     header.append(actions);
     const wrap = createElement("div", { className: "history-content-wrap" });
     const content = createElement("div", { className: "history-content rendered-markdown" });
@@ -820,6 +827,34 @@ export function createWorkspaceController(
   els.descriptionRetry.addEventListener("click", () => { void saveDescription(); });
   els.worklogRetry.addEventListener("click", () => { void saveWorklog(); });
   els.newWorklog.addEventListener("click", () => { void openOrCreateTodayWorklog(); });
+
+  // TEST-V08-027：导出 Markdown 文档为 PDF（浏览器原生打印，attachment 图片经渲染层解析为 blob URL 后正常显示）。
+  function exportSubtitle(record: WorkLog): string {
+    const parts = [formatDate(record.workDate)];
+    if (record.progressPercent !== null) parts.push(`进度 ${record.progressPercent}%`);
+    parts.push(`更新于 ${formatDateTime(record.updatedAt)}`);
+    return parts.join(" · ");
+  }
+  async function exportWorklogAsPdf(record: WorkLog | null, flush = false): Promise<void> {
+    const task = currentTask();
+    if (!task || !backend.available) return;
+    if (flush && !(await saveWorklog())) { dialogs.toast("每日记录保存失败，导出已取消。"); return; }
+    const target = record ?? await backend.getWorkLog(task.id, activeWorkDate, activeWorkLogId ?? undefined);
+    if (!target) { dialogs.toast("当前日期还没有工作记录。"); return; }
+    const html = await (markdownRenderer?.render(target.contentMarkdown) ?? Promise.resolve(renderPlainMarkdown(target.contentMarkdown)));
+    exportHtmlAsPdf({ title: `${task.title} ${formatDate(target.workDate)} 工作记录`, subtitle: exportSubtitle(target), bodyHtml: html });
+  }
+  async function exportDescriptionAsPdf(): Promise<void> {
+    const task = currentTask();
+    if (!task || !backend.available) return;
+    if (!(await saveDescription())) { dialogs.toast("长期描述保存失败，导出已取消。"); return; }
+    const markdown = descriptionEditor?.getMarkdown() ?? task.descriptionMarkdown;
+    const html = await (markdownRenderer?.render(markdown) ?? Promise.resolve(renderPlainMarkdown(markdown)));
+    exportHtmlAsPdf({ title: `${task.title} 长期描述`, subtitle: `更新于 ${formatDateTime(task.updatedAt)}`, bodyHtml: html });
+  }
+  els.exportDescriptionPdf.addEventListener("click", () => { void exportDescriptionAsPdf(); });
+  els.exportWorklogPdf.addEventListener("click", () => { void exportWorklogAsPdf(null, true); });
+
   els.undoWorklogDelete.addEventListener("click", async () => {
     const record = deletedWorklog;
     if (!record) return;
@@ -851,6 +886,10 @@ export function createWorkspaceController(
     if (button.dataset.worklogAction === "move-date") {
       const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
       if (record) await moveWorklogDate(record);
+    }
+    if (button.dataset.worklogAction === "export-pdf") {
+      const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);
+      if (record) await exportWorklogAsPdf(record);
     }
     if (button.dataset.worklogAction === "delete") {
       const record = (await backend.listWorkLogs(activeTaskId)).find((entry) => entry.id === item.dataset.worklogId);

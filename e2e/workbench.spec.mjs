@@ -985,6 +985,57 @@ test("worklog history expands, collapses, and moves dates (TEST-V08-024)", async
   }, yesterday)).toBe(true);
 });
 
+test("markdown export opens a print document with embedded attachment images (TEST-V08-027)", async ({ page }) => {
+  // 在包括 iframe 在内的所有 frame 中 stub window.print。
+  await page.addInitScript(() => {
+    window.print = () => { window.__printCalled = (window.__printCalled ?? 0) + 1; };
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(globalThis.__workspaceBackendForTests?.available));
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 注入一张附件图片并写入引用，验证导出文档中的图片以 blob URL 正常显示。
+  const attachmentId = await page.evaluate(async () => {
+    const bytes = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="), (character) => character.charCodeAt(0));
+    const meta = await globalThis.__workspaceBackendForTests.putAttachment("task-1", new File([bytes], "导出图.png", { type: "image/png" }));
+    return meta.id;
+  });
+  const editor = page.locator("#worklogEditor textarea").first();
+  await editor.fill(`# 今日导出\n\n![截图](attachment:${attachmentId})`);
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+
+  await page.locator("#exportWorklogPdf").click();
+  await expect.poll(() => page.evaluate(() => {
+    const frame = document.querySelector("iframe.pdf-export-frame");
+    return frame ? frame.contentWindow.__printCalled : 0;
+  })).toBe(1);
+  const doc = await page.evaluate(() => {
+    const frame = document.querySelector("iframe.pdf-export-frame");
+    const img = frame.contentDocument.querySelector(".rendered-markdown img");
+    return { title: frame.contentDocument.title, imgSrc: img?.src ?? null, imgLoaded: img ? img.complete && img.naturalWidth > 0 : false };
+  });
+  expect(doc.title).toContain("工作记录");
+  expect(doc.imgSrc).toMatch(/^blob:/);
+  expect(doc.imgLoaded).toBe(true);
+
+  // 历史记录条目导出：生成第二个打印文档。
+  const historyExport = page.locator(".worklog-history-item").first().getByRole("button", { name: /导出 .* 的记录为 PDF/ });
+  await historyExport.click();
+  await expect.poll(() => page.evaluate(() => {
+    const frames = Array.from(document.querySelectorAll("iframe.pdf-export-frame"));
+    return frames.length >= 2 && frames[frames.length - 1].contentWindow.__printCalled === 1;
+  })).toBe(true);
+
+  // 长期描述导出：生成第三个打印文档。
+  await page.locator("#exportDescriptionPdf").click();
+  await expect.poll(() => page.evaluate(() => {
+    const frames = Array.from(document.querySelectorAll("iframe.pdf-export-frame"));
+    return frames.length >= 3 && frames[frames.length - 1].contentWindow.__printCalled === 1;
+  })).toBe(true);
+});
+
 test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {
   const row = page.getByRole("option", { name: new RegExp(primaryTask) });
   const workHeading = page.locator('[data-drop-folder-id="folder-work"]');

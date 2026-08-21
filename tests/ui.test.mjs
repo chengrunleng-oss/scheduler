@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender, lightbox, icons] = await Promise.all([
+const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss, renderer, events, dragDrop, types, workspace, workspaceBackend, workspaceDb, localDirectoryBackend, backup, markdownEditor, markdownRender, lightbox, icons, pdfExport] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/App.vue", import.meta.url), "utf8"),
@@ -30,6 +30,7 @@ const [html, main, app, sidebar, board, taskWorkspace, dialogs, styleIndex, toke
   readFile(new URL("../src/ui/markdown-render.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/lightbox.ts", import.meta.url), "utf8"),
   readFile(new URL("../src/ui/icons.ts", import.meta.url), "utf8"),
+  readFile(new URL("../src/ui/pdf-export.ts", import.meta.url), "utf8"),
 ]);
 const uiMarkup = [app, sidebar, board, taskWorkspace, dialogs].join("\n");
 const css = [tokensCss, baseCss, layoutCss, statesCss, motionCss, responsiveCss].join("\n");
@@ -405,4 +406,23 @@ test("Vite uses the TypeScript source entry without manual asset versions", () =
   assert.match(main, /styles\/index\.css/);
   assert.doesNotMatch(html, /(?:styles\.css|main\.ts)\?v=/);
   assert.doesNotMatch(html, /src="dist\//);
+});
+
+test("markdown documents export to PDF through native print with embedded images (TEST-V08-027)", () => {
+  assert.match(taskWorkspace, /id="exportWorklogPdf"/);
+  assert.match(taskWorkspace, /id="exportDescriptionPdf"/);
+  assert.match(workspace, /exportHtmlAsPdf/);
+  assert.match(workspace, /exportWorklogAsPdf/);
+  assert.match(workspace, /exportDescriptionAsPdf/);
+  assert.match(workspace, /dataset\.worklogAction = "export-pdf"/);
+  assert.match(workspace, /markdownRenderer\?\.render/);
+  assert.match(pdfExport, /iframe/);
+  assert.match(pdfExport, /srcdoc/);
+  assert.match(pdfExport, /@page \{ size: A4/);
+  assert.match(pdfExport, /img \{ max-width: 100%/);
+  assert.match(pdfExport, /break-inside: avoid/);
+  assert.match(pdfExport, /contentWindow\?\.print/);
+  assert.match(pdfExport, /waitForImages/);
+  assert.match(pdfExport, /escapeHtml/);
+  assert.match(pdfExport, /printImpl/);
 });

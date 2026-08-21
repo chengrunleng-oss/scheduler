@@ -44,6 +44,8 @@ export interface Elements {
   collapseDescription: HTMLButtonElement;
   collapseDaily: HTMLButtonElement;
   historyZoomToc: HTMLElement;
+  exportDescriptionPdf: HTMLButtonElement;
+  exportWorklogPdf: HTMLButtonElement;
   descriptionSection: HTMLElement;
   dailySection: HTMLElement;
   worklogHistorySection: HTMLElement;
@@ -190,6 +192,7 @@ export function queryElements(): Elements {
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
     taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
     zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"), collapseDescription: requiredElement("#collapseDescription"), collapseDaily: requiredElement("#collapseDaily"), historyZoomToc: requiredElement("#historyZoomToc"),
+    exportDescriptionPdf: requiredElement("#exportDescriptionPdf"), exportWorklogPdf: requiredElement("#exportWorklogPdf"),
     descriptionSection: requiredElement("#descriptionSection"), dailySection: requiredElement("#dailySection"), worklogHistorySection: requiredElement("#worklogHistorySection"),
     worklogDateDialog: requiredElement("#worklogDateDialog"), worklogDateForm: requiredElement("#worklogDateForm"), worklogDatePrompt: requiredElement("#worklogDatePrompt"), worklogNewDate: requiredElement("#worklogNewDate"),
     workspaceTabs: requiredElement("#workspaceTabs"), workspaceTabButtons: document.querySelectorAll(".workspace-tab"), workspaceContent: requiredElement("#workspaceContent"), workspacePanels: document.querySelectorAll(".workspace-panel"), detailForm: requiredElement("#detailForm"),
