@@ -1038,6 +1038,43 @@ test("markdown export opens a print document with embedded attachment images (TE
   })).toBe(true);
 });
 
+test("zoomed daily record panes stretch to the viewport and scroll long content (TEST-V08-028)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ date }) => {
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: date, contentMarkdown: `# 长记录\n\n${Array.from({ length: 80 }, (_, index) => `第 ${index + 1} 段：${"内容".repeat(20)}`).join("\n\n")}`, progressPercent: 0 });
+  }, { date: iso(0) });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#zoomDaily").click();
+  await page.waitForTimeout(300);
+
+  // 源码窗格撑满放大层并可滚动到底。
+  const source = page.locator("#dailySection .markdown-source");
+  const sourceGeometry = await source.evaluate((node) => ({ clientHeight: node.clientHeight, scrollHeight: node.scrollHeight }));
+  expect(sourceGeometry.clientHeight).toBeGreaterThan(600);
+  expect(sourceGeometry.scrollHeight).toBeGreaterThan(sourceGeometry.clientHeight);
+  await source.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  expect(await source.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+
+  // 预览（编译区）同样撑满并可滚动到底。
+  await page.locator("#dailySection .markdown-preview-toggle").click();
+  await page.waitForTimeout(250);
+  const preview = page.locator("#dailySection .markdown-preview");
+  const previewGeometry = await preview.evaluate((node) => ({ clientHeight: node.clientHeight, scrollHeight: node.scrollHeight }));
+  expect(previewGeometry.clientHeight).toBeGreaterThan(600);
+  expect(previewGeometry.scrollHeight).toBeGreaterThan(previewGeometry.clientHeight);
+  await preview.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  expect(await preview.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#dailySection")).not.toHaveClass(/zoom-overlay/);
+});
+
 test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {
   const row = page.getByRole("option", { name: new RegExp(primaryTask) });
   const workHeading = page.locator('[data-drop-folder-id="folder-work"]');

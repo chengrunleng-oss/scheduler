@@ -40,7 +40,11 @@
   padding: 18px max(26px, calc((100vw - 1120px) / 2)) 26px;
   overflow-y: auto;
 }
-.zoom-overlay .markdown-editor { flex: 1 1 auto; min-height: 60dvh; }
+/* TEST-V08-028：放大层编辑器撑满剩余高度，源码/预览窗格各自内滚，长文档可完整滚动查看。 */
+.zoom-overlay .markdown-editor { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.zoom-overlay .markdown-editor .markdown-shell { flex: 1 1 auto; min-height: 0; }
+.zoom-overlay .markdown-fallback { min-height: 0; }
+.zoom-overlay .markdown-source { min-height: 0; }
 .zoom-overlay .worklog-history { flex: 1 1 auto; min-height: 0; }
 /* TEST-V08-025：放大视图必须完整展示历史内容，覆盖展开态 420px 上限与内滚动。 */
 .zoom-overlay .worklog-history-item.expanded .history-content { max-height: none; overflow: visible; }

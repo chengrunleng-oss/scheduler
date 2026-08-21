@@ -359,6 +359,10 @@ test("component zoom overlays and recent-activity ribbons are wired (TEST-V08-02
   assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay/);
   assert.match(responsiveCss, /\.section-zoom\[aria-pressed="true"\]/);
   assert.doesNotMatch(responsiveCss, /\.detail-panel\.reading-mode/);
+  assert.match(responsiveCss, /\.zoom-overlay \.markdown-editor \{\s*flex:\s*1 1 auto;\s*min-height:\s*0;\s*display:\s*flex;\s*flex-direction:\s*column/);
+  assert.match(responsiveCss, /\.zoom-overlay \.markdown-editor \.markdown-shell \{\s*flex:\s*1 1 auto;\s*min-height:\s*0/);
+  assert.match(responsiveCss, /\.zoom-overlay \.markdown-fallback \{\s*min-height:\s*0/);
+  assert.match(responsiveCss, /\.zoom-overlay \.markdown-source \{\s*min-height:\s*0/);
   assert.match(sidebar, /id="recentWorklogDays"/);
   assert.match(sidebar, /一周内（默认）/);
   assert.match(types, /recentWorklogDays: number/);
