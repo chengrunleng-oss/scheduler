@@ -1266,6 +1266,93 @@ test("collapse buttons switch to an expand chevron when collapsed (TEST-V08-036)
   await expect(page.locator("#descriptionEditor")).toBeVisible();
 });
 
+test("history collapses, three collapse buttons align left, zoom TOC never slides under the heading (TEST-V08-039/040/041)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(80)}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2), iso(-3), iso(-4), iso(-5), iso(-6), iso(-7)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 040：三个折叠按钮都是各自标题头的第一个元素，x 坐标一致（左对齐）。
+  const alignment = await page.evaluate(() => {
+    return ["collapseDescription", "collapseDaily", "collapseHistory"].map((id) => {
+      const button = document.querySelector(`#${id}`);
+      const heading = button.closest(".workspace-section-heading");
+      return { id, first: heading.firstElementChild === button, x: Math.round(button.getBoundingClientRect().x) };
+    });
+  });
+  for (const entry of alignment) {
+    expect(entry.first).toBe(true);
+    expect(entry.x).toBe(alignment[0].x);
+  }
+
+  // 039：历史记录区总折叠开关，折叠后目录、撤销条与列表全部隐藏。
+  const collapseHistory = page.locator("#collapseHistory");
+  const historySection = page.locator("#worklogHistorySection");
+  await expect(collapseHistory).toHaveAttribute("aria-label", "折叠历史记录");
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(8, { timeout: 20_000 });
+  await collapseHistory.click();
+  await expect(collapseHistory).toHaveAttribute("aria-pressed", "true");
+  await expect(collapseHistory).toHaveAttribute("aria-label", "展开历史记录");
+  await expect(collapseHistory.locator("[data-collapse-glyph='expand']")).toHaveCount(1);
+  await expect(historySection).toHaveClass(/section-collapsed/);
+  await expect(page.locator("#worklogHistory")).toBeHidden();
+  await expect(page.locator("#historyZoomToc")).toBeHidden();
+  await collapseHistory.click();
+  await expect(collapseHistory).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#worklogHistory")).toBeVisible();
+
+  // 折叠态下放大 → 自动展开，且按钮图标、title、aria 状态一致。
+  await collapseHistory.click();
+  await page.locator("#zoomHistory").click();
+  await expect(historySection).toHaveClass(/zoom-overlay/);
+  await expect(historySection).not.toHaveClass(/section-collapsed/);
+  await expect(collapseHistory).toHaveAttribute("aria-pressed", "false");
+  await expect(collapseHistory).toHaveAttribute("title", "折叠历史记录");
+  await expect(collapseHistory.locator("svg.lucide-chevron-down")).toHaveCount(1);
+  await expect(page.locator("#worklogHistory")).toBeVisible();
+
+  // 放大视图内折叠再展开：仅标题头保留，内容随展开恢复。
+  await collapseHistory.click();
+  await expect(page.locator("#worklogHistory")).toBeHidden();
+  await expect(page.locator("#historyZoomToc")).toBeHidden();
+  await collapseHistory.click();
+  await expect(page.locator("#worklogHistory")).toBeVisible();
+  await expect(page.locator("#historyZoomToc")).toBeVisible();
+
+  // 041：列表滚动时，左侧日期目录始终在标题头下方、不被遮挡。
+  await page.waitForTimeout(300);
+  const tocInfo = await page.evaluate(() => {
+    const section = document.querySelector("#worklogHistorySection");
+    const heading = section.querySelector(".workspace-section-heading");
+    const toc = section.querySelector(".history-zoom-toc");
+    const list = section.querySelector(".worklog-history");
+    list.scrollTop = list.scrollHeight;
+    const headingRect = heading.getBoundingClientRect();
+    const tocRect = toc.getBoundingClientRect();
+    return {
+      listScrollTop: list.scrollTop,
+      overlap: tocRect.top < headingRect.bottom,
+      tocBelowViewport: tocRect.bottom > window.innerHeight + 1,
+      headingBottom: Math.round(headingRect.bottom),
+      tocTop: Math.round(tocRect.top),
+    };
+  });
+  expect(tocInfo.listScrollTop).toBeGreaterThan(0);
+  expect(tocInfo.overlap).toBe(false);
+  expect(tocInfo.tocBelowViewport).toBe(false);
+  await page.keyboard.press("Escape");
+  await expect(historySection).not.toHaveClass(/zoom-overlay/);
+});
+
 test("history date headers stick below the section heading while scrolling (TEST-V08-037)", async ({ page }) => {
   const iso = (offsetDays) => {
     const now = new Date();

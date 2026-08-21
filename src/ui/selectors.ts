@@ -43,6 +43,7 @@ export interface Elements {
   zoomHistory: HTMLButtonElement;
   collapseDescription: HTMLButtonElement;
   collapseDaily: HTMLButtonElement;
+  collapseHistory: HTMLButtonElement;
   historyZoomToc: HTMLElement;
   exportDescriptionPdf: HTMLButtonElement;
   exportWorklogPdf: HTMLButtonElement;
@@ -191,7 +192,7 @@ export function queryElements(): Elements {
     workspaceStorageStatus: requiredElement("#workspaceStorageStatus"), workspaceStorageIndicator: requiredElement("#workspaceStorageIndicator"), chooseWorkspaceDirectory: requiredElement("#chooseWorkspaceDirectory"), reauthorizeWorkspaceDirectory: requiredElement("#reauthorizeWorkspaceDirectory"),
     undoAction: requiredElement("#undoAction"), redoAction: requiredElement("#redoAction"), themeSelect: requiredElement("#themeSelect"),
     taskDetail: requiredElement("#taskDetail"), detailResizer: requiredElement("#detailResizer"), detailClose: requiredElement("#detailClose"), detailEmpty: requiredElement("#detailEmpty"),
-    zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"), collapseDescription: requiredElement("#collapseDescription"), collapseDaily: requiredElement("#collapseDaily"), historyZoomToc: requiredElement("#historyZoomToc"),
+    zoomDescription: requiredElement("#zoomDescription"), zoomDaily: requiredElement("#zoomDaily"), zoomHistory: requiredElement("#zoomHistory"), collapseDescription: requiredElement("#collapseDescription"), collapseDaily: requiredElement("#collapseDaily"), collapseHistory: requiredElement("#collapseHistory"), historyZoomToc: requiredElement("#historyZoomToc"),
     exportDescriptionPdf: requiredElement("#exportDescriptionPdf"), exportWorklogPdf: requiredElement("#exportWorklogPdf"),
     descriptionSection: requiredElement("#descriptionSection"), dailySection: requiredElement("#dailySection"), worklogHistorySection: requiredElement("#worklogHistorySection"),
     worklogDateDialog: requiredElement("#worklogDateDialog"), worklogDateForm: requiredElement("#worklogDateForm"), worklogDatePrompt: requiredElement("#worklogDatePrompt"), worklogNewDate: requiredElement("#worklogNewDate"),

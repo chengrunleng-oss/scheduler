@@ -706,12 +706,19 @@ export function createWorkspaceController(
   }
   // TEST-V08-026：长期描述与每日记录的折叠开关（会话内状态）。
   // TEST-V08-030：折叠热区扩展到整个区块表头（按钮、输入、标签等交互元素除外）。
+  // TEST-V08-039：历史记录区新增总折叠开关；三个区块折叠按钮统一排在标题头最左并左对齐。
   const collapseSections = new Map<HTMLButtonElement, HTMLElement>([
     [els.collapseDescription, els.descriptionSection],
     [els.collapseDaily, els.dailySection],
+    [els.collapseHistory, els.worklogHistorySection],
+  ]);
+  const collapseLabels = new Map<HTMLButtonElement, string>([
+    [els.collapseDescription, "长期描述"],
+    [els.collapseDaily, "每日记录"],
+    [els.collapseHistory, "历史记录"],
   ]);
   function setSectionCollapsed(section: HTMLElement, button: HTMLButtonElement, collapsed: boolean): void {
-    const label = zoomLabels.get(button === els.collapseDescription ? els.zoomDescription : els.zoomDaily) ?? "区块";
+    const label = collapseLabels.get(button) ?? "区块";
     section.classList.toggle("section-collapsed", collapsed);
     button.setAttribute("aria-pressed", String(collapsed));
     button.title = collapsed ? `展开${label}` : `折叠${label}`;
@@ -751,11 +758,10 @@ export function createWorkspaceController(
     if (button) {
       const section = zoomSections.get(button);
       section?.classList.add("zoom-overlay");
-      // 放大已折叠的区块时先展开，保证放大视图完整。
+      // 放大已折叠的区块时先展开，保证放大视图完整；走完整折叠函数让图标、title、aria 状态一致。
       if (section?.classList.contains("section-collapsed")) {
-        section.classList.remove("section-collapsed");
         for (const [collapseButton, collapseSection] of collapseSections) {
-          if (collapseSection === section) collapseButton.setAttribute("aria-pressed", "false");
+          if (collapseSection === section) setSectionCollapsed(collapseSection, collapseButton, false);
         }
       }
       // 放大历史记录时展开全部条目，保证阅读视图完整；展开状态保留。

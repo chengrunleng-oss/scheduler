@@ -164,7 +164,10 @@
 .detail-form { min-height: 0; height: 100%; display: flex; flex-direction: column; }
 .detail-fields { min-height: 0; flex: 1 1 auto; display: grid; align-content: start; gap: 14px; overflow-y: auto; padding: 16px; }
 .status-line, .workspace-section-heading, .editor-save-line, .daily-heading, .storage-copy, .preview-header { display: flex; align-items: center; gap: 8px; }
-.status-line, .workspace-section-heading, .storage-copy, .preview-header { justify-content: space-between; }
+.status-line, .storage-copy, .preview-header { justify-content: space-between; }
+/* TEST-V08-040：三个区块标题头的折叠按钮统一排在最左；标题右侧弹性留白把其余操作推到最右。 */
+.workspace-section-heading { justify-content: flex-start; }
+.workspace-section-heading > h3 { margin: 0 auto 0 0; }
 .detail-status { width: max-content; border-radius: 999px; background: var(--low-soft); color: var(--low); padding: 5px 10px; font-size: 12px; font-weight: 700; }
 .detail-status.completed { background: var(--completed-soft); color: var(--completed); }
 .detail-status.discarded { background: var(--discarded-soft); color: var(--discarded); }
@@ -246,8 +249,9 @@
 .history-actions .icon-button { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
 .worklog-undo { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; border: 1px solid var(--pending); border-radius: 6px; background: var(--pending-soft); padding: 6px 10px; font-size: 12px; }
 .compact-button { min-height: 34px; padding: 5px 9px; font-size: 12px; }
-/* TEST-V08-026/036：长期描述与每日记录的折叠开关；折叠后按钮图标切换为“展开”。 */
-.editor-section.section-collapsed > :not(.workspace-section-heading) { display: none; }
+/* TEST-V08-026/036/039：折叠开关；折叠后按钮图标切换为“展开”；历史记录区同样支持总折叠。 */
+.editor-section.section-collapsed > :not(.workspace-section-heading),
+.worklog-history-section.section-collapsed > :not(.workspace-section-heading) { display: none; }
 /* TEST-V08-026：历史记录放大视图的左侧日期目录。 */
 .history-zoom-toc { display: flex; flex-direction: column; gap: 4px; }
 .history-zoom-toc-entry { display: flex; min-width: 0; min-height: 36px; align-items: center; gap: 7px; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 6px 10px; text-align: left; font-size: 13px; }

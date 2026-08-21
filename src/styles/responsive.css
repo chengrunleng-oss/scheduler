@@ -103,11 +103,12 @@
 .worklog-history-section.zoom-overlay .history-zoom-toc {
   grid-column: 1;
   grid-row: 2 / -1;
-  position: sticky;
-  top: 0;
+  /* TEST-V08-041：TOC 不吸顶——它独占标题头下方的网格列，长列表时自身内滚，
+     日期条目永远不会滑进吸顶标题头下面。 */
   align-self: start;
   max-height: calc(100dvh - 150px);
   overflow-y: auto;
+  background: var(--bg);
   border-right: 1px solid var(--line);
   padding-right: 12px;
 }

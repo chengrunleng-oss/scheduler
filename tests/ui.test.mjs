@@ -230,6 +230,17 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay[^}]*grid-template-columns:\s*minmax\(220px,\s*260px\)/s);
   assert.match(layoutCss, /\.history-zoom-toc-entry/);
   assert.match(layoutCss, /\.editor-section\.section-collapsed/);
+  // TEST-V08-039：历史记录区总折叠按钮及其接线。
+  assert.match(taskWorkspace, /section-collapse-toggle" id="collapseHistory"/);
+  assert.match(workspace, /\[els\.collapseHistory, els\.worklogHistorySection\]/);
+  assert.match(layoutCss, /\.worklog-history-section\.section-collapsed > :not\(\.workspace-section-heading\)/);
+  // TEST-V08-040：三个标题头折叠按钮统一排在 h3 之前（靠左对齐），标题右侧弹性留白推走其余操作。
+  assert.match(taskWorkspace, /section-collapse-toggle" id="collapseDescription"[^]*?<\/button><h3>长期描述<\/h3>/);
+  assert.match(taskWorkspace, /section-collapse-toggle" id="collapseDaily"[^]*?<\/button><h3>每日记录<\/h3>/);
+  assert.match(taskWorkspace, /section-collapse-toggle" id="collapseHistory"[^]*?<\/button><h3 id="worklogHistoryTitle">历史记录<\/h3>/);
+  assert.match(layoutCss, /\.workspace-section-heading > h3 \{ margin: 0 auto 0 0; \}/);
+  // TEST-V08-041：放大视图 TOC 不吸顶，日期条目不会被吸顶标题头遮挡。
+  assert.doesNotMatch(responsiveCss, /\.worklog-history-section\.zoom-overlay \.history-zoom-toc[^{]*\{[^}]*position:\s*sticky/s);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);
