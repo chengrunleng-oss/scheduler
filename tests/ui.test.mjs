@@ -440,7 +440,7 @@ test("feedback round improvements are wired (TEST-V08-029/030/031/032/033/034/03
   // 030：折叠热区扩展到整个表头。
   assert.match(workspace, /setSectionCollapsed/);
   assert.match(workspace, /section-heading-toggleable/);
-  assert.match(workspace, /target\.closest\("button, input, select, label, a"\)/);
+  assert.match(workspace, /composedPath\(\)\.some\(\(entry\) => entry instanceof Element && entry\.matches\("button, input, select, label, a"\)\)/);
   assert.match(responsiveCss, /\.section-heading-toggleable \{\s*cursor:\s*pointer/);
   // 031：截止日期默认值扩展。
   assert.match(types, /"in_3_days" \| "in_7_days" \| "this_friday" \| "next_monday"/);

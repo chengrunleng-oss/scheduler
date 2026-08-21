@@ -3,7 +3,7 @@
   "format_version": 17,
   "test_date": "2026-08-16",
   "target_branch": "deepseek/test-feedback-fixes",
-  "source_revision": "8d3c55e",
+  "source_revision": "3ca92ac",
   "target_release": "v0.8-merge-import",
   "document_policy": "本文件整体替换上一版测试反馈，只记录当前仍未关闭的问题。已整改并通过验证的问题移入 resolved_findings 作为本轮记录，跨轮生命周期与发布门槛以 docs/feedback/registry.json 为唯一权威。",
   "format_history": [
@@ -37,7 +37,7 @@
         { "name": "Vite production build", "result": "passed" },
         { "name": "Node unit and structural tests", "result": "passed", "passed": 75, "failed": 0 },
         { "name": "dist consistency check", "result": "passed" },
-        { "name": "Playwright browser tests", "result": "passed", "passed": 82, "failed": 0 }
+        { "name": "Playwright browser tests", "result": "passed", "passed": 85, "failed": 0 }
       ],
       "visual_baseline": "passed：全部视口零横向溢出，工作区编辑器截图按新源码+预览形态重新采集。",
       "bundle_size": "移除 @milkdown/crepe 与 ProseMirror（净减 184 个包）后，正式构建从 2823 个模块、多个合计约 1.3 MB 的分块，降为 1888 个模块、单一 472 KB（gzip 144 KB）分块。"
@@ -79,7 +79,9 @@
     "TEST-V08-032 已修复：视频附件（mp4/webm/ogg）附件页预览播放与 md 内嵌播放器。",
     "TEST-V08-033 已修复：放大按钮移入编辑器工具栏“源码/预览”切换键右侧。",
     "TEST-V08-034 已修复：放大后源码区自动铺展到窗口底部并禁用手动 resize。",
-    "TEST-V08-035 已修复：工作区三个区块标题栏滚动吸顶，操作按钮浏览时始终可见。"
+    "TEST-V08-035 已修复：工作区三个区块标题栏滚动吸顶，操作按钮浏览时始终可见。",
+    "TEST-V08-036 已修复：折叠按钮在折叠后切换为展开图标（ChevronRight）并同步语义。",
+    "TEST-V08-037 已修复：历史记录展开态日期表头随滚动吸顶，日期与编辑/改期/导出/删除按钮始终可见。"
   ],
   "open_findings": [],
   "pending_verification": [
@@ -571,6 +573,36 @@
           "tests/ui.test.mjs：sticky 规则的契约断言"
         ]
       }
+    },
+    {
+      "id": "TEST-V08-036",
+      "severity": "P2",
+      "category": "collapse-button-expand-glyph",
+      "title": "折叠按钮在折叠后应更改为展开按钮",
+      "evidence": ["用户直接体验反馈：长期描述与每日记录的折叠按钮在折叠后应该要更改为展开按钮。"],
+      "required_action": "折叠态按钮切换为展开图标并同步语义。",
+      "resolution": {
+        "fix_commit": "3ca92ac",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：折叠后按钮含 data-collapse-glyph=expand 图标且 aria-label 变为“展开…”，展开后恢复（TEST-V08-036）",
+          "tests/ui.test.mjs：图标切换与移除旋转样式的契约断言"
+        ]
+      }
+    },
+    {
+      "id": "TEST-V08-037",
+      "severity": "P2",
+      "category": "history-date-header-sticky",
+      "title": "历史记录的日期表头随滚轮浮动",
+      "evidence": ["用户直接体验反馈：工作任务区的历史记录（包括放大后）的日期表头也要能够随滚轮浮动，能让我在浏览当前文档记录时，能看到日期，点击下载，修改，折叠等功能。"],
+      "required_action": "展开态记录的日期表头随滚动吸顶（普通视图与放大视图）。",
+      "resolution": {
+        "fix_commit": "3ca92ac",
+        "verified_by": [
+          "e2e/workbench.spec.mjs：普通视图滚动面板后日期表头吸顶在区块标题栏下方、放大视图列表滚动后日期表头吸顶在列表顶部（TEST-V08-037）",
+          "tests/ui.test.mjs：--sticky-heading-height 与吸顶规则的契约断言"
+        ]
+      }
     }
   ],
   "release_gate": {
@@ -748,13 +780,25 @@
         "status": "met",
         "finding_ids": ["TEST-V08-035"],
         "evidence": "e2e：滚动面板后历史标题栏距面板顶不超过 2px；契约测试覆盖 sticky 规则。"
+      },
+      {
+        "description": "长期描述与每日记录的折叠按钮在折叠后切换为展开图标并同步语义。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-036"],
+        "evidence": "e2e：折叠后按钮含 expand 图标且 aria-label 变为“展开…”，展开后恢复；契约测试覆盖图标切换与移除旋转样式。"
+      },
+      {
+        "description": "历史记录展开态日期表头随滚动吸顶（普通视图贴区块标题栏下方，放大视图贴列表顶部）。",
+        "status": "met",
+        "finding_ids": ["TEST-V08-037"],
+        "evidence": "e2e：普通视图与放大视图均断言日期表头吸顶位置；契约测试覆盖吸顶规则与偏移变量。"
       }
     ]
   },
   "registry": "docs/feedback/registry.json",
   "repository_state": {
     "branch": "deepseek/test-feedback-fixes",
-    "head": "8d3c55e",
+    "head": "3ca92ac",
     "feature_changes_committed": true,
     "merge_performed": false,
     "feedback_commit_scope": "TEST_FEEDBACK.json、docs/feedback/、scripts/validate-feedback.mjs、package.json、ITERATION_LOG.md、ENGINEERING_REVIEW.json",

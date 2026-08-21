@@ -1,5 +1,17 @@
 # 迭代记录
 
+## v0.8 补丁十五：折叠按钮展开语义与历史日期表头吸顶（deepseek/test-feedback-fixes）
+
+### 本次修复
+
+- 修复 TEST-V08-036：长期描述与每日记录的折叠按钮在折叠后**切换为展开图标**（ChevronDown ↔ ChevronRight，同步 title/aria-label），替换原旋转样式。顺带修复图标替换引发的一个真实 bug：图标 svg 在点击处理中被移除后，事件冒泡到表头热区时 closest() 在脱离节点上失效导致双重折叠——按钮点击 stopPropagation，表头热区改用 composedPath 判定交互元素。
+- 修复 TEST-V08-037：历史记录**展开态**的日期表头随滚动吸顶——普通视图贴在区块标题栏下方（多条记录逐条顶替），放大视图改为历史列表自身滚动、日期表头相对列表顶部吸顶；日期、进度与编辑/改期/导出/删除按钮浏览长记录时始终可见。
+- 026 目录跳转断言改为测量历史列表滚动；契约与 e2e 用例补齐。
+
+### 验证
+
+- `npm run verify` 通过：反馈文档校验、TypeScript、Vite 正式构建、构建产物同步、75 项 Node 测试和 85 项 Playwright 测试全部通过。
+
 ## v0.8 补丁十四：SchedulerSaveTest 反馈批次（deepseek/test-feedback-fixes）
 
 ### 本次修复

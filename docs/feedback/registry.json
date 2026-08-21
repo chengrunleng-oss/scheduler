@@ -207,6 +207,20 @@
         "description": "工作区三个区块标题栏滚动吸顶，浏览长文档时标题与操作按钮始终可见。",
         "status": "met",
         "evidence": "e2e：滚动面板后历史标题栏距面板顶不超过 2px；契约测试覆盖 sticky 规则。"
+      },
+      {
+        "id": "gate-30",
+        "finding_ids": ["TEST-V08-036"],
+        "description": "长期描述与每日记录的折叠按钮在折叠后切换为展开图标并同步语义。",
+        "status": "met",
+        "evidence": "e2e：折叠后按钮含 expand 图标且 aria-label 变为“展开…”，展开后恢复；契约测试覆盖图标切换与移除旋转样式。"
+      },
+      {
+        "id": "gate-31",
+        "finding_ids": ["TEST-V08-037"],
+        "description": "历史记录展开态日期表头随滚动吸顶（普通视图贴区块标题栏下方，放大视图贴列表顶部）。",
+        "status": "met",
+        "evidence": "e2e：普通视图与放大视图均断言日期表头吸顶位置；契约测试覆盖吸顶规则与偏移变量。"
       }
     ]
   },
@@ -390,6 +404,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "SchedulerSaveTest 反馈批次：TEST-V08-029~035 登记并修复（Esc 分层退出、折叠热区、日期选项、视频展示、放大键移位、源码铺展、标题吸顶）；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-08-17",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "3ca92ac",
+      "target_release": "v0.8-merge-import",
+      "status": "passed_with_manual_verification_pending",
+      "note": "TEST-V08-036/037 登记并修复：折叠按钮折叠后切换为展开图标、历史记录日期表头随滚动吸顶；TEST-V08-007 继续等待真实 Windows 人工验收。"
     }
   ],
   "findings": [
@@ -1072,6 +1096,44 @@
       "history": [
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "SchedulerSaveTest 反馈文件夹条目。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 8d3c55e；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-036",
+      "severity": "P2",
+      "category": "collapse-button-expand-glyph",
+      "kind": "defect",
+      "title": "折叠按钮在折叠后应更改为展开按钮",
+      "status": "fixed",
+      "fix_commit": "3ca92ac",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：折叠后按钮含 data-collapse-glyph=expand 图标且 aria-label 变为“展开…”，展开后恢复（TEST-V08-036）",
+        "tests/ui.test.mjs：图标切换与移除旋转样式的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：长期描述与每日记录的折叠按钮在折叠后应该要更改为展开按钮。"],
+      "resolution": "折叠态按钮图标从旋转的 ChevronDown 改为切换成 ChevronRight（展开语义），并同步 title/aria-label；移除旧旋转样式。顺带修复图标替换后表头热区误触导致的双重折叠（按钮点击 stopPropagation，表头热区改用 composedPath 判定交互元素）。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 3ca92ac；e2e 与契约测试通过。" }
+      ]
+    },
+    {
+      "id": "TEST-V08-037",
+      "severity": "P2",
+      "category": "history-date-header-sticky",
+      "kind": "enhancement",
+      "title": "历史记录的日期表头随滚轮浮动",
+      "status": "fixed",
+      "fix_commit": "3ca92ac",
+      "verified_by": [
+        "e2e/workbench.spec.mjs：普通视图滚动面板后日期表头吸顶在区块标题栏下方、放大视图列表滚动后日期表头吸顶在列表顶部（TEST-V08-037）",
+        "tests/ui.test.mjs：--sticky-heading-height 与吸顶规则的契约断言"
+      ],
+      "evidence": ["用户直接体验反馈：工作任务区的历史记录（包括放大后）的日期表头也要能够随滚轮浮动，能让我在浏览当前文档记录时，能看到日期，点击下载，修改，折叠等功能。"],
+      "resolution": "展开态记录的日期表头（日期、进度、编辑/改期/导出/删除与点日期折叠热区）在普通视图贴在区块标题栏下方吸顶、多条记录逐条顶替；放大视图改为历史列表自身滚动，日期表头相对列表顶部吸顶。",
+      "history": [
+        { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
+        { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 3ca92ac；e2e 与契约测试通过。" }
       ]
     }
   ]
