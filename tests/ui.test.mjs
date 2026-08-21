@@ -241,6 +241,13 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(layoutCss, /\.workspace-section-heading > h3 \{ margin: 0 auto 0 0; \}/);
   // TEST-V08-041：放大视图 TOC 不吸顶，日期条目不会被吸顶标题头遮挡。
   assert.doesNotMatch(responsiveCss, /\.worklog-history-section\.zoom-overlay \.history-zoom-toc[^{]*\{[^}]*position:\s*sticky/s);
+  // TEST-V08-042：滚动条空间常驻避免宽度跳变；每日标题头控件压缩后默认宽度单行放下。
+  assert.match(layoutCss, /\.worklog-panel, \.attachments-panel \{ overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;/);
+  assert.match(layoutCss, /\.daily-heading \{ flex-wrap: wrap; gap: 6px; \}/);
+  assert.match(layoutCss, /\.compact-field input \{ width: 124px;/);
+  assert.match(layoutCss, /\.progress-field input \{ width: 56px;/);
+  // TEST-V08-043：放大视图历史列表条目行按内容排列、不拉伸分摊剩余空间。
+  assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay \.worklog-history[^{]*\{[^}]*align-content:\s*start/s);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);

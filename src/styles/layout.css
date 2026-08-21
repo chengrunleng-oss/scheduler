@@ -189,14 +189,16 @@
 .save-status.error { color: var(--danger); }
 .button.text-button { min-height: 28px; border: 0; background: transparent; color: var(--teal); padding: 2px 5px; font-size: 12px; }
 
-.worklog-panel, .attachments-panel { overflow-y: auto; overscroll-behavior: contain; padding: 0 18px 28px; }
+/* TEST-V08-042：滚动条空间常驻（stable gutter），滚动条出现/消失不再让面板内容宽度跳变，标题头等布局保持稳定。 */
+.worklog-panel, .attachments-panel { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 18px 28px; }
 .editor-section, .worklog-history-section { padding: 18px 0; border-bottom: 1px solid var(--line); }
 .workspace-section-heading h3, .worklog-history-section h3 { margin: 0; font-size: 14px; }
-.daily-heading { flex-wrap: wrap; }
+/* TEST-V08-042：压缩每日记录标题头的日期/进度控件宽度与间距，保证默认面板宽度下单行放下全部操作。 */
+.daily-heading { flex-wrap: wrap; gap: 6px; }
 .daily-heading h3 { margin-right: auto; }
-.compact-field input { width: 148px; min-height: 34px; }
+.compact-field input { width: 124px; min-height: 34px; }
 .progress-field { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
-.progress-field input { width: 66px; min-height: 34px; }
+.progress-field input { width: 56px; min-height: 34px; }
 .editor-save-line { min-height: 28px; justify-content: flex-end; }
 .markdown-editor { min-height: 220px; margin-top: 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface-raised); overflow: hidden; }
 .markdown-editor[data-editor-state="loading"] { display: grid; place-items: center; color: var(--muted); }

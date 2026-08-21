@@ -1353,6 +1353,60 @@ test("history collapses, three collapse buttons align left, zoom TOC never slide
   await expect(historySection).not.toHaveClass(/zoom-overlay/);
 });
 
+test("daily heading stays on one line and zoom history collapse leaves no inflated gaps (TEST-V08-042/043)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(200)}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2), iso(-3), iso(-4), iso(-5), iso(-6), iso(-7)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 042：折叠每日记录后标题头保持单行；展开/折叠历史条目（面板高度变化、真实 Chrome 出现滚动条）后仍单行。
+  const headingHeight = async () => page.locator(".daily-heading").evaluate((node) => Math.round(node.getBoundingClientRect().height));
+  await page.locator("#collapseDaily").click();
+  expect(await headingHeight()).toBeLessThanOrEqual(60);
+  const items = page.locator("#worklogHistory .worklog-history-item");
+  await items.first().locator(".history-date").click();
+  await page.waitForTimeout(400);
+  expect(await headingHeight()).toBeLessThanOrEqual(60);
+  await items.first().locator(".history-date").click();
+  await page.waitForTimeout(400);
+  expect(await headingHeight()).toBeLessThanOrEqual(60);
+
+  // 043：放大历史记录并折叠全部条目，条目高度回到单行头部，条目之间无大间隙。
+  await page.locator("#zoomHistory").click();
+  await page.waitForTimeout(300);
+  const count = await items.count();
+  for (let index = count - 1; index >= 0; index -= 1) {
+    await items.nth(index).locator(".history-date").click();
+    await page.waitForTimeout(60);
+  }
+  await page.waitForTimeout(500);
+  const geometry = await page.evaluate(() => {
+    const rects = [...document.querySelectorAll("#worklogHistory .worklog-history-item")].map((item) => {
+      const rect = item.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, height: rect.height };
+    });
+    const gaps = rects.slice(1).map((rect, index) => rect.top - rects[index].bottom);
+    return { rects, gaps };
+  });
+  for (const rect of geometry.rects) {
+    expect(rect.height).toBeLessThanOrEqual(52);
+  }
+  for (const gap of geometry.gaps) {
+    expect(gap).toBeLessThanOrEqual(4);
+  }
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
+});
+
 test("history date headers stick below the section heading while scrolling (TEST-V08-037)", async ({ page }) => {
   const iso = (offsetDays) => {
     const now = new Date();

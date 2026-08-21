@@ -119,6 +119,8 @@
   align-self: stretch;
   min-height: 0;
   overflow-y: auto;
+  /* TEST-V08-043：条目行按内容高度排列、不拉伸分摊列表剩余空间，折叠全部条目后不再出现大间隙。 */
+  align-content: start;
 }
 @media (max-width: 880px) {
   .worklog-history-section.zoom-overlay { grid-template-columns: 1fr; }
