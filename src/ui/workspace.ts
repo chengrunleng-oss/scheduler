@@ -7,6 +7,7 @@ import { createElement } from "./dom.js";
 import { icon } from "./icons.js";
 import { createMarkdownEditor, type MarkdownEditorHandle } from "./markdown-editor.js";
 import { attachmentImageMarkdown, attachmentLinkMarkdown, createMarkdownRenderer, renderPlainMarkdown, type MarkdownRenderer } from "./markdown-render.js";
+import { isLightboxOpen } from "./lightbox.js";
 import { exportHtmlAsPdf } from "./pdf-export.js";
 import type { Elements } from "./selectors.js";
 
@@ -201,6 +202,8 @@ export function createWorkspaceController(
       onSave: () => { void saveDescription(); },
       render,
       uploadFiles,
+      // TEST-V08-033：放大按钮移到编辑器工具栏“源码/预览”切换键右侧。
+      toolbarExtras: [els.zoomDescription],
     });
     if (generation !== editorGeneration) { await descriptionEditor.destroy(); descriptionEditor = null; return; }
     worklogEditor = await createMarkdownEditor({
@@ -212,6 +215,7 @@ export function createWorkspaceController(
       onSave: () => { void saveWorklog(); },
       render,
       uploadFiles,
+      toolbarExtras: [els.zoomDaily],
     });
     setSaveStatus("description", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
@@ -253,6 +257,7 @@ export function createWorkspaceController(
       onSave: () => { void saveWorklog(); },
       render: (markdown) => markdownRenderer?.render(markdown) ?? Promise.resolve(markdown),
       uploadFiles: readOnly ? undefined : uploadEditorFiles,
+      toolbarExtras: [els.zoomDaily],
     });
     setSaveStatus("worklog", backend.available ? "saved" : "error", backend.available ? undefined : backend.errorMessage);
     await renderWorklogHistory();
@@ -427,7 +432,7 @@ export function createWorkspaceController(
   function createAttachmentRow(meta: AttachmentMeta, editable: boolean): HTMLElement {
     const row = createElement("div", { className: "attachment-row" });
     row.dataset.attachmentId = meta.id;
-    const typeIcon = meta.kind === "image" ? "Image" : meta.kind === "pdf" ? "FileText" : meta.kind === "text" ? "FileCode2" : "File";
+    const typeIcon = meta.kind === "image" ? "Image" : meta.kind === "video" ? "Film" : meta.kind === "pdf" ? "FileText" : meta.kind === "text" ? "FileCode2" : "File";
     const info = createElement("div", { className: "attachment-info" });
     info.append(icon(typeIcon), createElement("div", { className: "attachment-copy" }));
     info.lastElementChild?.append(createElement("strong", { text: meta.name }), createElement("span", { text: `${formatBytes(meta.size)} · ${formatDateTime(meta.createdAt)}` }));
@@ -468,10 +473,14 @@ export function createWorkspaceController(
     close.append(icon("X"));
     header.append(close);
     els.attachmentPreview.append(header);
-    if (meta.kind === "image" || meta.kind === "pdf") {
+    if (meta.kind === "image" || meta.kind === "pdf" || meta.kind === "video") {
       attachmentPreviewUrl = URL.createObjectURL(blob);
       if (meta.kind === "image") {
         const image = document.createElement("img"); image.src = attachmentPreviewUrl; image.alt = meta.name; els.attachmentPreview.append(image);
+      } else if (meta.kind === "video") {
+        // TEST-V08-032：视频附件应用内预览播放。
+        const video = document.createElement("video"); video.src = attachmentPreviewUrl; video.controls = true; video.title = meta.name;
+        els.attachmentPreview.append(video);
       } else {
         const frame = document.createElement("iframe"); frame.src = attachmentPreviewUrl; frame.title = meta.name; els.attachmentPreview.append(frame);
       }
@@ -696,18 +705,33 @@ export function createWorkspaceController(
     }
   }
   // TEST-V08-026：长期描述与每日记录的折叠开关（会话内状态）。
+  // TEST-V08-030：折叠热区扩展到整个区块表头（按钮、输入、标签等交互元素除外）。
   const collapseSections = new Map<HTMLButtonElement, HTMLElement>([
     [els.collapseDescription, els.descriptionSection],
     [els.collapseDaily, els.dailySection],
   ]);
-  for (const [button, section] of collapseSections) {
+  function setSectionCollapsed(section: HTMLElement, button: HTMLButtonElement, collapsed: boolean): void {
     const label = zoomLabels.get(button === els.collapseDescription ? els.zoomDescription : els.zoomDaily) ?? "区块";
+    section.classList.toggle("section-collapsed", collapsed);
+    button.setAttribute("aria-pressed", String(collapsed));
+    button.title = collapsed ? `展开${label}` : `折叠${label}`;
+    button.setAttribute("aria-label", collapsed ? `展开${label}` : `折叠${label}`);
+    section.querySelector<HTMLElement>(":scope > .workspace-section-heading")?.setAttribute("title", collapsed ? "点击展开该区块" : "点击折叠该区块");
+  }
+  for (const [button, section] of collapseSections) {
     button.addEventListener("click", () => {
-      const collapsed = section.classList.toggle("section-collapsed");
-      button.setAttribute("aria-pressed", String(collapsed));
-      button.title = collapsed ? `展开${label}` : `折叠${label}`;
-      button.setAttribute("aria-label", collapsed ? `展开${label}` : `折叠${label}`);
+      setSectionCollapsed(section, button, !section.classList.contains("section-collapsed"));
     });
+    const heading = section.querySelector<HTMLElement>(":scope > .workspace-section-heading");
+    if (heading) {
+      heading.classList.add("section-heading-toggleable");
+      heading.title = section.classList.contains("section-collapsed") ? "点击展开该区块" : "点击折叠该区块";
+      heading.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("button, input, select, label, a")) return;
+        setSectionCollapsed(section, button, !section.classList.contains("section-collapsed"));
+      });
+    }
   }
 
   function setSectionZoom(button: HTMLButtonElement | null): void {
@@ -781,7 +805,8 @@ export function createWorkspaceController(
     button.addEventListener("click", () => setSectionZoom(zoomedButton === button ? null : button));
   }
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && zoomedButton) setSectionZoom(null);
+    // TEST-V08-029：Esc 分层退出——图片放大遮罩打开时只关遮罩，下一次 Esc 再关区块放大。
+    if (event.key === "Escape" && zoomedButton && !isLightboxOpen()) setSectionZoom(null);
   });
 
   // TEST-V08-024：修改工作记录日期。

@@ -4,12 +4,12 @@ export type ResolvedStatus = Exclude<TaskStatus, "active">;
 export type TaskFilter = "all" | TaskStatus;
 export type ThemeMode = "system" | "light" | "dark";
 export type ViewMode = "tree_manual" | "global_priority" | "global_due_date" | "priority_then_due_date";
-export type DefaultTaskDueDate = "today" | "tomorrow" | "next_workday" | "none";
+export type DefaultTaskDueDate = "today" | "tomorrow" | "next_workday" | "in_3_days" | "in_7_days" | "this_friday" | "next_monday" | "none";
 export type FolderScope = "all" | "root" | string;
 export type RescheduleSource = "quick" | "detail";
 export type StatusEventSource = "resolution" | "restore" | "migration";
 export type WorkspaceTab = "overview" | "worklog" | "attachments";
-export type AttachmentKind = "image" | "pdf" | "text" | "office" | "binary";
+export type AttachmentKind = "image" | "video" | "pdf" | "text" | "office" | "binary";
 
 export interface RescheduleRecord {
   eventId: string;

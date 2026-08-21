@@ -1075,6 +1075,178 @@ test("zoomed daily record panes stretch to the viewport and scroll long content 
   await expect(page.locator("#dailySection")).not.toHaveClass(/zoom-overlay/);
 });
 
+test("Esc closes layers step by step: lightbox first, then the section zoom (TEST-V08-029)", async ({ page }) => {
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const attachmentId = await page.evaluate(async (base64) => {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    const meta = await globalThis.__workspaceBackendForTests.putAttachment("task-1", new File([bytes], "层图.png", { type: "image/png" }));
+    return meta.id;
+  }, pngBase64);
+  const today = await page.evaluate(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  await page.evaluate(async ({ date, id }) => {
+    await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: date, contentMarkdown: `![层级图片](attachment:${id})`, progressPercent: 0 });
+  }, { date: today, id: attachmentId });
+
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#zoomDaily").click();
+  await expect(page.locator("#dailySection")).toHaveClass(/zoom-overlay/);
+  await page.locator("#dailySection .markdown-preview-toggle").click();
+  await expect(page.locator("#dailySection .markdown-preview img")).toBeVisible();
+  await page.locator("#dailySection .markdown-preview img").click();
+  await expect(page.locator(".markdown-lightbox")).toBeVisible();
+
+  // 第一次 Esc：只关图片放大遮罩，区块放大保持打开。
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".markdown-lightbox")).toHaveCount(0);
+  await expect(page.locator("#dailySection")).toHaveClass(/zoom-overlay/);
+  // 第二次 Esc：关闭区块放大。
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#dailySection")).not.toHaveClass(/zoom-overlay/);
+});
+
+test("section headings toggle collapse on the whole row and stick while scrolling (TEST-V08-030/035)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 030：点击表头非交互区域（标题文字）折叠/展开；点表头内的按钮不误触折叠。
+  const heading = page.locator("#descriptionSection .workspace-section-heading");
+  await heading.locator("h3").click();
+  await expect(page.locator("#collapseDescription")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#descriptionEditor")).toBeHidden();
+  await heading.locator("h3").click();
+  await expect(page.locator("#collapseDescription")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#descriptionEditor")).toBeVisible();
+  await page.locator("#zoomDescription").click();
+  await expect(page.locator("#collapseDescription")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#descriptionSection")).toHaveClass(/zoom-overlay/);
+  await page.keyboard.press("Escape");
+
+  // 035：滚动工作区面板时，历史记录区块标题栏吸顶保持可见。
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(40)}`, progressPercent: 0 });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2), iso(-3)] });
+  await page.locator("#detailClose").click();
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(4, { timeout: 20_000 });
+  // 展开全部记录使历史区块足够高，滚动后标题栏才会触发吸顶。
+  await page.evaluate(() => {
+    for (const item of document.querySelectorAll("#worklogHistory .worklog-history-item")) item.classList.add("expanded");
+  });
+  await page.waitForTimeout(300);
+  const panel = page.locator("#worklogPanel");
+  await panel.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  await page.waitForTimeout(300);
+  const sticky = await page.evaluate(() => {
+    const panel = document.querySelector("#worklogPanel");
+    const heading = document.querySelector("#worklogHistorySection .workspace-section-heading");
+    return { panelTop: panel.getBoundingClientRect().top, headingTop: heading.getBoundingClientRect().top, panelScrollTop: panel.scrollTop };
+  });
+  expect(sticky.panelScrollTop).toBeGreaterThan(0);
+  expect(Math.abs(sticky.headingTop - sticky.panelTop)).toBeLessThanOrEqual(2);
+});
+
+test("default due date offers extended options and pre-fills the inline form (TEST-V08-031)", async ({ page }) => {
+  await page.locator("details.defaults-section summary").click();
+  await page.locator("#defaultDueDate").selectOption("in_3_days");
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.locator("#globalNewTask").click();
+  await expect(page.locator('form.inline-create[data-inline-kind="task"] input[name="dueDate"]')).toHaveValue(iso(3));
+  await page.keyboard.press("Escape");
+  await page.locator("#defaultDueDate").selectOption("this_friday");
+  const expectedFriday = await page.evaluate(() => {
+    const now = new Date();
+    const base = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T00:00:00`);
+    const diff = (5 - base.getDay() + 7) % 7;
+    const target = new Date(base);
+    target.setDate(target.getDate() + (diff === 0 ? 7 : diff));
+    return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-${String(target.getDate()).padStart(2, "0")}`;
+  });
+  await page.locator("#globalNewTask").click();
+  await expect(page.locator('form.inline-create[data-inline-kind="task"] input[name="dueDate"]')).toHaveValue(expectedFriday);
+  await page.keyboard.press("Escape");
+});
+
+test("video attachments preview inline and embed into rendered markdown (TEST-V08-032)", async ({ page }) => {
+  const videoId = await page.evaluate(async () => {
+    const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x00, 0x00, 0x00, 0x00]);
+    const meta = await globalThis.__workspaceBackendForTests.putAttachment("task-1", new File([bytes], "演示视频.mp4", { type: "video/mp4" }));
+    return meta.id;
+  });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#attachmentsTab").click();
+  await expect(page.locator(".attachment-row").filter({ hasText: "演示视频.mp4" })).toBeVisible();
+  await page.locator(".attachment-row").filter({ hasText: "演示视频.mp4" }).getByRole("button", { name: "预览附件" }).click();
+  const previewVideo = page.locator("#attachmentPreview video");
+  await expect(previewVideo).toBeVisible();
+  await expect(previewVideo).toHaveAttribute("src", /^blob:/);
+
+  // md 引用渲染为内嵌播放器。
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await page.locator("#worklogEditor textarea").first().fill(`# 今日视频\n\n[演示视频](attachment:${videoId})`);
+  await expect(page.locator("#worklogSaveStatus")).toHaveText("已保存", { timeout: 5_000 });
+  await page.locator("#dailySection .markdown-preview-toggle").click();
+  await expect(page.locator("#dailySection .markdown-preview video.attachment-video")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#dailySection .markdown-preview video.attachment-video")).toHaveAttribute("src", /^blob:/);
+});
+
+test("zoom buttons sit right of the preview toggle and the source pane fills the overlay (TEST-V08-033/034)", async ({ page }) => {
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+
+  // 033：放大按钮在编辑器工具栏内、位于“源码/预览”切换键右侧。
+  const order = await page.evaluate(() => {
+    const toggle = document.querySelector("#dailySection .markdown-preview-toggle");
+    const zoom = document.querySelector("#zoomDaily");
+    return {
+      zoomParent: zoom.parentElement?.className ?? null,
+      nextIsZoom: toggle.nextElementSibling === zoom,
+      zoomInWorklogEditor: Boolean(zoom.closest("#worklogEditor")),
+      descriptionZoomParent: document.querySelector("#zoomDescription").parentElement?.className ?? null,
+    };
+  });
+  expect(order.zoomParent).toBe("markdown-toolbar");
+  expect(order.nextIsZoom).toBe(true);
+  expect(order.zoomInWorklogEditor).toBe(true);
+  expect(order.descriptionZoomParent).toBe("markdown-toolbar");
+
+  // 034：放大后源码区铺展到底（覆盖用户手动 resize 的内联高度）且禁用手动 resize。
+  await page.evaluate(() => {
+    const source = document.querySelector("#dailySection .markdown-source");
+    source.style.height = "300px";
+  });
+  await page.locator("#zoomDaily").click();
+  await page.waitForTimeout(250);
+  const geometry = await page.evaluate(() => {
+    const source = document.querySelector("#dailySection .markdown-source");
+    const style = getComputedStyle(source);
+    return { clientHeight: source.clientHeight, height: style.height, resize: style.resize };
+  });
+  expect(geometry.clientHeight).toBeGreaterThan(600);
+  expect(geometry.resize).toBe("none");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#dailySection")).not.toHaveClass(/zoom-overlay/);
+});
+
 test("recent worklogs mark the task and its folder with a ribbon and the window is configurable (TEST-V08-023)", async ({ page }) => {
   const row = page.getByRole("option", { name: new RegExp(primaryTask) });
   const workHeading = page.locator('[data-drop-folder-id="folder-work"]');

@@ -290,6 +290,8 @@ export function detectAttachmentKind(name: string, type: string): AttachmentKind
   const extension = name.split(".").pop()?.toLowerCase() ?? "";
   if (type === "image/svg+xml" || extension === "svg" || type === "text/html" || ["html", "htm"].includes(extension)) return "text";
   if (type.startsWith("image/")) return "image";
+  // TEST-V08-032：视频附件（mp4/webm/ogg）作为可预览播放的 video 类型。
+  if (type.startsWith("video/") || ["mp4", "webm", "ogg", "ogv"].includes(extension)) return "video";
   if (type === "application/pdf" || extension === "pdf") return "pdf";
   if (type.startsWith("text/") || ["md", "markdown", "txt", "json", "csv", "log"].includes(extension)) return "text";
   if (["doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp"].includes(extension)) return "office";

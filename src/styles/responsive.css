@@ -41,10 +41,29 @@
   overflow-y: auto;
 }
 /* TEST-V08-028：放大层编辑器撑满剩余高度，源码/预览窗格各自内滚，长文档可完整滚动查看。 */
+/* TEST-V08-035：工作区三个区块标题栏吸顶，滚动浏览长文档时标题与操作按钮始终可见。 */
+.worklog-panel .workspace-section-heading,
+.zoom-overlay .workspace-section-heading {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-bottom: 1px solid var(--line);
+  margin: 0 -2px 2px;
+  padding: 6px 2px;
+}
+.worklog-panel .workspace-section-heading { background: var(--surface); }
+.zoom-overlay .workspace-section-heading { background: var(--bg); }
+
+/* TEST-V08-030：区块表头整条可点折叠（交互元素除外）。 */
+.section-heading-toggleable { cursor: pointer; }
+.section-heading-toggleable:hover { color: var(--teal); }
+.section-heading-toggleable button, .section-heading-toggleable label, .section-heading-toggleable input { cursor: auto; }
+
 .zoom-overlay .markdown-editor { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .zoom-overlay .markdown-editor .markdown-shell { flex: 1 1 auto; min-height: 0; }
 .zoom-overlay .markdown-fallback { min-height: 0; }
-.zoom-overlay .markdown-source { min-height: 0; }
+/* TEST-V08-034：放大后源码区自动铺展到窗口底部，禁用手动 resize（退出放大恢复）。 */
+.zoom-overlay .markdown-source { min-height: 0; resize: none; height: auto !important; }
 .zoom-overlay .worklog-history { flex: 1 1 auto; min-height: 0; }
 /* TEST-V08-025：放大视图必须完整展示历史内容，覆盖展开态 420px 上限与内滚动。 */
 .zoom-overlay .worklog-history-item.expanded .history-content { max-height: none; overflow: visible; }

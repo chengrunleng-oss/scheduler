@@ -230,7 +230,7 @@ export function coerceViewMode(value: unknown): ViewMode {
 }
 
 export function coerceDefaultDueDate(value: unknown): DefaultTaskDueDate {
-  if (value === "tomorrow" || value === "next_workday" || value === "none") return value;
+  if (value === "tomorrow" || value === "next_workday" || value === "none" || value === "in_3_days" || value === "in_7_days" || value === "this_friday" || value === "next_monday") return value;
   return "today";
 }
 
@@ -256,10 +256,23 @@ export function resolveDefaultDueDate(value: DefaultTaskDueDate, now = Date.now(
   const today = toISODate(now);
   if (value === "none") return "";
   if (value === "tomorrow") return addDays(today, 1);
+  if (value === "in_3_days") return addDays(today, 3);
+  if (value === "in_7_days") return addDays(today, 7);
   if (value === "next_workday") {
     let next = new Date(`${addDays(today, 1)}T00:00:00`);
     while (next.getDay() === 0 || next.getDay() === 6) next = new Date(`${addDays(toISODate(next), 1)}T00:00:00`);
     return toISODate(next);
+  }
+  // TEST-V08-031：本周五 = 本周的周五（已过则为下周五）；下周一 = 下周一。
+  if (value === "this_friday") {
+    const base = new Date(`${today}T00:00:00`);
+    const diff = (5 - base.getDay() + 7) % 7;
+    return addDays(today, diff === 0 ? 7 : diff);
+  }
+  if (value === "next_monday") {
+    const base = new Date(`${today}T00:00:00`);
+    const diff = (1 - base.getDay() + 7) % 7;
+    return addDays(today, diff === 0 ? 7 : diff);
   }
   return today;
 }
@@ -714,7 +727,7 @@ function isValidV4Preferences(value: UnknownRecord): boolean {
     (value.theme === "system" || value.theme === "light" || value.theme === "dark") &&
     ["tree_manual", "global_priority", "global_due_date", "priority_then_due_date"].includes(String(value.viewMode)) &&
     typeof value.folderScope === "string" &&
-    ["today", "tomorrow", "next_workday", "none"].includes(String(value.defaultTaskDueDate)) &&
+    ["today", "tomorrow", "next_workday", "in_3_days", "in_7_days", "this_friday", "next_monday", "none"].includes(String(value.defaultTaskDueDate)) &&
     (value.defaultTaskPriority === "high" || value.defaultTaskPriority === "low") &&
     Array.isArray(value.expandedHandledContainers) &&
     Array.isArray(value.navigationCollapsedFolders)

@@ -430,3 +430,39 @@ test("markdown documents export to PDF through native print with embedded images
   assert.match(pdfExport, /escapeHtml/);
   assert.match(pdfExport, /printImpl/);
 });
+
+test("feedback round improvements are wired (TEST-V08-029/030/031/032/033/034/035)", () => {
+  // 029：Esc 分层退出。
+  assert.match(lightbox, /isLightboxOpen/);
+  assert.match(lightbox, /lightboxOpen = true/);
+  assert.match(lightbox, /lightboxOpen = false/);
+  assert.match(workspace, /!isLightboxOpen\(\)/);
+  // 030：折叠热区扩展到整个表头。
+  assert.match(workspace, /setSectionCollapsed/);
+  assert.match(workspace, /section-heading-toggleable/);
+  assert.match(workspace, /target\.closest\("button, input, select, label, a"\)/);
+  assert.match(responsiveCss, /\.section-heading-toggleable \{\s*cursor:\s*pointer/);
+  // 031：截止日期默认值扩展。
+  assert.match(types, /"in_3_days" \| "in_7_days" \| "this_friday" \| "next_monday"/);
+  assert.match(sidebar, /value="in_3_days"/);
+  assert.match(sidebar, /value="this_friday"/);
+  assert.match(sidebar, /value="next_monday"/);
+  // 032：视频附件预览与内嵌播放。
+  assert.match(types, /"image" \| "video" \| "pdf"/);
+  assert.match(workspaceDb, /return "video"/);
+  assert.match(workspace, /meta\.kind === "video"/);
+  assert.match(workspace, /document\.createElement\("video"\)/);
+  assert.match(markdownRender, /attachment-video/);
+  assert.match(css, /\.rendered-markdown video\.attachment-video/);
+  assert.match(css, /\.attachment-preview video/);
+  assert.match(icons, /Film/);
+  // 033：放大按钮进入编辑器工具栏。
+  assert.match(markdownEditor, /toolbarExtras/);
+  assert.match(markdownEditor, /toolbar\.append\(toggle\)/);
+  assert.match(workspace, /toolbarExtras: \[els\.zoomDescription\]/);
+  assert.match(workspace, /toolbarExtras: \[els\.zoomDaily\]/);
+  // 034：放大后源码区铺展到底并禁用 resize。
+  assert.match(responsiveCss, /\.zoom-overlay \.markdown-source \{\s*min-height:\s*0;\s*resize:\s*none;\s*height:\s*auto !important/);
+  // 035：区块标题栏吸顶。
+  assert.match(responsiveCss, /\.worklog-panel \.workspace-section-heading,\s*\.zoom-overlay \.workspace-section-heading \{\s*position:\s*sticky/);
+});

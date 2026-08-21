@@ -5,6 +5,13 @@
 
 import { icon } from "./icons.js";
 
+// TEST-V08-029：供 Esc 分层退出协调使用——图片放大遮罩打开时，工作区放大层不响应 Esc。
+let lightboxOpen = false;
+
+export function isLightboxOpen(): boolean {
+  return lightboxOpen;
+}
+
 export function installImageLightbox(): void {
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
@@ -58,6 +65,7 @@ function openLightbox(src: string, alt: string): void {
 
   const close = () => {
     document.removeEventListener("keydown", onKey);
+    lightboxOpen = false;
     overlay.remove();
   };
   const onKey = (event: KeyboardEvent) => {
@@ -71,6 +79,7 @@ function openLightbox(src: string, alt: string): void {
   });
   document.addEventListener("keydown", onKey);
   document.body.append(overlay);
+  lightboxOpen = true;
   setZoomed(false);
   requestAnimationFrame(() => overlay.classList.add("visible"));
 }

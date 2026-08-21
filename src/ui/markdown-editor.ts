@@ -12,6 +12,8 @@ export interface MarkdownEditorOptions {
   render?: ((markdown: string) => Promise<string>) | undefined;
   // 拖入/粘贴文件入库回调：返回要插入到光标处的 Markdown 片段；返回 null 表示无内容插入。
   uploadFiles?: ((files: File[]) => Promise<string | null>) | undefined;
+  // TEST-V08-033：追加到工具栏末尾（“源码/预览”切换键右侧）的按钮，如区块放大按钮。
+  toolbarExtras?: HTMLElement[] | undefined;
 }
 
 export interface MarkdownEditorHandle {
@@ -173,6 +175,8 @@ function buildEditor(options: MarkdownEditorOptions): MarkdownEditorHandle {
     toolbar.append(button);
   }
   toolbar.append(toggle);
+  // TEST-V08-033：外部按钮（如区块放大）放在“源码/预览”切换键右侧。
+  for (const extra of options.toolbarExtras ?? []) toolbar.append(extra);
 
   toggle.addEventListener("click", () => {
     split.classList.toggle("preview-mode");

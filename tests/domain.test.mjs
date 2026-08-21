@@ -163,6 +163,18 @@ test("default dates use local time and next workday skips weekends", () => {
   assert.equal(toISODate(new Date(2026, 6, 7, 0, 30)), "2026-07-07");
 });
 
+test("extended default due dates resolve to the intended calendar days (TEST-V08-031)", () => {
+  const friday = new Date(2026, 7, 14, 10).getTime(); // 2026-08-14 周五
+  const monday = new Date(2026, 7, 17, 10).getTime(); // 2026-08-17 周一
+  assert.equal(resolveDefaultDueDate("in_3_days", friday), "2026-08-17");
+  assert.equal(resolveDefaultDueDate("in_7_days", friday), "2026-08-21");
+  assert.equal(resolveDefaultDueDate("this_friday", monday), "2026-08-21");
+  assert.equal(resolveDefaultDueDate("this_friday", friday), "2026-08-21"); // 当天为周五时取下一个周五
+  assert.equal(resolveDefaultDueDate("next_monday", friday), "2026-08-17");
+  assert.equal(resolveDefaultDueDate("next_monday", monday), "2026-08-24"); // 当天为周一时取下周一
+  assert.equal(resolveDefaultDueDate("none", friday), "");
+});
+
 test("folder paths include ancestors", () => {
   const folders = [
     { id: "a", name: "工作", parentId: null, order: 0, collapsed: false, createdAt: 1, updatedAt: 1 },

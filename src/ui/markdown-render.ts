@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import type { AttachmentMeta } from "../types.js";
 import type { WorkspaceBackend } from "../workspace-backend.js";
 
 // Markdown 渲染层：marked 解析 + DOMPurify 消毒 + attachment: 引用解析。
@@ -17,6 +18,13 @@ export interface MarkdownRenderer {
 
 export function createMarkdownRenderer(backend: WorkspaceBackend, taskId: string | null): MarkdownRenderer {
   const urls = new Map<string, string>();
+  // TEST-V08-032：附件类型缓存，视频附件渲染为内嵌播放器。
+  let metaCache: AttachmentMeta[] | null = null;
+
+  async function listMetas(): Promise<AttachmentMeta[]> {
+    if (!metaCache) metaCache = taskId ? await backend.listAttachments(taskId) : [];
+    return metaCache;
+  }
 
   async function resolveAttachment(id: string): Promise<string | null> {
     const cached = urls.get(id);
@@ -26,6 +34,10 @@ export function createMarkdownRenderer(backend: WorkspaceBackend, taskId: string
     const url = URL.createObjectURL(blob);
     urls.set(id, url);
     return url;
+  }
+
+  async function resolveKind(id: string): Promise<AttachmentMeta["kind"] | null> {
+    return (await listMetas()).find((meta) => meta.id === id)?.kind ?? null;
   }
 
   function placeholder(text: string): HTMLElement {
@@ -45,6 +57,16 @@ export function createMarkdownRenderer(backend: WorkspaceBackend, taskId: string
         const alt = image.getAttribute("alt") ?? "";
         const url = await resolveAttachment(id);
         if (!url) { image.replaceWith(placeholder(`图片“${alt || id}”已失效（附件可能已删除）`)); continue; }
+        if (await resolveKind(id) === "video") {
+          // 视频附件用图片语法引用时渲染为内嵌播放器。
+          const video = document.createElement("video");
+          video.src = url;
+          video.controls = true;
+          video.title = alt || id;
+          video.className = "attachment-video";
+          image.replaceWith(video);
+          continue;
+        }
         const element = image as HTMLImageElement;
         element.src = url;
         element.removeAttribute("data-attachment-image");
@@ -55,6 +77,15 @@ export function createMarkdownRenderer(backend: WorkspaceBackend, taskId: string
         const text = link.textContent ?? id;
         const url = await resolveAttachment(id);
         if (!url) { link.replaceWith(placeholder(`附件“${text}”已失效（附件可能已删除）`)); continue; }
+        if (await resolveKind(id) === "video") {
+          const video = document.createElement("video");
+          video.src = url;
+          video.controls = true;
+          video.title = text;
+          video.className = "attachment-video";
+          link.replaceWith(video);
+          continue;
+        }
         const anchor = link as HTMLAnchorElement;
         anchor.href = url;
         anchor.target = "_blank";
