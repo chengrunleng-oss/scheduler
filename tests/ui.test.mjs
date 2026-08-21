@@ -243,9 +243,9 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.doesNotMatch(responsiveCss, /\.worklog-history-section\.zoom-overlay \.history-zoom-toc[^{]*\{[^}]*position:\s*sticky/s);
   // TEST-V08-042：滚动条空间常驻避免宽度跳变；每日标题头控件压缩后默认宽度单行放下。
   assert.match(layoutCss, /\.worklog-panel, \.attachments-panel \{ overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;/);
-  assert.match(layoutCss, /\.daily-heading \{ flex-wrap: wrap; gap: 6px; \}/);
-  assert.match(layoutCss, /\.compact-field input \{ width: 124px;/);
-  assert.match(layoutCss, /\.progress-field input \{ width: 56px;/);
+  assert.match(layoutCss, /\.daily-heading \{ flex-wrap: wrap; gap: 4px; \}/);
+  assert.match(layoutCss, /\.compact-field input \{ width: 112px;/);
+  assert.match(layoutCss, /\.progress-field input \{ width: 48px;/);
   // TEST-V08-043：放大视图历史列表条目行按内容排列、不拉伸分摊剩余空间。
   assert.match(responsiveCss, /\.worklog-history-section\.zoom-overlay \.worklog-history[^{]*\{[^}]*align-content:\s*start/s);
   // TEST-V08-044：主题定制的文档表面令牌（浅色暖纸白、深色提亮冷灰）与 md 显示区应用。
@@ -256,11 +256,21 @@ test("work logs edit Markdown source with rendered history, attachment insertion
   assert.match(layoutCss, /\.markdown-editor \{[^}]*border: 1px solid var\(--doc-line\);[^}]*background: var\(--doc-surface\)/);
   assert.match(layoutCss, /\.markdown-shell \{[^}]*background: var\(--doc-surface\)/);
   assert.match(layoutCss, /\.markdown-source \{[^}]*background: var\(--doc-surface\)/);
-  assert.match(responsiveCss, /\.history-content-wrap > \.history-content \{[^}]*background: var\(--doc-surface\)/);
+  assert.match(responsiveCss, /\.history-content-wrap > \.history-content \{[^}]*background: var\(--note-surface\)/);
   // TEST-V08-045：目录高亮滚动同步（scroll-spy 与点击即时高亮）。
   assert.match(workspace, /refreshHistoryTocActive/);
   assert.match(workspace, /els\.worklogHistory\.addEventListener\("scroll"/);
   assert.match(workspace, /tocEntry\.classList\.toggle\("active", tocEntry\.dataset\.tocTarget === targetId\)/);
+  // TEST-V08-046：工作记录区便利贴化——区块为父便利贴、历史记录条目为嵌套子便利贴。
+  assert.match(tokensCss, /--note-surface: #ffffff;/);
+  assert.match(tokensCss, /--note-surface: #1b2024;/);
+  assert.match(layoutCss, /\.editor-section, \.worklog-history-section \{/);
+  assert.match(layoutCss, /\.editor-section, \.worklog-history-section[^{]*\{[^}]*border-radius:\s*10px;[^}]*background: var\(--doc-surface\)/s);
+  assert.match(layoutCss, /\.worklog-history-item \{ border: 1px solid var\(--doc-line\); border-radius: 8px; background: var\(--note-surface\);/);
+  assert.match(layoutCss, /\.worklog-history \{ display: grid; gap: 10px;/);
+  assert.match(layoutCss, /\.worklog-history-item:not\(\.expanded\) \.worklog-history-head \{ border-radius: 7px; \}/);
+  assert.match(responsiveCss, /\.worklog-history-item\.expanded \.worklog-history-head[^{]*\{[^}]*background: var\(--note-surface\)/s);
+  assert.match(responsiveCss, /\.worklog-panel \.workspace-section-heading \{ background: var\(--doc-surface\); \}/);
   // TEST-V08-017：1180px 起即可拖拽调节工作区宽度。
   assert.match(responsiveCss, /min-width: 1180px/);
   assert.match(events, /window\.innerWidth < 1180/);

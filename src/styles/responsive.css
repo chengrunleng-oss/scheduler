@@ -40,6 +40,13 @@
   padding: 18px max(26px, calc((100vw - 1120px) / 2)) 26px;
   overflow-y: auto;
 }
+/* TEST-V08-046：放大视图占满视口，去掉便利贴的外边距/边框/圆角（保留文档表面背景）。 */
+.editor-section.zoom-overlay,
+.worklog-history-section.zoom-overlay {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
 /* TEST-V08-028：放大层编辑器撑满剩余高度，源码/预览窗格各自内滚，长文档可完整滚动查看。 */
 /* TEST-V08-035：工作区三个区块标题栏吸顶，滚动浏览长文档时标题与操作按钮始终可见。 */
 .worklog-panel .workspace-section-heading,
@@ -51,23 +58,25 @@
   margin: 0 -2px 2px;
   padding: 6px 2px;
 }
-.worklog-panel .workspace-section-heading { background: var(--surface); }
-.zoom-overlay .workspace-section-heading { background: var(--bg); }
+.worklog-panel .workspace-section-heading { background: var(--doc-surface); }
+.zoom-overlay .workspace-section-heading { background: var(--doc-surface); }
 
 /* TEST-V08-037：历史记录日期表头随滚动吸顶，贴在区块标题栏下方，多条记录逐条顶替。 */
 .worklog-panel { --sticky-heading-height: 53px; }
 /* 放大视图里历史列表自身滚动，标题栏固定在列表外，日期表头相对列表吸顶。 */
 .worklog-history-section.zoom-overlay { --sticky-heading-height: 0px; }
+/* TEST-V08-046：展开态子便利贴的标题条吸顶时同样保持便利贴表面与顶部圆角。 */
 .worklog-history-item.expanded .worklog-history-head {
   position: sticky;
   top: var(--sticky-heading-height, 53px);
   z-index: 2;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-  margin: 0 -2px;
-  padding: 0 2px;
+  background: var(--note-surface);
+  border-bottom: 1px solid var(--doc-line);
+  border-radius: 7px 7px 0 0;
+  margin: 0;
+  padding: 0 10px;
 }
-.worklog-history-section.zoom-overlay .worklog-history-item.expanded .worklog-history-head { background: var(--bg); }
+.worklog-history-section.zoom-overlay .worklog-history-item.expanded .worklog-history-head { background: var(--note-surface); }
 
 /* TEST-V08-030：区块表头整条可点折叠（交互元素除外）。 */
 .section-heading-toggleable { cursor: pointer; }
@@ -108,7 +117,7 @@
   align-self: start;
   max-height: calc(100dvh - 150px);
   overflow-y: auto;
-  background: var(--bg);
+  background: var(--doc-surface);
   border-right: 1px solid var(--line);
   padding-right: 12px;
 }
@@ -143,8 +152,8 @@
 /* TEST-V08-024：历史记录展开/折叠的高度动画。 */
 .history-content-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 220ms ease; }
 .worklog-history-item.expanded .history-content-wrap { grid-template-rows: 1fr; }
-/* TEST-V08-044：历史记录渲染的 md 文档同样使用主题定制的文档表面。 */
-.history-content-wrap > .history-content { min-height: 0; overflow: hidden; margin: 0; background: var(--doc-surface); }
+/* TEST-V08-044/046：历史记录渲染的 md 文档使用子便利贴表面（父便利贴内嵌套）。 */
+.history-content-wrap > .history-content { min-height: 0; overflow: hidden; margin: 0; background: var(--note-surface); border-radius: 0 0 7px 7px; }
 .worklog-history-item.expanded .history-content { max-height: 420px; overflow-y: auto; padding: 10px 12px; }
 .worklog-history-item .history-date { display: flex; align-items: center; gap: 6px; }
 .worklog-history-item .history-date .lucide-icon { transition: transform 220ms ease; }

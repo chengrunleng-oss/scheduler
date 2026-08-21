@@ -191,14 +191,23 @@
 
 /* TEST-V08-042：滚动条空间常驻（stable gutter），滚动条出现/消失不再让面板内容宽度跳变，标题头等布局保持稳定。 */
 .worklog-panel, .attachments-panel { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 18px 28px; }
-.editor-section, .worklog-history-section { padding: 18px 0; border-bottom: 1px solid var(--line); }
+/* TEST-V08-046：工作记录区便利贴化——长期描述/每日记录/历史记录三个区块为父便利贴，历史记录条目为嵌套其中的子便利贴。 */
+.editor-section, .worklog-history-section {
+  margin: 0 0 14px;
+  border: 1px solid var(--doc-line);
+  border-radius: 10px;
+  background: var(--doc-surface);
+  box-shadow: 0 2px 6px rgb(28 48 54 / 7%);
+  padding: 4px 12px 12px;
+}
+.editor-section.section-collapsed, .worklog-history-section.section-collapsed { padding-bottom: 6px; }
 .workspace-section-heading h3, .worklog-history-section h3 { margin: 0; font-size: 14px; }
-/* TEST-V08-042：压缩每日记录标题头的日期/进度控件宽度与间距，保证默认面板宽度下单行放下全部操作。 */
-.daily-heading { flex-wrap: wrap; gap: 6px; }
+/* TEST-V08-042/046：压缩每日记录标题头的日期/进度控件宽度与间距，配合便利贴内边距与滚动条常驻，保证默认面板宽度下单行放下全部操作。 */
+.daily-heading { flex-wrap: wrap; gap: 4px; }
 .daily-heading h3 { margin-right: auto; }
-.compact-field input { width: 124px; min-height: 34px; }
-.progress-field { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
-.progress-field input { width: 56px; min-height: 34px; }
+.compact-field input { width: 112px; min-height: 34px; }
+.progress-field { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.progress-field input { width: 48px; min-height: 34px; }
 .editor-save-line { min-height: 28px; justify-content: flex-end; }
 /* TEST-V08-044：md 文档显示区使用主题定制的文档表面，与整体背景明确区分。 */
 .markdown-editor { min-height: 220px; margin-top: 10px; border: 1px solid var(--doc-line); border-radius: 7px; background: var(--doc-surface); overflow: hidden; }
@@ -242,9 +251,11 @@
 .markdown-lightbox-stage.zoomed .markdown-lightbox-image { width: auto; height: auto; max-width: none; max-height: none; object-fit: none; border-radius: 0; }
 .markdown-lightbox-caption { margin: 0 14px 12px; color: #eef2f5; font-size: 13px; text-align: center; }
 .workspace-empty { margin: 0; color: var(--muted); padding: 22px 8px; text-align: center; }
-.worklog-history { display: grid; gap: 2px; margin-top: 10px; }
-.worklog-history-item { border-top: 1px solid var(--line); }
-.worklog-history-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px; min-height: 48px; color: var(--muted); }
+.worklog-history { display: grid; gap: 10px; margin-top: 4px; }
+/* TEST-V08-046：历史记录条目 = 嵌套在历史便利贴里的子便利贴；不用 overflow:hidden 以免破坏展开态表头吸顶。 */
+.worklog-history-item { border: 1px solid var(--doc-line); border-radius: 8px; background: var(--note-surface); box-shadow: 0 1px 4px rgb(28 48 54 / 6%); }
+.worklog-history-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px; min-height: 48px; color: var(--muted); padding: 0 10px; }
+.worklog-history-item:not(.expanded) .worklog-history-head { border-radius: 7px; }
 .history-date { min-width: 0; overflow: hidden; border: 0; background: transparent; color: var(--text); padding: 6px 0; text-align: left; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
 .history-progress { color: var(--teal); font-size: 12px; font-weight: 700; }
 .worklog-history-item time { font-size: 11px; }

@@ -1380,7 +1380,7 @@ test("daily heading stays on one line and zoom history collapse leaves no inflat
   await page.waitForTimeout(400);
   expect(await headingHeight()).toBeLessThanOrEqual(60);
 
-  // 043：放大历史记录并折叠全部条目，条目高度回到单行头部，条目之间无大间隙。
+  // 043：放大历史记录并折叠全部条目，条目高度回到单行头部，条目之间只有便利贴间距、无拉伸大间隙。
   await page.locator("#zoomHistory").click();
   await page.waitForTimeout(300);
   const count = await items.count();
@@ -1398,10 +1398,10 @@ test("daily heading stays on one line and zoom history collapse leaves no inflat
     return { rects, gaps };
   });
   for (const rect of geometry.rects) {
-    expect(rect.height).toBeLessThanOrEqual(52);
+    expect(rect.height).toBeLessThanOrEqual(54);
   }
   for (const gap of geometry.gaps) {
-    expect(gap).toBeLessThanOrEqual(4);
+    expect(gap).toBeLessThanOrEqual(12);
   }
   await page.keyboard.press("Escape");
   await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
@@ -1433,24 +1433,26 @@ test("markdown document surfaces stay distinct in every theme (TEST-V08-044)", a
       history: bgOf("#worklogHistory .worklog-history-item.expanded .history-content"),
     };
   });
-  // 浅色主题：文档表面为暖纸白，与整体背景和面板表面都不同。
+  // 浅色主题：文档表面为暖纸白，与整体背景和面板表面都不同；历史子便利贴为纯白、与父便利贴区分。
   await page.locator("#themeSelect").selectOption("light");
   const light = await readColors();
   expect(light.doc).toBe("#fdfcf4");
   expect(light.editor).toBe("rgb(253, 252, 244)");
   expect(light.source).toBe("rgb(253, 252, 244)");
-  expect(light.history).toBe("rgb(253, 252, 244)");
+  expect(light.history).toBe("rgb(255, 255, 255)");
   expect(light.doc).not.toBe(light.bg);
   expect(light.doc).not.toBe(light.surface);
-  // 深色主题：文档表面为提亮的冷灰，同样与背景/面板区分。
+  expect(light.history).not.toBe(light.editor);
+  // 深色主题：文档表面为提亮的冷灰，同样与背景/面板区分；子便利贴为更深的嵌套色。
   await page.locator("#themeSelect").selectOption("dark");
   const dark = await readColors();
   expect(dark.doc).toBe("#242a2f");
   expect(dark.editor).toBe("rgb(36, 42, 47)");
   expect(dark.source).toBe("rgb(36, 42, 47)");
-  expect(dark.history).toBe("rgb(36, 42, 47)");
+  expect(dark.history).toBe("rgb(27, 32, 36)");
   expect(dark.doc).not.toBe(dark.bg);
   expect(dark.doc).not.toBe(dark.surface);
+  expect(dark.history).not.toBe(dark.editor);
 });
 
 test("zoom history TOC highlight follows the visible record while scrolling and clicking (TEST-V08-045)", async ({ page }) => {
@@ -1491,6 +1493,61 @@ test("zoom history TOC highlight follows the visible record while scrolling and 
   await expect(toc.nth(4)).not.toHaveClass(/active/);
   await page.keyboard.press("Escape");
   await expect(page.locator("#worklogHistorySection")).not.toHaveClass(/zoom-overlay/);
+});
+
+test("worklog sections render as sticky notes with nested history records (TEST-V08-046)", async ({ page }) => {
+  const iso = (offsetDays) => {
+    const now = new Date();
+    now.setDate(now.getDate() + offsetDays);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  };
+  await page.evaluate(async ({ dates }) => {
+    for (let index = 0; index < dates.length; index += 1) {
+      await globalThis.__workspaceBackendForTests.saveWorkLog({ taskId: "task-1", workDate: dates[index], contentMarkdown: `# 记录${index}\n\n${"内容".repeat(60)}`, progressPercent: 10 * index });
+    }
+  }, { dates: [iso(0), iso(-1), iso(-2)] });
+  await page.getByRole("option", { name: new RegExp(primaryTask) }).locator(".task-main").click();
+  await page.locator("#worklogTab").click();
+  await expect(page.locator("#worklogEditor")).toHaveAttribute("data-editor-state", /ready|fallback/, { timeout: 20_000 });
+  await expect(page.locator("#worklogHistory .worklog-history-item")).toHaveCount(3, { timeout: 20_000 });
+
+  const read = () => page.evaluate(() => {
+    const bg = (selector) => getComputedStyle(document.querySelector(selector)).backgroundColor;
+    const radius = (selector) => getComputedStyle(document.querySelector(selector)).borderRadius;
+    return {
+      description: { bg: bg("#descriptionSection"), radius: radius("#descriptionSection") },
+      daily: { bg: bg("#dailySection"), radius: radius("#dailySection") },
+      history: { bg: bg("#worklogHistorySection"), radius: radius("#worklogHistorySection") },
+      item: { bg: bg("#worklogHistory .worklog-history-item"), radius: radius("#worklogHistory .worklog-history-item") },
+      collapsedItemHeight: Math.round(document.querySelectorAll("#worklogHistory .worklog-history-item")[2].getBoundingClientRect().height),
+    };
+  });
+  // 浅色：三个区块都是暖纸白父便利贴，历史条目是纯白子便利贴（嵌套层次分明）。
+  await page.locator("#themeSelect").selectOption("light");
+  const light = await read();
+  for (const section of [light.description, light.daily, light.history]) {
+    expect(section.bg).toBe("rgb(253, 252, 244)");
+    expect(section.radius).toBe("10px");
+  }
+  expect(light.item.bg).toBe("rgb(255, 255, 255)");
+  expect(light.item.radius).toBe("8px");
+  expect(light.item.bg).not.toBe(light.history.bg);
+  expect(light.collapsedItemHeight).toBeLessThanOrEqual(54);
+  // 深色：父便利贴为提亮冷灰，子便利贴为更深的嵌套色。
+  await page.locator("#themeSelect").selectOption("dark");
+  const dark = await read();
+  for (const section of [dark.description, dark.daily, dark.history]) {
+    expect(section.bg).toBe("rgb(36, 42, 47)");
+    expect(section.radius).toBe("10px");
+  }
+  expect(dark.item.bg).toBe("rgb(27, 32, 36)");
+  expect(dark.item.bg).not.toBe(dark.history.bg);
+  // 放大视图同样保持子便利贴表面。
+  await page.locator("#zoomHistory").click();
+  await page.waitForTimeout(300);
+  const zoomItemBg = await page.evaluate(() => getComputedStyle(document.querySelector("#worklogHistory .worklog-history-item")).backgroundColor);
+  expect(zoomItemBg).toBe("rgb(27, 32, 36)");
+  await page.keyboard.press("Escape");
 });
 
 test("history date headers stick below the section heading while scrolling (TEST-V08-037)", async ({ page }) => {
