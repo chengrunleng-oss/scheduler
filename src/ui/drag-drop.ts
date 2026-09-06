@@ -288,7 +288,8 @@ export function createDragAndDrop(
           },
           getData: ({ input, element }) => {
             const rect = element.getBoundingClientRect();
-            return { kind: "folder-target", folderId, edge: input.clientY < rect.top + rect.height / 2 ? "before" : "after" };
+            const ratio = (input.clientY - rect.top) / rect.height;
+            return { kind: "folder-target", folderId, edge: ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "center" };
           },
           onDragEnter: () => heading.classList.add("drop-target"),
           onDragLeave: () => heading.classList.remove("drop-target"),
@@ -484,7 +485,8 @@ function resolveFolderDestination(folders: Folder[], sourceFolderId: string, tar
   const siblings = folders.filter((f) => f.parentId === targetParent && f.id !== sourceFolderId).sort(folderOrder);
   let parentId: string | null;
   let targetIndex: number;
-  if (sourceParent === targetParent) {
+  // TEST-V09-007：拖到文件夹行「中部」=嵌套为其子级（移动到其它文件夹下）；仅拖到同层文件夹行「边缘」=同级重排。
+  if (sourceParent === targetParent && target.edge !== "center") {
     const tIdx = siblings.findIndex((f) => f.id === targetFolderId);
     parentId = targetParent;
     targetIndex = Math.max(0, (tIdx < 0 ? 0 : tIdx) + (target.edge === "after" ? 1 : 0));
