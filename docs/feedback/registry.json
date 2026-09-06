@@ -1,7 +1,7 @@
 {
   "document_type": "scheduler_findings_registry",
   "format_version": 1,
-  "updated": "2026-08-17",
+  "updated": "2026-09-06",
   "release_gate": {
     "target_release": "v0.8-merge-import",
     "status": "blocked",
@@ -482,6 +482,16 @@
       "target_release": "v0.8-merge-import",
       "status": "passed_with_manual_verification_pending",
       "note": "TEST-V08-046 登记并完成：工作记录区便利贴化——长期描述/每日记录/历史记录为父便利贴，历史记录条目为嵌套其中的子便利贴；TEST-V08-007 继续等待真实 Windows 人工验收。"
+    },
+    {
+      "snapshot": "git:deepseek/test-feedback-fixes:TEST_FEEDBACK.json",
+      "test_date": "2026-09-06",
+      "format_version": 17,
+      "target_branch": "deepseek/test-feedback-fixes",
+      "source_revision": "d8bb274",
+      "target_release": "v0.9-optimization",
+      "status": "passed_with_manual_verification_pending",
+      "note": "用户改进建议（SchedulerSaveTest·本软件优化建议栏）阶段1：#1/#4a/#4b/#6②/#8 实现并登记关闭；npm run verify 全绿。"
     }
   ],
   "findings": [
@@ -1401,13 +1411,20 @@
       "category": "inline-create-draft-loss",
       "kind": "defect",
       "title": "新建任务行内输入名称后点其它按钮被清空不保存",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "d8bb274",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "renderer.createInlineForm 每次渲染新建空 input；inlineCreate 状态不含标题；任何 requestRender 或外部点击(events.ts:132/635/655/674 清空)都会重建表单丢弃已输入文字。"
       ],
       "resolution": "方案B：InlineCreateState 草稿化 title/priority/dueDate 并回填；行内 input/change 监听写回草稿；外部点击不再清空，仅 Escape/取消丢弃。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d8bb274；阶段1 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并确认无回归。" }
       ]
     },
     {
@@ -1416,13 +1433,20 @@
       "category": "workspace-collapse-animation",
       "kind": "enhancement",
       "title": "工作区长期描述/每日记录折叠无过渡动画",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "d8bb274",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "layout.css:267-268 折叠用 display:none 瞬时消失；无 grid-template-rows/opacity 过渡。"
       ],
       "resolution": "折叠改为 grid-template-rows 0fr↔1fr 过渡，尊重 prefers-reduced-motion。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d8bb274；阶段1 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并确认无回归。" }
       ]
     },
     {
@@ -1431,13 +1455,20 @@
       "category": "workspace-source-preview-viz",
       "kind": "enhancement",
       "title": "工作区源码区与预览编译区视觉区分不足",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "d8bb274",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "layout.css:223-231 源码与预览仅靠 border-right 1px 分隔；背景/标签无区分。"
       ],
       "resolution": "源码/预览各自表面、加清晰分隔与列间距，窄屏用上边距分隔。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d8bb274；阶段1 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并确认无回归。" }
       ]
     },
     {
@@ -1446,13 +1477,20 @@
       "category": "handled-status-grouping",
       "kind": "enhancement",
       "title": "已处理区不区分已完成与不再需要",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "d8bb274",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "renderer.renderHandledSection 按 status!==active 归并，标题统一“已处理”，已完成与不再需要混排。"
       ],
       "resolution": "已处理下分“已完成”“不再需要”两个子组。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d8bb274；阶段1 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并确认无回归。" }
       ]
     },
     {
@@ -1461,13 +1499,20 @@
       "category": "task-row-notes-inline",
       "kind": "enhancement",
       "title": "任务列表项不显示说明且无法就地编辑",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "d8bb274",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "renderer.createTaskNode 不渲染 notes；说明仅在右侧工作区详情面板编辑。"
       ],
       "resolution": "偏好“列表显示说明”默认关；空说明不占行；1 行省略；点说明行内编辑(Enter 存/Escape 取消)。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit d8bb274；阶段1 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并确认无回归。" }
       ]
     }
   ]
