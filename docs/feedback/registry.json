@@ -1521,13 +1521,20 @@
       "category": "overdue-task-drag",
       "kind": "enhancement",
       "title": "已过期望办任务无法拖动",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "cdb319a",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "renderer.ts:470 is-draggable 仅 active&&!overdue；drag-drop.ts:320/353 过滤 isOverdue；store.ts:128 move-task 仅 active。"
       ],
       "resolution": "过期任务可拖：拖到其它文件夹=移动(仍逾期)；拖到拖拽中浮现的改期横条(今天/明天/3天后/7天后/自定义)=改期脱离逾期。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cdb319a；阶段2/3/4 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并被确认。" }
       ]
     },
     {
@@ -1536,13 +1543,20 @@
       "category": "folder-drag-drop",
       "kind": "enhancement",
       "title": "文件夹无法拖动换位置或移入其它文件夹",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "cdb319a",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "drag-drop.ts 仅处理 task；文件夹移动走 dialogs.moveFolder 对话框；无拖拽手柄。"
       ],
       "resolution": "文件夹加 GripVertical 手柄；行上=嵌套为子、行间=同级重排；canMoveFolder 防环/防超深；保留「移动」对话框。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cdb319a；阶段2/3/4 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并被确认。" }
       ]
     },
     {
@@ -1551,13 +1565,20 @@
       "category": "binary-attachment-open-folder",
       "kind": "enhancement",
       "title": "二进制附件点击地址想打开本地存储文件夹",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "cdb319a",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "workspace.ts:441 open 走 openAttachment(blob window.open)；预览仅支持 image/pdf/video；FS Access API 无法定位单文件。"
       ],
       "resolution": "office/binary 附件主导操作=「打开所属任务文件夹」，下沉到每个附件行，去掉/禁用无效预览。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cdb319a；阶段2/3/4 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并被确认。" }
       ]
     },
     {
@@ -1581,13 +1602,20 @@
       "category": "handled-task-drag",
       "kind": "enhancement",
       "title": "已处理任务可拖(区内排序/拖到其它文件夹已处理区/拖回上方=恢复待办)",
-      "status": "open",
+      "status": "closed",
+      "fix_commit": "cdb319a",
+      "verified_by": [
+        "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。"
+      ],
       "evidence": [
         "renderHandledSection 按 resolvedAt 渲染排序且不可拖；store.ts:128 move-task 仅 active。"
       ],
       "resolution": "新增已处理移动/恢复 store 能力；三种拖动语义正确；恢复待办带确认/撤销；单独契约测试+e2e。",
       "history": [
-        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" }
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段2/3/4。" },
+        { "date": "2026-09-06", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit cdb319a；阶段2/3/4 实现完成。" },
+        { "date": "2026-09-06", "event": "verified", "round": "deepseek/test-feedback-fixes", "evidence": "npm run verify 全绿：validate:feedback、typecheck、build、75 项 Node 单测、check:dist、89 项 Playwright e2e 全部通过。" },
+        { "date": "2026-09-06", "event": "closed", "round": "deepseek/test-feedback-fixes", "evidence": "回归测试全部通过并被确认。" }
       ]
     }
   ]
