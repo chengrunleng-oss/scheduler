@@ -321,3 +321,9 @@
 .confirm-text { margin: 0; color: var(--muted); line-height: 1.6; }
 .field-note { margin: 0; border-left: 3px solid var(--pending); background: var(--pending-soft); color: var(--text); padding: 9px 10px; font-size: 13px; line-height: 1.5; }
 .toast { position: fixed; z-index: 60; right: 20px; bottom: 20px; max-width: min(380px, calc(100vw - 40px)); border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); box-shadow: var(--shadow); padding: 11px 14px; font-size: 13px; }
+
+/* TEST-V09-006：拖动过期任务时浮现的改期横条。 */
+.drag-reschedule-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; gap: 8px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 24px rgb(28 48 54 / 14%); }
+.drag-reschedule-bar[hidden] { display: none; }
+.drag-reschedule-option { min-height: 34px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); padding: 5px 10px; font-size: 13px; cursor: grab; }
+.drag-reschedule-option.drop-target { background: var(--teal-soft); color: var(--teal); border-color: var(--teal); }

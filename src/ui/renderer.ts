@@ -262,6 +262,10 @@ function createTreeHeading(state: AppState, folder: Folder | null, count: number
   heading.dataset.dropFolderId = folderId ?? "root";
   if (recent) heading.title = "该文件夹内近期有工作记录";
   if (folder) {
+    // TEST-V09-007：文件夹拖拽手柄（专用 GripVertical，避免与表头折叠/点击冲突）。
+    const handle = iconButton("drag-folder", "GripVertical", "拖动文件夹", "folder-drag-handle");
+    handle.dataset.folderId = folder.id;
+    heading.append(handle);
     const toggle = iconButton("toggle-folder", folder.collapsed ? "ChevronRight" : "ChevronDown", folder.collapsed ? "展开文件夹" : "折叠文件夹", "folder-toggle");
     toggle.dataset.folderId = folder.id;
     heading.append(toggle);
@@ -382,7 +386,7 @@ function renderDirectTasks(state: AppState, tasks: Task[], view: ViewState, fold
   const overdue = tasks.filter((task) => isOverdue(task, today)).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   if (overdue.length) {
     container.append(createSubheading("逾期", overdue.length, "overdue-heading"));
-    for (const task of overdue) container.append(createTaskNode(task, state, view, depth, false));
+    for (const task of overdue) container.append(createTaskNode(task, state, view, depth, dragEnabled));
   }
   const pending = tasks.filter((task) => Boolean(task.pendingResolution) && !isOverdue(task, today));
   const ordinary = tasks.filter((task) => task.status === "active" && !isOverdue(task, today));
@@ -431,11 +435,11 @@ function renderHandledSection(state: AppState, tasks: Task[], view: ViewState, f
     // TEST-V09-004：已处理下划分“已完成”“不再需要”两个子组。
     if (completed.length) {
       container.append(createGroupHeading("已完成", completed.length));
-      for (const task of completed) container.append(createTaskNode(task, state, view, depth, false));
+      for (const task of completed) container.append(createTaskNode(task, state, view, depth, true));
     }
     if (discarded.length) {
       container.append(createGroupHeading("不再需要", discarded.length));
-      for (const task of discarded) container.append(createTaskNode(task, state, view, depth, false));
+      for (const task of discarded) container.append(createTaskNode(task, state, view, depth, true));
     }
   }
 }
@@ -479,17 +483,18 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
   node.dataset.id = task.id;
   node.dataset.folderId = task.folderId ?? "root";
   node.dataset.priority = task.priority;
+  node.dataset.status = task.status;
   node.style.setProperty("--task-depth", String(depth));
   node.tabIndex = 0;
   node.setAttribute("role", "option");
   node.setAttribute("aria-selected", String(selected));
   node.setAttribute("aria-label", `${task.title}，${pending ? "等待确认" : STATUS_LABELS[task.status]}，${PRIORITY_LABELS[task.priority]}优先级${recent ? "，近期有工作记录" : ""}`);
   if (recent) node.title = "近期有工作记录";
-  if (draggable && task.status === "active" && !overdue) node.classList.add("is-draggable");
+  if (draggable && !task.pendingResolution) node.classList.add("is-draggable");
 
   const main = createElement("div", { className: "task-main" });
   const titleLine = createElement("div", { className: "task-title-line" });
-  if (draggable && task.status === "active" && !overdue) {
+  if (draggable && !task.pendingResolution) {
     const handle = iconButton("drag-task", "GripVertical", "拖动任务", "drag-handle");
     handle.dataset.taskId = task.id;
     titleLine.append(handle);

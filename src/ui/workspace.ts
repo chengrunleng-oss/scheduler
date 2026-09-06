@@ -437,8 +437,16 @@ export function createWorkspaceController(
     info.append(icon(typeIcon), createElement("div", { className: "attachment-copy" }));
     info.lastElementChild?.append(createElement("strong", { text: meta.name }), createElement("span", { text: `${formatBytes(meta.size)} · ${formatDateTime(meta.createdAt)}` }));
     const actions = createElement("div", { className: "attachment-actions" });
-    actions.append(attachmentButton("preview", "Eye", "预览附件"));
-    if (meta.kind !== "text") actions.append(attachmentButton("open", "ExternalLink", "使用浏览器打开"));
+    const kind = meta.kind;
+    const previewable = kind === "image" || kind === "pdf" || kind === "video" || kind === "text";
+    // TEST-V09-008：不可预览(office/binary)附件主操作改为「打开任务文件夹」；可预览类保留预览。
+    if (previewable) actions.append(attachmentButton("preview", "Eye", "预览附件"));
+    if (kind === "office" || kind === "binary") {
+      actions.append(attachmentButton("open-folder", "FolderOpen", "打开任务文件夹"));
+    } else if (kind !== "text") {
+      actions.append(attachmentButton("open", "ExternalLink", "使用浏览器打开"));
+      actions.append(attachmentButton("open-folder", "FolderOpen", "打开任务文件夹"));
+    }
     actions.append(attachmentButton("download", "Download", "导出附件"));
     if (meta.kind === "text" && editable) actions.append(attachmentButton("edit", "FilePenLine", "编辑文本附件"));
     if (meta.kind === "image" && editable) actions.append(attachmentButton("insert-image", "ImagePlus", "插入长期描述"));
@@ -1042,13 +1050,11 @@ export function createWorkspaceController(
   wireGlobalFileDropGuard();
   // TEST-V08-020：纯 Web 应用无法直接呼出系统资源管理器，这里由本地目录后端用系统文件选择器
   // 定位到任务目录，让用户可以直接查看该任务的本地文件。
-  els.openTaskFolder.addEventListener("click", async () => {
-    if (!activeTaskId) return;
+  // TEST-V09-008：打开当前任务所在目录（不可预览附件主操作也复用此能力）。
+  async function revealTaskDirectory(): Promise<void> {
+    if (!activeTaskId) { dialogs.toast("请先选择任务。"); return; }
     const reveal = backend.revealTaskDirectory;
-    if (!reveal) {
-      dialogs.toast("当前存储后端不支持打开系统文件夹。");
-      return;
-    }
+    if (!reveal) { dialogs.toast("当前存储后端不支持打开系统文件夹。"); return; }
     try {
       const opened = await reveal.call(backend, activeTaskId);
       if (!opened) dialogs.toast("无法访问任务文件夹，请先确认工作区目录权限。");
@@ -1057,7 +1063,8 @@ export function createWorkspaceController(
         dialogs.toast(`打开任务文件夹失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
     }
-  });
+  }
+  els.openTaskFolder.addEventListener("click", () => { void revealTaskDirectory(); });
   els.attachmentFile.addEventListener("change", async () => {
     const files = Array.from(els.attachmentFile.files ?? []); els.attachmentFile.value = "";
     await uploadAttachments(files);
@@ -1077,6 +1084,7 @@ export function createWorkspaceController(
     if (action === "preview") await previewAttachment(id);
     if (action === "edit") await editTextAttachment(id);
     if (action === "open") await openAttachment(id);
+    if (action === "open-folder") await revealTaskDirectory();
     if (action === "download") await downloadAttachment(id);
     if (action === "insert-image") await insertImage(id);
     if (action === "rename") {

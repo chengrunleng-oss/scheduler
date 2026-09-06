@@ -151,6 +151,7 @@ export type StateAction =
   | { type: "set-recent-worklog-days"; days: number }
   | { type: "set-show-task-notes"; show: boolean }
   | { type: "set-task-notes"; id: string; notes: string; now?: number }
+  | { type: "move-handled-task"; id: string; folderId: string | null; now?: number }
   | { type: "set-workspace-width"; width: number }
   | { type: "toggle-handled-section"; containerId: string }
   | { type: "toggle-navigation-folder"; id: string }

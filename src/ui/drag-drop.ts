@@ -1,9 +1,9 @@
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable, dropTargetForElements, monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { autoScrollForElements, autoScrollWindowForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element";
-import { isOverdue } from "../domain.js";
+import { addDays, canMoveFolder, isOverdue, toISODate } from "../domain.js";
 import type { AppStore } from "../store.js";
-import type { Priority, Task } from "../types.js";
+import type { Folder, Priority, Task } from "../types.js";
 import { icon } from "./icons.js";
 import type { ViewState } from "./renderer.js";
 
@@ -38,6 +38,20 @@ export function createDragAndDrop(
     target: Record<string | symbol, unknown> | null;
     cleanupDropTarget: () => void;
   } | null = null;
+
+  // TEST-V09-006：拖动过期任务时浮现的改期横条。
+  const rescheduleBar = document.createElement("div");
+  rescheduleBar.className = "drag-reschedule-bar";
+  rescheduleBar.hidden = true;
+  container.append(rescheduleBar);
+  for (const [key, label] of [["tomorrow", "明天"], ["in_3_days", "3天后"], ["in_7_days", "7天后"]] as const) {
+    const btn = document.createElement("button");
+    btn.className = "drag-reschedule-option";
+    btn.type = "button";
+    btn.dataset.reschedule = key;
+    btn.textContent = label;
+    rescheduleBar.append(btn);
+  }
 
   function cancelPreviewAnimations(): void {
     for (const animation of previewAnimations.values()) animation.cancel();
@@ -223,8 +237,14 @@ export function createDragAndDrop(
         cleanups.push(draggable({
           element: row,
           dragHandle: handle,
-          getInitialData: () => ({ kind: "task", taskId }),
-          onDragStart: () => { dragActive = true; startTaskPreview(row, taskId); },
+          getInitialData: () => ({ kind: "task", taskId, status: row.dataset.status ?? "active" }),
+          onDragStart: () => {
+            dragActive = true;
+            const src = store.getState().tasks.find((item) => item.id === taskId);
+            if (src && isOverdue(src)) { rescheduleBar.dataset.taskId = taskId; rescheduleBar.hidden = false; }
+            else rescheduleBar.hidden = true;
+            startTaskPreview(row, taskId);
+          },
           onDrop: () => {
             suppressedTaskClick = { taskId, expiresAt: performance.now() + 600 };
           },
@@ -238,6 +258,41 @@ export function createDragAndDrop(
           getInitialData: () => ({ kind: "divider", folderId: folderId ?? "root" }),
           onDragStart: () => { dragActive = true; divider.classList.add("is-dragging"); },
           onDrop: () => divider.classList.remove("is-dragging"),
+        }));
+      }
+
+      // TEST-V09-007：文件夹拖拽（专用手柄；行上=嵌套为子、同层边缘=同级重排）。
+      for (const handle of container.querySelectorAll<HTMLElement>(".folder-drag-handle[data-folder-id]")) {
+        const heading = handle.closest<HTMLElement>(".tree-group-heading");
+        const rawFolderId = handle.dataset.folderId;
+        if (!heading || !rawFolderId) continue;
+        const folderId = rawFolderId;
+        cleanups.push(draggable({
+          element: heading,
+          dragHandle: handle,
+          getInitialData: () => ({ kind: "folder", folderId }),
+          onDragStart: () => { dragActive = true; heading.classList.add("is-dragging"); },
+          onDrop: () => heading.classList.remove("is-dragging"),
+        }));
+        cleanups.push(dropTargetForElements({
+          element: heading,
+          canDrop: ({ source }) => {
+            if (source.data.kind !== "folder") return false;
+            const src = String(source.data.folderId ?? "");
+            if (src === folderId) return false;
+            const folders = store.getState().folders;
+            const sourceFolder = folders.find((f) => f.id === src);
+            const targetFolder = folders.find((f) => f.id === folderId);
+            // 同层重排始终可用；跨层嵌套需 canMoveFolder 校验（防环/防超深）。
+            return sourceFolder?.parentId === targetFolder?.parentId || canMoveFolder(folders, src, folderId);
+          },
+          getData: ({ input, element }) => {
+            const rect = element.getBoundingClientRect();
+            return { kind: "folder-target", folderId, edge: input.clientY < rect.top + rect.height / 2 ? "before" : "after" };
+          },
+          onDragEnter: () => heading.classList.add("drop-target"),
+          onDragLeave: () => heading.classList.remove("drop-target"),
+          onDrop: () => heading.classList.remove("drop-target"),
         }));
       }
 
@@ -287,11 +342,23 @@ export function createDragAndDrop(
         }));
       }
 
+      for (const btn of rescheduleBar.querySelectorAll<HTMLButtonElement>("button[data-reschedule]")) {
+        const key = btn.dataset.reschedule ?? "";
+        cleanups.push(dropTargetForElements({
+          element: btn,
+          canDrop: ({ source }) => source.data.kind === "task" && rescheduleBar.dataset.taskId === String(source.data.taskId ?? ""),
+          getData: () => ({ kind: "reschedule-target", reschedule: key }),
+          onDragEnter: () => btn.classList.add("drop-target"),
+          onDragLeave: () => btn.classList.remove("drop-target"),
+          onDrop: () => btn.classList.remove("drop-target"),
+        }));
+      }
+
       cleanups.push(
         autoScrollForElements({ element: container, getAllowedAxis: () => "vertical", getConfiguration: () => ({ maxScrollSpeed: "fast" }) }),
         autoScrollWindowForElements({ getAllowedAxis: () => "vertical" }),
         monitorForElements({
-          canMonitor: ({ source }) => source.data.kind === "task" || source.data.kind === "divider",
+          canMonitor: ({ source }) => source.data.kind === "task" || source.data.kind === "divider" || source.data.kind === "folder",
           onDropTargetChange: ({ source, location }) => {
             if (source.data.kind !== "task") return;
             updateTaskPreview(location.current.dropTargets[0]?.data ?? resolveTargetAtPoint(location.current.input));
@@ -300,9 +367,41 @@ export function createDragAndDrop(
             try {
               clearHoverTimers();
               const target = location.current.dropTargets[0]?.data ?? resolveTargetAtPoint(location.current.input);
+              if (source.data.kind === "folder") {
+                const folderId = String(source.data.folderId ?? "");
+                const destination = target && target.kind === "folder-target" ? resolveFolderDestination(store.getState().folders, folderId, target) : null;
+                if (!destination) { collapseTemporaryFolders(null); return; }
+                store.dispatch({ type: "move-folder", id: folderId, parentId: destination.parentId, targetIndex: destination.targetIndex });
+                collapseTemporaryFolders(destination.parentId);
+                announce("已移动文件夹。");
+                return;
+              }
               if (source.data.kind === "task") {
                 const taskId = String(source.data.taskId ?? "");
+                if (target?.kind === "reschedule-target") {
+                  const dueDate = rescheduleDate(String(target.reschedule ?? ""));
+                  const task = store.getState().tasks.find((item) => item.id === taskId);
+                  finishTaskPreview();
+                  if (task) { store.dispatch({ type: "reschedule-task", id: taskId, dueDate, source: "quick" }); announce(`已将“${task.title}”改期到“${dueDate}”。`); }
+                  collapseTemporaryFolders(null);
+                  return;
+                }
                 const task = store.getState().tasks.find((item) => item.id === taskId);
+                // TEST-V09-010：已处理(completed/discarded)任务——拖到文件夹=移动(保留状态)；拖到待办行=恢复为待办。
+                if (task && (task.status === "completed" || task.status === "discarded")) {
+                  if (target?.kind === "folder-target") {
+                    const folderId = String(target.folderId ?? "root") === "root" ? null : String(target.folderId ?? "");
+                    store.dispatch({ type: "move-handled-task", id: taskId, folderId });
+                    announce(`已将“${task.title}”移动。`);
+                  } else if (target?.kind === "task-target") {
+                    const targetTask = store.getState().tasks.find((item) => item.id === String(target.targetId ?? ""));
+                    if (targetTask?.folderId) store.dispatch({ type: "move-handled-task", id: taskId, folderId: targetTask.folderId });
+                    store.dispatch({ type: "restore-task", id: taskId });
+                    announce(`已恢复“${task.title}”为待办。`);
+                  }
+                  collapseTemporaryFolders(null);
+                  return;
+                }
                 const destination = task && target ? resolveTaskDestination(store.getState().tasks, task, target) : null;
                 finishTaskPreview();
                 if (!task || !destination) { collapseTemporaryFolders(null); return; }
@@ -325,6 +424,7 @@ export function createDragAndDrop(
                 announce("已调整高、低优先级分界线。");
               }
             } finally {
+              rescheduleBar.hidden = true;
               finishTaskPreview();
               dragActive = false;
               if (refreshPending) {
@@ -358,4 +458,40 @@ function resolveTaskDestination(tasks: Task[], source: Task, target: Record<stri
 
 function stableTaskOrder(a: Task, b: Task): number {
   return a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+}
+
+function folderOrder(a: Folder, b: Folder): number {
+  return a.order - b.order || a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+}
+
+// TEST-V09-006：改期横条各选项对应的目标日期。
+function rescheduleDate(key: string): string {
+  const today = toISODate();
+  if (key === "tomorrow") return addDays(today, 1);
+  if (key === "in_3_days") return addDays(today, 3);
+  if (key === "in_7_days") return addDays(today, 7);
+  return today;
+}
+
+// TEST-V09-007：计算文件夹拖拽的目标（同层=同级重排，跨层=嵌套为子），canMoveFolder 兜底校验。
+function resolveFolderDestination(folders: Folder[], sourceFolderId: string, target: Record<string | symbol, unknown>): { parentId: string | null; targetIndex: number } | null {
+  const rawTarget = String(target.folderId ?? "root");
+  const targetFolderId = rawTarget === "root" ? null : rawTarget;
+  const source = folders.find((f) => f.id === sourceFolderId);
+  const targetFolder = folders.find((f) => f.id === (targetFolderId ?? ""));
+  const sourceParent = source?.parentId ?? null;
+  const targetParent = targetFolder?.parentId ?? null;
+  const siblings = folders.filter((f) => f.parentId === targetParent && f.id !== sourceFolderId).sort(folderOrder);
+  let parentId: string | null;
+  let targetIndex: number;
+  if (sourceParent === targetParent) {
+    const tIdx = siblings.findIndex((f) => f.id === targetFolderId);
+    parentId = targetParent;
+    targetIndex = Math.max(0, (tIdx < 0 ? 0 : tIdx) + (target.edge === "after" ? 1 : 0));
+  } else {
+    parentId = targetFolderId;
+    targetIndex = folders.filter((f) => f.parentId === parentId && f.id !== sourceFolderId).length;
+  }
+  if (!canMoveFolder(folders, sourceFolderId, parentId)) return null;
+  return { parentId, targetIndex };
 }

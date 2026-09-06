@@ -10,6 +10,7 @@
   .app-shell.workspace-open .list-head > span:nth-child(2) { grid-area: priority; }
   .app-shell.workspace-open .list-head > span:nth-child(3) { grid-area: date; }
   .app-shell.workspace-open .list-head > span:nth-child(4) { grid-area: actions; justify-self: end; }
+  .app-shell.workspace-open .list-head > span { white-space: nowrap; }
   .app-shell.workspace-open .task-item { min-height: 84px; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "title actions actions" "meta priority date"; gap: 5px 8px; padding-block: 8px; }
   .app-shell.workspace-open .task-main { display: contents; }
   .app-shell.workspace-open .task-title-line { grid-area: title; min-height: 40px; }
