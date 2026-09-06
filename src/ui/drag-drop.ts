@@ -396,6 +396,15 @@ export function createDragAndDrop(
                   collapseTemporaryFolders(null);
                   return;
                 }
+                // TEST-V09-006：过期任务——拖到文件夹=移动(保留其在另文件夹的逾期区)；拖到改期横条=改期。
+                if (task && isOverdue(task) && target?.kind === "folder-target") {
+                  const folderId = String(target.folderId ?? "root") === "root" ? null : String(target.folderId ?? "");
+                  store.dispatch({ type: "move-overdue-task", id: taskId, folderId });
+                  finishTaskPreview();
+                  collapseTemporaryFolders(folderId);
+                  announce(`已将“${task.title}”移动。`);
+                  return;
+                }
                 const destination = task && target ? resolveTaskDestination(store.getState().tasks, task, target) : null;
                 finishTaskPreview();
                 if (!task || !destination) { collapseTemporaryFolders(null); return; }

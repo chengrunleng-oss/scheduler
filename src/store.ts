@@ -297,6 +297,13 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       return { ...state, tasks: state.tasks.map((task) => task.id === action.id ? { ...task, folderId: action.folderId, updatedAt: action.now ?? Date.now() } : task) };
     }
 
+    case "move-overdue-task": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || target.status !== "active" || !isOverdue(target, toISODate(action.now)) || target.folderId === action.folderId) return state;
+      if (action.folderId && !state.folders.some((folder) => folder.id === action.folderId)) return state;
+      return { ...state, tasks: state.tasks.map((task) => task.id === action.id ? { ...task, folderId: action.folderId, updatedAt: action.now ?? Date.now() } : task) };
+    }
+
     case "set-workspace-width": {
       const width = Math.max(560, Math.min(680, Math.round(action.width)));
       return state.preferences.workspaceWidth === width ? state : { ...state, preferences: { ...state.preferences, workspaceWidth: width } };
