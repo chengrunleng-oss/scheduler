@@ -16,6 +16,7 @@
 .folder-row:hover { background: var(--surface-muted); }
 .folder-row.selected { background: var(--teal-soft); color: var(--teal); }
 .folder-toggle { border-color: transparent; background: transparent; }
+.folder-drag-handle { width: var(--hit-target); height: var(--hit-target); min-width: var(--hit-target); min-height: var(--hit-target); flex: 0 0 var(--hit-target); }
 .folder-toggle-spacer { display: inline-grid; width: 40px; height: 40px; place-items: center; }
 .folder-name { display: flex; min-width: 0; min-height: 40px; align-items: center; gap: 7px; border: 0; background: transparent; padding: 4px; text-align: left; }
 .folder-name:not(.root-folder-row *) { color: var(--teal); }
