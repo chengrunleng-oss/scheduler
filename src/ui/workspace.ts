@@ -1065,6 +1065,19 @@ export function createWorkspaceController(
     }
   }
   els.openTaskFolder.addEventListener("click", () => { void revealTaskDirectory(); });
+  // TEST-V09-008：md 文档中不可预览附件(office/binary)的链接点击→「打开任务文件夹」；可预览类维持浏览器打开。
+  document.addEventListener("click", async (event) => {
+    const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[data-attachment-id]");
+    if (!anchor) return;
+    const id = anchor.dataset.attachmentId ?? "";
+    if (!id) return;
+    const task = currentTask();
+    if (!task) return;
+    const meta = (await backend.listAttachments(task.id)).find((item) => item.id === id);
+    if (!meta || (meta.kind !== "office" && meta.kind !== "binary")) return;
+    event.preventDefault();
+    await revealTaskDirectory();
+  });
   els.attachmentFile.addEventListener("change", async () => {
     const files = Array.from(els.attachmentFile.files ?? []); els.attachmentFile.value = "";
     await uploadAttachments(files);

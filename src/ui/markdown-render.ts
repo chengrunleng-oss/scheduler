@@ -90,6 +90,8 @@ export function createMarkdownRenderer(backend: WorkspaceBackend, taskId: string
         anchor.href = url;
         anchor.target = "_blank";
         anchor.rel = "noopener";
+        // TEST-V09-008：保留附件 id，供点击时把不可预览(office/binary)附件重定向到「打开任务文件夹」。
+        anchor.dataset.attachmentId = id;
         anchor.removeAttribute("data-attachment-link");
       }
       return template.innerHTML;
