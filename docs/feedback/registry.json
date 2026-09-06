@@ -1394,6 +1394,81 @@
         { "date": "2026-08-17", "event": "opened", "round": "deepseek/test-feedback-fixes", "evidence": "用户直接体验反馈。" },
         { "date": "2026-08-17", "event": "fixed", "round": "deepseek/test-feedback-fixes", "evidence": "fix_commit 9df3c37；e2e 与契约测试通过。" }
       ]
+    },
+    {
+      "id": "TEST-V09-001",
+      "severity": "P2",
+      "category": "inline-create-draft-loss",
+      "kind": "defect",
+      "title": "新建任务行内输入名称后点其它按钮被清空不保存",
+      "status": "open",
+      "evidence": [
+        "renderer.createInlineForm 每次渲染新建空 input；inlineCreate 状态不含标题；任何 requestRender 或外部点击(events.ts:132/635/655/674 清空)都会重建表单丢弃已输入文字。"
+      ],
+      "resolution": "方案B：InlineCreateState 草稿化 title/priority/dueDate 并回填；行内 input/change 监听写回草稿；外部点击不再清空，仅 Escape/取消丢弃。",
+      "history": [
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+      ]
+    },
+    {
+      "id": "TEST-V09-002",
+      "severity": "P2",
+      "category": "workspace-collapse-animation",
+      "kind": "enhancement",
+      "title": "工作区长期描述/每日记录折叠无过渡动画",
+      "status": "open",
+      "evidence": [
+        "layout.css:267-268 折叠用 display:none 瞬时消失；无 grid-template-rows/opacity 过渡。"
+      ],
+      "resolution": "折叠改为 grid-template-rows 0fr↔1fr 过渡，尊重 prefers-reduced-motion。",
+      "history": [
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+      ]
+    },
+    {
+      "id": "TEST-V09-003",
+      "severity": "P2",
+      "category": "workspace-source-preview-viz",
+      "kind": "enhancement",
+      "title": "工作区源码区与预览编译区视觉区分不足",
+      "status": "open",
+      "evidence": [
+        "layout.css:223-231 源码与预览仅靠 border-right 1px 分隔；背景/标签无区分。"
+      ],
+      "resolution": "源码/预览各自表面、加清晰分隔与列间距，窄屏用上边距分隔。",
+      "history": [
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+      ]
+    },
+    {
+      "id": "TEST-V09-004",
+      "severity": "P2",
+      "category": "handled-status-grouping",
+      "kind": "enhancement",
+      "title": "已处理区不区分已完成与不再需要",
+      "status": "open",
+      "evidence": [
+        "renderer.renderHandledSection 按 status!==active 归并，标题统一“已处理”，已完成与不再需要混排。"
+      ],
+      "resolution": "已处理下分“已完成”“不再需要”两个子组。",
+      "history": [
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+      ]
+    },
+    {
+      "id": "TEST-V09-005",
+      "severity": "P2",
+      "category": "task-row-notes-inline",
+      "kind": "enhancement",
+      "title": "任务列表项不显示说明且无法就地编辑",
+      "status": "open",
+      "evidence": [
+        "renderer.createTaskNode 不渲染 notes；说明仅在右侧工作区详情面板编辑。"
+      ],
+      "resolution": "偏好“列表显示说明”默认关；空说明不占行；1 行省略；点说明行内编辑(Enter 存/Escape 取消)。",
+      "history": [
+        { "date": "2026-09-06", "event": "opened", "round": "planning", "evidence": "用户改进建议（SchedulerSaveTest·本软件优化建议栏），落地计划阶段1。" }
+      ]
     }
   ]
 }

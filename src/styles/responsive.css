@@ -27,6 +27,7 @@
 }
 
 /* TEST-V08-022：组件级放大。长期描述/每日记录/历史记录各自的全屏阅读层。 */
+.editor-section.zoom-overlay .workspace-section-body { display: contents; }
 .editor-section.zoom-overlay,
 .worklog-history-section.zoom-overlay {
   position: fixed;

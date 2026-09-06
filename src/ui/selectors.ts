@@ -9,6 +9,7 @@ export interface Elements {
   defaultDueDate: HTMLSelectElement;
   defaultPriority: HTMLSelectElement;
   recentWorklogDays: HTMLSelectElement;
+  showTaskNotesInList: HTMLInputElement;
   newFolder: HTMLButtonElement;
   folderTree: HTMLElement;
   workspaceTitle: HTMLElement;
@@ -183,7 +184,7 @@ export function queryElements(): Elements {
   return {
     appShell: requiredElement("#appShell"),
     sidebar: requiredElement("#sidebar"), sidebarClose: requiredElement("#sidebarClose"), navToggle: requiredElement("#navToggle"),
-    globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"), recentWorklogDays: requiredElement("#recentWorklogDays"),
+    globalNewTask: requiredElement("#globalNewTask"), defaultDueDate: requiredElement("#defaultDueDate"), defaultPriority: requiredElement("#defaultPriority"), recentWorklogDays: requiredElement("#recentWorklogDays"), showTaskNotesInList: requiredElement("#showTaskNotesInList"),
     newFolder: requiredElement("#newFolder"), folderTree: requiredElement("#folderTree"), workspaceTitle: requiredElement("#workspaceTitle"),
     taskList: requiredElement("#taskList"), emptyState: requiredElement("#emptyState"), dragHint: requiredElement("#dragHint"), searchInput: requiredElement("#searchInput"),
     statusFilters: document.querySelectorAll(".status-segment"), viewModes: document.querySelectorAll(".view-segment"),

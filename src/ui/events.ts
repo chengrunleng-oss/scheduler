@@ -228,6 +228,34 @@ export function bindEvents(
     requestRender();
   }
 
+  // TEST-V09-005：行内编辑任务说明——点击说明变输入框，Enter 保存、Escape 取消、失焦自动保存。
+  function beginTaskNotesEdit(button: HTMLButtonElement): void {
+    const taskId = button.dataset.taskId ?? "";
+    const task = store.getState().tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    let finished = false;
+    const finish = (save: boolean) => { if (finished) return; finished = true; if (save) void saveTaskNotes(taskId, textarea.value); else requestRender(); };
+    const textarea = document.createElement("textarea");
+    textarea.className = "task-notes-editor";
+    textarea.value = task.notes;
+    textarea.setAttribute("aria-label", "任务说明");
+    textarea.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") { event.preventDefault(); finish(false); }
+      else if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); finish(true); }
+    });
+    textarea.addEventListener("blur", () => finish(true));
+    button.replaceWith(textarea);
+    textarea.focus();
+    textarea.select();
+  }
+
+  async function saveTaskNotes(taskId: string, value: string): Promise<void> {
+    if (!requireWritable()) return;
+    store.dispatch({ type: "set-task-notes", id: taskId, notes: normalizeMultilineKeep(value) });
+    if (!(await persistState())) dialogs.toast("说明保存失败，请重试。");
+    requestRender();
+  }
+
   function moveRelative(task: Task, direction: -1 | 1): void {
     const peers = store.getState().tasks
       .filter((item) => item.status === "active" && !isOverdue(item) && item.folderId === task.folderId && item.priority === task.priority)
@@ -305,6 +333,10 @@ export function bindEvents(
   els.recentWorklogDays.addEventListener("change", () => {
     store.dispatch({ type: "set-recent-worklog-days", days: Number(els.recentWorklogDays.value) });
   });
+  // TEST-V09-005：列表是否显示说明。
+  els.showTaskNotesInList.addEventListener("change", () => {
+    store.dispatch({ type: "set-show-task-notes", show: els.showTaskNotesInList.checked });
+  });
 
   els.taskList.addEventListener("submit", (event) => {
     if (!backend.available) { event.preventDefault(); requireWritable(); return; }
@@ -327,6 +359,19 @@ export function bindEvents(
     }
     inlineCreate = null;
     requestRender();
+  });
+
+  // TEST-V09-001：行内创建标题/优先级/截止日期草稿写回状态，重渲染不丢已输入内容。
+  els.taskList.addEventListener("input", (event) => {
+    const el = event.target as HTMLElement;
+    if (!inlineCreate || !el.closest("form.inline-create") || !(el instanceof HTMLInputElement)) return;
+    if (el.name === "title") inlineCreate.draftTitle = el.value;
+    else if (el.name === "dueDate") inlineCreate.draftDueDate = el.value;
+  });
+  els.taskList.addEventListener("change", (event) => {
+    const el = event.target as HTMLElement;
+    if (!inlineCreate || !el.closest("form.inline-create") || !(el instanceof HTMLSelectElement)) return;
+    if (el.name === "priority") inlineCreate.draftPriority = el.value as Priority;
   });
 
   els.taskList.addEventListener("keydown", async (event) => {
@@ -380,6 +425,7 @@ export function bindEvents(
     if (action === "cancel-inline") { inlineCreate = null; requestRender(); return; }
     if (action === "save-inline") return;
     if (action === "toggle-handled" && button?.dataset.containerId) { store.dispatch({ type: "toggle-handled-section", containerId: button.dataset.containerId }); return; }
+    if (action === "edit-task-notes") { if (button) beginTaskNotesEdit(button); return; }
     if (action === "suggest-order") {
       if (!requireWritable()) return;
       const folderId = button?.dataset.folderId === "root" ? null : button?.dataset.folderId ?? null;

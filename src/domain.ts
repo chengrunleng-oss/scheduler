@@ -58,6 +58,7 @@ export function createDefaultState(now = Date.now()): AppState {
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
       recentWorklogDays: 7,
+      showTaskNotesInList: false,
     },
     folders: [workFolder, personalFolder],
     tasks: [
@@ -107,6 +108,7 @@ export function createEmptyState(): AppState {
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
       recentWorklogDays: 7,
+      showTaskNotesInList: false,
     },
     folders: [],
     tasks: [],
@@ -478,6 +480,7 @@ function migrateLegacyState(source: UnknownRecord, now: number): AppState {
       navigationCollapsedFolders: [],
       workspaceWidth: DEFAULT_WORKSPACE_WIDTH,
       recentWorklogDays: 7,
+      showTaskNotesInList: false,
     },
     folders: [],
     tasks: normalizeTaskOrders(uniqueById(tasks)),
@@ -499,6 +502,7 @@ function hydratePreferences(value: unknown, legacyRoot: UnknownRecord, folderIds
     navigationCollapsedFolders: stringArray(source.navigationCollapsedFolders).filter((id) => folderIds.has(id)),
     workspaceWidth: coerceWorkspaceWidth(source.workspaceWidth),
     recentWorklogDays: coerceRecentWorklogDays(source.recentWorklogDays),
+    showTaskNotesInList: source.showTaskNotesInList === true,
   };
 }
 

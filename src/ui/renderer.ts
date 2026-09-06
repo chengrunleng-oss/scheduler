@@ -23,6 +23,9 @@ import type { Elements } from "./selectors.js";
 export interface InlineCreateState {
   kind: "task" | "folder";
   folderId: string | null;
+  draftTitle?: string;
+  draftPriority?: Priority;
+  draftDueDate?: string;
 }
 
 export interface ViewState {
@@ -71,6 +74,7 @@ export function createRenderer(els: Elements): Renderer {
     els.defaultDueDate.value = state.preferences.defaultTaskDueDate;
     els.defaultPriority.value = state.preferences.defaultTaskPriority;
     els.recentWorklogDays.value = String(state.preferences.recentWorklogDays);
+  els.showTaskNotesInList.checked = state.preferences.showTaskNotesInList;
     const preferredWorkspaceWidth = Number.isFinite(state.preferences.workspaceWidth) ? state.preferences.workspaceWidth : 620;
     // TEST-V08-017：1180px 起即可拖拽调节工作区宽度；1180-1339 使用图标导航（72px）与更窄的任务列表。
     let workspaceWidth = preferredWorkspaceWidth;
@@ -345,16 +349,17 @@ function createInlineForm(state: AppState, inline: InlineCreateState): HTMLEleme
   input.maxLength = inline.kind === "task" ? 180 : 48;
   input.placeholder = inline.kind === "task" ? "输入任务名称" : "输入文件夹名称";
   input.required = true;
+  input.value = inline.draftTitle ?? "";
   form.append(input);
   if (inline.kind === "task") {
     const priority = document.createElement("select");
     priority.name = "priority";
     priority.append(new Option("高", "high"), new Option("低", "low"));
-    priority.value = state.preferences.defaultTaskPriority;
+    priority.value = inline.draftPriority ?? state.preferences.defaultTaskPriority;
     const dueDate = document.createElement("input");
     dueDate.type = "date";
     dueDate.name = "dueDate";
-    dueDate.value = resolveDefaultDueDate(state.preferences.defaultTaskDueDate);
+    dueDate.value = inline.draftDueDate ?? resolveDefaultDueDate(state.preferences.defaultTaskDueDate);
     form.append(priority, dueDate);
   }
   const save = iconButton("save-inline", "Check", inline.kind === "task" ? "保存任务" : "保存文件夹");
@@ -406,7 +411,10 @@ function createPriorityDivider(folderId: string | null, draggable: boolean): HTM
 }
 
 function renderHandledSection(state: AppState, tasks: Task[], view: ViewState, folderId: string | null, depth: number, container: HTMLElement): void {
-  const handled = tasks.filter((task) => task.status !== "active" && !task.pendingResolution).sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0));
+  const byResolved = (a: Task, b: Task): number => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0);
+  const completed = tasks.filter((task) => task.status === "completed" && !task.pendingResolution).sort(byResolved);
+  const discarded = tasks.filter((task) => task.status === "discarded" && !task.pendingResolution).sort(byResolved);
+  const handled = [...completed, ...discarded];
   if (!handled.length) return;
   const containerId = folderId ?? "root";
   const expanded = state.preferences.expandedHandledContainers.includes(containerId);
@@ -419,7 +427,17 @@ function renderHandledSection(state: AppState, tasks: Task[], view: ViewState, f
   container.append(heading);
   // TEST-V08-016：折叠态完全收起全部已处理条目（不再保留“最新 3 条”预览），
   // 少量已完成条目时点击折叠才有明确可见效果；展开态显示全部。
-  if (expanded) for (const task of handled) container.append(createTaskNode(task, state, view, depth, false));
+  if (expanded) {
+    // TEST-V09-004：已处理下划分“已完成”“不再需要”两个子组。
+    if (completed.length) {
+      container.append(createGroupHeading("已完成", completed.length));
+      for (const task of completed) container.append(createTaskNode(task, state, view, depth, false));
+    }
+    if (discarded.length) {
+      container.append(createGroupHeading("不再需要", discarded.length));
+      for (const task of discarded) container.append(createTaskNode(task, state, view, depth, false));
+    }
+  }
 }
 
 function renderGlobalView(state: AppState, tasks: Task[], view: ViewState, container: HTMLElement): void {
@@ -490,6 +508,14 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
     node.style.setProperty("--pending-progress", `${Math.max(0, Math.min(100, ((task.pendingResolution.executeAt - Date.now()) / 8_000) * 100))}%`);
   }
   main.append(titleLine, meta);
+  // TEST-V09-005：开启“列表显示说明”时，在紧凑任务行内展示说明并可就地编辑（工作区双卡布局除外）。
+  if (state.preferences.showTaskNotesInList && task.notes && !view.detailPanelOpen) {
+    const notes = createElement("button", { className: "task-notes", text: task.notes });
+    notes.type = "button";
+    notes.dataset.action = "edit-task-notes";
+    notes.dataset.taskId = task.id;
+    main.append(notes);
+  }
   const priority = createElement("span", { className: `priority ${task.priority}`, text: PRIORITY_LABELS[task.priority] });
   const time = createElement("time", { text: formatDueDate(task) });
   time.dateTime = task.dueDate;

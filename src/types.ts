@@ -92,6 +92,8 @@ export interface Preferences {
   workspaceWidth: number;
   // TEST-V08-023：近期活跃标记的时间窗口（天），0 表示关闭标记。
   recentWorklogDays: number;
+  // TEST-V09-005：任务列表中是否显示说明（默认关）。
+  showTaskNotesInList: boolean;
 }
 
 export interface AppState {
@@ -147,6 +149,8 @@ export type StateAction =
   | { type: "set-folder-scope"; folderScope: FolderScope }
   | { type: "set-default-task-values"; dueDate: DefaultTaskDueDate; priority: Priority }
   | { type: "set-recent-worklog-days"; days: number }
+  | { type: "set-show-task-notes"; show: boolean }
+  | { type: "set-task-notes"; id: string; notes: string; now?: number }
   | { type: "set-workspace-width"; width: number }
   | { type: "toggle-handled-section"; containerId: string }
   | { type: "toggle-navigation-folder"; id: string }

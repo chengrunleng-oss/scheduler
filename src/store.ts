@@ -281,6 +281,15 @@ export function reduceState(state: AppState, action: StateAction): AppState {
       return state.preferences.recentWorklogDays === days ? state : { ...state, preferences: { ...state.preferences, recentWorklogDays: days } };
     }
 
+    case "set-show-task-notes":
+      return state.preferences.showTaskNotesInList === action.show ? state : { ...state, preferences: { ...state.preferences, showTaskNotesInList: action.show } };
+
+    case "set-task-notes": {
+      const target = state.tasks.find((task) => task.id === action.id);
+      if (!target || target.notes === action.notes) return state;
+      return { ...state, tasks: state.tasks.map((task) => task.id === action.id ? { ...task, notes: action.notes, updatedAt: action.now ?? Date.now() } : task) };
+    }
+
     case "set-workspace-width": {
       const width = Math.max(560, Math.min(680, Math.round(action.width)));
       return state.preferences.workspaceWidth === width ? state : { ...state, preferences: { ...state.preferences, workspaceWidth: width } };

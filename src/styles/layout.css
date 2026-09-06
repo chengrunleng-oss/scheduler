@@ -72,6 +72,9 @@
 .drag-handle { flex: 0 0 40px; margin-top: -5px; border-color: transparent; background: transparent; cursor: grab; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
 .task-meta { display: flex; min-width: 0; align-items: center; gap: 4px; margin: 5px 0 0 40px; color: var(--muted); font-size: 12px; white-space: normal; }
+.task-notes { display: block; min-width: 0; margin: 4px 0 0 40px; overflow: hidden; border: 0; background: transparent; color: var(--muted); padding: 0; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: text; font-size: 12px; }
+.task-notes:hover { color: var(--teal); }
+.task-notes-editor { display: block; min-width: 0; margin: 4px 0 0 40px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; line-height: 1.4; resize: vertical; }
 .folder-path { overflow: hidden; border: 0; background: transparent; color: var(--teal); padding: 0; text-overflow: ellipsis; text-decoration: underline; white-space: nowrap; }
 .priority { display: inline-flex; width: max-content; min-width: 40px; justify-content: center; border-radius: 999px; padding: 4px 9px; font-size: 12px; font-weight: 700; }
 .priority.high { background: var(--high-soft); color: var(--high); }
@@ -200,7 +203,11 @@
   box-shadow: 0 2px 6px rgb(28 48 54 / 7%);
   padding: 4px 12px 12px;
 }
-.editor-section.section-collapsed, .worklog-history-section.section-collapsed { padding-bottom: 6px; }
+.editor-section { display: grid; grid-template-rows: auto minmax(0, 1fr); transition: grid-template-rows 180ms ease, padding-bottom 180ms ease; }
+.editor-section .workspace-section-body { min-height: 0; overflow: hidden; }
+.editor-section.section-collapsed .workspace-section-body { visibility: hidden; }
+.editor-section.section-collapsed, .worklog-history-section.section-collapsed { grid-template-rows: auto 0fr; padding-bottom: 6px; }
+@media (prefers-reduced-motion: reduce) { .editor-section { transition: none; } }
 .workspace-section-heading h3, .worklog-history-section h3 { margin: 0; font-size: 14px; }
 /* TEST-V08-042/046：压缩每日记录标题头的日期/进度控件宽度与间距，配合便利贴内边距与滚动条常驻，保证默认面板宽度下单行放下全部操作。 */
 .daily-heading { flex-wrap: wrap; gap: 4px; }
@@ -222,10 +229,10 @@
 .markdown-preview-toggle { display: inline-flex; margin-left: auto; }
 .markdown-fallback { display: grid; grid-template-columns: 1fr; min-height: 280px; }
 .markdown-fallback .markdown-preview { display: none; }
-.markdown-fallback.preview-mode { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.markdown-fallback.preview-mode { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 10px; }
 .markdown-fallback.preview-mode .markdown-preview { display: block; }
 .markdown-source { min-width: 0; min-height: 280px; padding: 12px; border: 0; border-radius: 0; resize: vertical; background: var(--doc-surface); color: var(--text); font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace); font-size: 13px; line-height: 1.6; }
-.markdown-fallback.preview-mode .markdown-source { border-right: 1px solid var(--line); }
+.markdown-fallback.preview-mode .markdown-source { border-right: 2px solid var(--line-strong); background: var(--surface-muted); }
 .markdown-source[readonly] { color: var(--muted); background: var(--surface-muted); }
 .markdown-preview { min-width: 0; overflow: auto; padding: 12px; line-height: 1.6; }
 .markdown-preview > :first-child { margin-top: 0; }
@@ -264,7 +271,6 @@
 .worklog-undo { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; border: 1px solid var(--pending); border-radius: 6px; background: var(--pending-soft); padding: 6px 10px; font-size: 12px; }
 .compact-button { min-height: 34px; padding: 5px 9px; font-size: 12px; }
 /* TEST-V08-026/036/039：折叠开关；折叠后按钮图标切换为“展开”；历史记录区同样支持总折叠。 */
-.editor-section.section-collapsed > :not(.workspace-section-heading),
 .worklog-history-section.section-collapsed > :not(.workspace-section-heading) { display: none; }
 /* TEST-V08-026：历史记录放大视图的左侧日期目录。 */
 .history-zoom-toc { display: flex; flex-direction: column; gap: 4px; }
