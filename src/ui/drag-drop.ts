@@ -261,7 +261,7 @@ export function createDragAndDrop(
         }));
       }
 
-      // TEST-V09-007：文件夹拖拽（专用手柄；行上=嵌套为子、同层边缘=同级重排）。
+      // TEST-V09-007：文件夹拖拽源（专用 GripVertical 手柄）。文件夹落点在下方表头 drop target 上统一注册。
       for (const handle of container.querySelectorAll<HTMLElement>(".folder-drag-handle[data-folder-id]")) {
         const heading = handle.closest<HTMLElement>(".tree-group-heading");
         const rawFolderId = handle.dataset.folderId;
@@ -273,27 +273,6 @@ export function createDragAndDrop(
           getInitialData: () => ({ kind: "folder", folderId }),
           onDragStart: () => { dragActive = true; heading.classList.add("is-dragging"); },
           onDrop: () => heading.classList.remove("is-dragging"),
-        }));
-        cleanups.push(dropTargetForElements({
-          element: heading,
-          canDrop: ({ source }) => {
-            if (source.data.kind !== "folder") return false;
-            const src = String(source.data.folderId ?? "");
-            if (src === folderId) return false;
-            const folders = store.getState().folders;
-            const sourceFolder = folders.find((f) => f.id === src);
-            const targetFolder = folders.find((f) => f.id === folderId);
-            // 同层重排始终可用；跨层嵌套需 canMoveFolder 校验（防环/防超深）。
-            return sourceFolder?.parentId === targetFolder?.parentId || canMoveFolder(folders, src, folderId);
-          },
-          getData: ({ input, element }) => {
-            const rect = element.getBoundingClientRect();
-            const ratio = (input.clientY - rect.top) / rect.height;
-            return { kind: "folder-target", folderId, edge: ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "center" };
-          },
-          onDragEnter: () => heading.classList.add("drop-target"),
-          onDragLeave: () => heading.classList.remove("drop-target"),
-          onDrop: () => heading.classList.remove("drop-target"),
         }));
       }
 
@@ -317,8 +296,22 @@ export function createDragAndDrop(
         const folderId = heading.dataset.dropFolderId === "root" ? null : heading.dataset.dropFolderId ?? null;
         cleanups.push(dropTargetForElements({
           element: heading,
-          canDrop: ({ source }) => source.data.kind === "task",
-          getData: () => ({ kind: "folder-target", folderId: folderId ?? "root" }),
+          canDrop: ({ source }) => {
+            // TEST-V09-007：文件夹源也作为落点——同层=同级重排、行中部=嵌套为子、跨层=嵌套为子。
+            if (source.data.kind === "task") return true;
+            if (source.data.kind !== "folder") return false;
+            const src = String(source.data.folderId ?? "");
+            if (src === (folderId ?? "root")) return false;
+            const folders = store.getState().folders;
+            const sourceFolder = folders.find((f) => f.id === src);
+            const targetFolder = folders.find((f) => f.id === (folderId ?? ""));
+            return sourceFolder?.parentId === targetFolder?.parentId || canMoveFolder(folders, src, folderId);
+          },
+          getData: ({ input, element }) => {
+            const rect = element.getBoundingClientRect();
+            const ratio = (input.clientY - rect.top) / rect.height;
+            return { kind: "folder-target", folderId: folderId ?? "root", edge: ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "center" };
+          },
           getIsSticky: () => true,
           onDragEnter: () => {
             heading.classList.add("drop-target");
