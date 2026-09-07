@@ -514,7 +514,7 @@ function createTaskNode(task: Task, state: AppState, view: ViewState, depth: num
   }
   main.append(titleLine, meta);
   // TEST-V09-005：开启“列表显示说明”时，在紧凑任务行内展示说明并可就地编辑（工作区双卡布局除外）。
-  if (state.preferences.showTaskNotesInList && task.notes && !view.detailPanelOpen) {
+  if (state.preferences.showTaskNotesInList && task.notes) {
     const notes = createElement("button", { className: "task-notes", text: task.notes });
     notes.type = "button";
     notes.dataset.action = "edit-task-notes";
