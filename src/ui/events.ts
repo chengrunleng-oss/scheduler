@@ -713,15 +713,24 @@ export function bindEvents(
   });
   els.resetDemo.addEventListener("click", async () => {
     if (!requireWritable()) return;
-    if (!(await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前浏览器中的全部数据，继续吗？"))) return;
+    if (!(await dialogs.confirm("重置为示例数据", "这会用示例任务和文件夹替换当前工作区。会先下载一份完整备份；原任务、每日工作记录与附件不会被删除。继续吗？"))) return;
     resetOperation = (async () => {
-      try { await backend.clear(); }
-      catch { dialogs.toast("工作记录存储无法清理，重置已取消。"); return; }
+      // 先完整备份并下载，确保任何记录/附件都能找回；且不删除、不清空任何工作记录或附件。
+      try {
+        if (!(await flushWorkspace())) { dialogs.toast("仍有内容未保存，已取消重置。"); return; }
+        if (!backend.available) { dialogs.toast("工作记录存储不可用，无法生成备份，已取消重置。"); return; }
+        const archive = await createBackupArchive(store.getState(), backend);
+        downloadBlob(archive, `task-workbench-before-reset-${toISODate()}.zip`);
+      } catch (error) {
+        dialogs.toast(`备份失败，已取消重置：${error instanceof Error ? error.message : "未知错误"}`);
+        return;
+      }
+      // TEST-V09-005(数据安全)：不再调用 backend.clear()，原任务目录/工作记录/附件保留在本地。
       selectedTaskId = null; detailPanelOpen = false; detailDirty = false; inlineCreate = null; els.searchInput.value = "";
       store.dispatch({ type: "reset" });
       if (!(await persistState())) { dialogs.toast("示例数据保存失败，请重试。"); return; }
       await workspace.activateTask(null, workspaceTab);
-      dialogs.toast("已重置为示例数据。");
+      dialogs.toast("已重置为示例数据（原数据未删除，已下载备份供找回）。");
     })();
     await resetOperation;
   });
